@@ -14,6 +14,7 @@ export class WebGPURenderer {
   private bindGroup!: GPUBindGroup
   private uniformBuffer!: GPUBuffer
   private imageBitmap!: ImageBitmap
+  private startTime = performance.now()
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -45,7 +46,7 @@ export class WebGPURenderer {
 
     // Create uniform buffer
     this.uniformBuffer = this.device.createBuffer({
-      size: 32,
+      size: 48,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -82,11 +83,21 @@ export class WebGPURenderer {
     this.resizeCanvas()
 
     // Update uniforms with current canvas dimensions
+    const circleRadius = Math.min(this.canvas.width, this.canvas.height) * 0.22
+    const uniformTime = (performance.now() - this.startTime) / 1000
     const uniformData = new Float32Array([
       this.imageBitmap.width,
       this.imageBitmap.height,
       this.canvas.width,
       this.canvas.height,
+      this.canvas.width * 0.5,
+      this.canvas.height * 0.5,
+      circleRadius,
+      circleRadius * 0.24,
+      uniformTime,
+      0,
+      0,
+      0,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
