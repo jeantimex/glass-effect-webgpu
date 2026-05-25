@@ -17,6 +17,7 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
 async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
   const displacementCanvas = document.getElementById('displacementMap') as HTMLCanvasElement
+  const circleSizeSlider = document.getElementById('circleSize') as HTMLInputElement
 
   if (!mainCanvas || !displacementCanvas) {
     throw new Error('Canvas elements not found')
@@ -48,6 +49,81 @@ async function main() {
 
   // Initial render
   updateDisplacementMap()
+
+  let draggingGlass = false
+  let glassDragOffset = { x: 0, y: 0 }
+
+  function updateCanvasCursor(event: PointerEvent) {
+    if (draggingGlass) {
+      mainCanvas.style.cursor = 'grabbing'
+      return
+    }
+
+    mainCanvas.style.cursor = renderer.isPointInsideGlass(event.clientX, event.clientY)
+      ? 'grab'
+      : 'default'
+  }
+
+  function setCircleSize(size: number) {
+    const min = circleSizeSlider ? parseFloat(circleSizeSlider.min) : 0.3
+    const max = circleSizeSlider ? parseFloat(circleSizeSlider.max) : 1.3
+    const clampedSize = Math.min(Math.max(size, min), max)
+
+    renderer.glassParams.circleSize = clampedSize
+    if (circleSizeSlider) {
+      circleSizeSlider.value = clampedSize.toFixed(2)
+    }
+  }
+
+  mainCanvas.addEventListener('pointerdown', (event) => {
+    if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) return
+
+    draggingGlass = true
+    glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
+    mainCanvas.style.cursor = 'grabbing'
+    mainCanvas.setPointerCapture(event.pointerId)
+    event.preventDefault()
+  })
+
+  mainCanvas.addEventListener('pointermove', (event) => {
+    if (!draggingGlass) {
+      updateCanvasCursor(event)
+      return
+    }
+
+    renderer.setGlassCenterFromClientPoint(event.clientX, event.clientY, glassDragOffset)
+    event.preventDefault()
+  })
+
+  mainCanvas.addEventListener('pointerup', (event) => {
+    draggingGlass = false
+    if (mainCanvas.hasPointerCapture(event.pointerId)) {
+      mainCanvas.releasePointerCapture(event.pointerId)
+    }
+    updateCanvasCursor(event)
+  })
+
+  mainCanvas.addEventListener('pointercancel', (event) => {
+    draggingGlass = false
+    if (mainCanvas.hasPointerCapture(event.pointerId)) {
+      mainCanvas.releasePointerCapture(event.pointerId)
+    }
+    updateCanvasCursor(event)
+  })
+
+  mainCanvas.addEventListener('pointerleave', () => {
+    if (!draggingGlass) {
+      mainCanvas.style.cursor = 'default'
+    }
+  })
+
+  mainCanvas.addEventListener('wheel', (event) => {
+    if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) return
+
+    const direction = event.deltaY > 0 ? -1 : 1
+    setCircleSize(renderer.glassParams.circleSize + direction * 0.04)
+    event.preventDefault()
+  }, { passive: false })
 
   // Surface type buttons
   const surfaceButtons = document.querySelectorAll('.surface-btn')
@@ -88,9 +164,8 @@ async function main() {
     renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
 
-  const circleSizeSlider = document.getElementById('circleSize') as HTMLInputElement
   circleSizeSlider?.addEventListener('input', () => {
-    renderer.glassParams.circleSize = parseFloat(circleSizeSlider.value)
+    setCircleSize(parseFloat(circleSizeSlider.value))
   })
 
   const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement

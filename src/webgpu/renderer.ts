@@ -50,6 +50,8 @@ export class WebGPURenderer {
   private textureCache = new Map<string, GPUTexture>()
   private backgroundRequestId = 0
   private renderedCircleSize = 1.0
+  private glassCenterX = 0.5
+  private glassCenterY = 0.5
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -271,6 +273,57 @@ export class WebGPURenderer {
     }
   }
 
+  private getGlassRadius(): number {
+    return Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
+  }
+
+  private clientPointToCanvasPoint(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect()
+    const scaleX = this.canvas.width / rect.width
+    const scaleY = this.canvas.height / rect.height
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    }
+  }
+
+  isPointInsideGlass(clientX: number, clientY: number): boolean {
+    const point = this.clientPointToCanvasPoint(clientX, clientY)
+    const centerX = this.glassCenterX * this.canvas.width
+    const centerY = this.glassCenterY * this.canvas.height
+    const dx = point.x - centerX
+    const dy = point.y - centerY
+
+    return Math.sqrt(dx * dx + dy * dy) <= this.getGlassRadius()
+  }
+
+  getGlassDragOffset(clientX: number, clientY: number): { x: number; y: number } {
+    const point = this.clientPointToCanvasPoint(clientX, clientY)
+    return {
+      x: point.x - this.glassCenterX * this.canvas.width,
+      y: point.y - this.glassCenterY * this.canvas.height,
+    }
+  }
+
+  setGlassCenterFromClientPoint(
+    clientX: number,
+    clientY: number,
+    dragOffset: { x: number; y: number } = { x: 0, y: 0 }
+  ): void {
+    const point = this.clientPointToCanvasPoint(clientX, clientY)
+    const radius = this.getGlassRadius()
+    const minX = Math.min(radius, this.canvas.width / 2)
+    const maxX = Math.max(this.canvas.width - radius, this.canvas.width / 2)
+    const minY = Math.min(radius, this.canvas.height / 2)
+    const maxY = Math.max(this.canvas.height - radius, this.canvas.height / 2)
+    const clampedX = Math.min(Math.max(point.x - dragOffset.x, minX), maxX)
+    const clampedY = Math.min(Math.max(point.y - dragOffset.y, minY), maxY)
+
+    this.glassCenterX = clampedX / this.canvas.width
+    this.glassCenterY = clampedY / this.canvas.height
+  }
+
   render(): void {
     this.resizeCanvas()
 
@@ -288,8 +341,8 @@ export class WebGPURenderer {
       this.canvas.width,
       this.canvas.height,
       uniformTime,
-      this.canvas.width / 2,   // glass_center_x
-      this.canvas.height / 2,  // glass_center_y
+      this.glassCenterX * this.canvas.width,   // glass_center_x
+      this.glassCenterY * this.canvas.height,  // glass_center_y
       glassRadius,             // glass_radius
       this.glassParams.bezelWidth,
       this.glassParams.glassThickness,
