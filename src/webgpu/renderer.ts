@@ -20,6 +20,7 @@ export interface GlassParams {
   shadowBlur: number         // shadow blur/spread in pixels
   shadowOffsetX: number      // shadow horizontal offset
   shadowOffsetY: number      // shadow vertical offset
+  progressiveBlur: number    // blur increases toward edges (0-1)
 }
 
 export class WebGPURenderer {
@@ -48,6 +49,7 @@ export class WebGPURenderer {
     shadowBlur: 30,
     shadowOffsetX: 0,
     shadowOffsetY: 15,
+    progressiveBlur: 0,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -130,6 +132,8 @@ export class WebGPURenderer {
       this.glassParams.shadowBlur,
       this.glassParams.shadowOffsetX,
       this.glassParams.shadowOffsetY,
+      this.glassParams.progressiveBlur,
+      0, // padding
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
