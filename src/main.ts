@@ -10,8 +10,10 @@ interface GlassParams {
   surfaceType: SurfaceType
   bezelWidth: number
   glassThickness: number
-  refractiveIndex: number
+  scaleRatio: number
 }
+
+const REFRACTIVE_INDEX = 1.5 // Fixed at glass refractive index
 
 async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
@@ -25,12 +27,12 @@ async function main() {
   const renderer = new WebGPURenderer(mainCanvas)
   await renderer.init()
 
-  // Glass parameters
+  // Glass parameters (matching reference defaults)
   const params: GlassParams = {
     surfaceType: 'convex-circle',
     bezelWidth: 60,
-    glassThickness: 100,
-    refractiveIndex: 1.5,
+    glassThickness: 50,
+    scaleRatio: 1.0,
   }
 
   // Update displacement map
@@ -39,10 +41,10 @@ async function main() {
       params.glassThickness,
       params.bezelWidth,
       params.surfaceType,
-      params.refractiveIndex,
+      REFRACTIVE_INDEX,
       128
     )
-    renderDisplacementMap2D(displacementCanvas, displacements1D, params.bezelWidth)
+    renderDisplacementMap2D(displacementCanvas, displacements1D, params.bezelWidth, params.scaleRatio)
   }
 
   // Initial render
@@ -62,7 +64,7 @@ async function main() {
   // Sliders
   const bezelSlider = document.getElementById('bezelWidth') as HTMLInputElement
   const thicknessSlider = document.getElementById('glassThickness') as HTMLInputElement
-  const refractiveSlider = document.getElementById('refractiveIndex') as HTMLInputElement
+  const scaleSlider = document.getElementById('scaleRatio') as HTMLInputElement
 
   bezelSlider?.addEventListener('input', () => {
     params.bezelWidth = parseInt(bezelSlider.value)
@@ -74,8 +76,8 @@ async function main() {
     updateDisplacementMap()
   })
 
-  refractiveSlider?.addEventListener('input', () => {
-    params.refractiveIndex = parseInt(refractiveSlider.value) / 100
+  scaleSlider?.addEventListener('input', () => {
+    params.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()
   })
 

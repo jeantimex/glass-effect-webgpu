@@ -57,7 +57,8 @@ export function calculateDisplacementMap1D(
 export function renderDisplacementMap2D(
   canvas: HTMLCanvasElement,
   displacements1D: number[],
-  bezelWidth: number
+  bezelWidth: number,
+  scaleRatio: number = 1.0
 ): void {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
@@ -71,10 +72,11 @@ export function renderDisplacementMap2D(
   const data = imageData.data
 
   const maxDisplacement = Math.max(...displacements1D.map(Math.abs), 1)
-  const radius = (size * dpr) / 2 - 10 * dpr
+  const radius = (size * dpr) / 2 - 20 * dpr
   const centerX = canvas.width / 2
   const centerY = canvas.height / 2
-  const bezel = bezelWidth * dpr * (radius / 100)
+  // Reference uses radius=110, so bezelWidth=60 means 60/110 of radius
+  const bezel = (bezelWidth / 110) * radius
 
   // Fill with olive/yellow background (neutral displacement color on dark bg)
   const bgR = 90, bgG = 106, bgB = 80
@@ -100,7 +102,7 @@ export function renderDisplacementMap2D(
         Math.floor(bezelT * displacements1D.length)
       )
       const displacement = displacements1D[sampleIndex] || 0
-      const normalizedDisplacement = displacement / maxDisplacement
+      const normalizedDisplacement = (displacement / maxDisplacement) * scaleRatio
 
       // Direction from center
       const cos = distanceFromCenter > 0.001 ? dx / distanceFromCenter : 0
