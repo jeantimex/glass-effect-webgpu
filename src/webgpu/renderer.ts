@@ -30,6 +30,9 @@ export interface GlassParams {
   rectWidth: number          // rectangle width in CSS pixels
   rectHeight: number         // rectangle height in CSS pixels
   rectRadiusPercent: number  // rectangle corner radius as 0-100% of max rounding
+  glassTintR: number         // glass tint red channel (0-1)
+  glassTintG: number         // glass tint green channel (0-1)
+  glassTintB: number         // glass tint blue channel (0-1)
   useImageBg: boolean        // use image background instead of grid
 }
 
@@ -85,6 +88,9 @@ export class WebGPURenderer {
     rectWidth: 420,
     rectHeight: 96,
     rectRadiusPercent: 100,
+    glassTintR: 1,
+    glassTintG: 1,
+    glassTintB: 1,
     useImageBg: false,
   }
 
@@ -432,6 +438,9 @@ export class WebGPURenderer {
       rect.height,
       rect.radius,
       this.glassParams.blurType,
+      this.glassParams.glassTintR,
+      this.glassParams.glassTintG,
+      this.glassParams.glassTintB,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

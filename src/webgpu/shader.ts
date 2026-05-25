@@ -33,6 +33,9 @@ export const shaderCode = `
     rect_height: f32,
     rect_radius: f32,
     blur_type: f32,
+    glass_tint_r: f32,
+    glass_tint_g: f32,
+    glass_tint_b: f32,
   }
 
   struct VertexOutput {
@@ -119,6 +122,26 @@ export const shaderCode = `
   fn adjust_saturation(color: vec3f, saturation: f32) -> vec3f {
     let luminance = dot(color, vec3f(0.299, 0.587, 0.114));
     return mix(vec3f(luminance), color, saturation);
+  }
+
+  fn glass_tint_color() -> vec3f {
+    return vec3f(uniforms.glass_tint_r, uniforms.glass_tint_g, uniforms.glass_tint_b);
+  }
+
+  fn apply_glass_theme(color: vec3f) -> vec3f {
+    let tint = glass_tint_color();
+    let tint_luminance = dot(tint, vec3f(0.299, 0.587, 0.114));
+
+    if (tint_luminance < 0.5) {
+      return clamp(color * 0.9 - vec3f(0.3), vec3f(0.0), vec3f(1.0));
+    }
+
+    return clamp(color * 1.03 + vec3f(0.2), vec3f(0.0), vec3f(1.0));
+  }
+
+  fn apply_glass_tint(color: vec3f) -> vec3f {
+    let themed_color = mix(color, apply_glass_theme(color), uniforms.glass_bg_opacity);
+    return mix(themed_color, glass_tint_color(), uniforms.glass_bg_opacity);
   }
 
   fn hash12(p: vec2f) -> f32 {
@@ -408,9 +431,7 @@ export const shaderCode = `
       // Progressive blur: minimal blur in center
       let center_blur = uniforms.blur_amount;
       var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
-      // Apply glass background tint
-      let glass_bg = vec3f(1.0, 1.0, 1.0);
-      center_color = mix(center_color, glass_bg, uniforms.glass_bg_opacity);
+      center_color = apply_glass_tint(center_color);
       return vec4f(center_color, 1.0);
     }
 
@@ -450,10 +471,7 @@ export const shaderCode = `
 
     // Sample background at displaced position (with optional blur)
     var color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
-
-    // Apply glass background tint
-    let glass_bg = vec3f(1.0, 1.0, 1.0);
-    color = mix(color, glass_bg, uniforms.glass_bg_opacity);
+    color = apply_glass_tint(color);
 
     // Calculate and apply specular highlight
     let specular_intensity = calculate_specular(

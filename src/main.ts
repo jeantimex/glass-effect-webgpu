@@ -15,6 +15,7 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
 }
 
 type PresetType = 'circle-lens' | 'rectangle'
+type GlassTheme = 'system' | 'light' | 'dark'
 
 interface GlassPreset {
   shapeType: number
@@ -295,6 +296,7 @@ async function main() {
   const blurTypeSelect = document.getElementById('blurType') as HTMLSelectElement
   const blurAmountSlider = document.getElementById('blurAmount') as HTMLInputElement
   const progressiveBlurSlider = document.getElementById('progressiveBlur') as HTMLInputElement
+  const glassThemeSelect = document.getElementById('glassTheme') as HTMLSelectElement
   const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
   const shadowOpacitySlider = document.getElementById('shadowOpacity') as HTMLInputElement
   const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
@@ -315,6 +317,23 @@ async function main() {
     rectOnlyControls.forEach((control) => {
       control.classList.toggle('hidden', !isRectangle)
     })
+  }
+
+  function resolveGlassTheme(): Exclude<GlassTheme, 'system'> {
+    const selectedTheme = (glassThemeSelect?.value ?? 'system') as GlassTheme
+    if (selectedTheme === 'light' || selectedTheme === 'dark') {
+      return selectedTheme
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+
+  function updateGlassTheme() {
+    const resolvedTheme = resolveGlassTheme()
+    const darkTint = 0x22 / 255
+    renderer.glassParams.glassTintR = resolvedTheme === 'dark' ? darkTint : 1
+    renderer.glassParams.glassTintG = resolvedTheme === 'dark' ? darkTint : 1
+    renderer.glassParams.glassTintB = resolvedTheme === 'dark' ? darkTint : 1
   }
 
   function applyPreset(type: PresetType) {
@@ -371,6 +390,14 @@ async function main() {
   }
 
   updateShapeControls()
+  updateGlassTheme()
+
+  const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  colorSchemeQuery.addEventListener('change', () => {
+    if ((glassThemeSelect?.value ?? 'system') === 'system') {
+      updateGlassTheme()
+    }
+  })
 
   presetSelect?.addEventListener('change', () => {
     applyPreset(presetSelect.value as PresetType)
@@ -464,6 +491,10 @@ async function main() {
 
   progressiveBlurSlider?.addEventListener('input', () => {
     renderer.glassParams.progressiveBlur = parseFloat(progressiveBlurSlider.value)
+  })
+
+  glassThemeSelect?.addEventListener('change', () => {
+    updateGlassTheme()
   })
 
   glassBgOpacitySlider?.addEventListener('input', () => {
