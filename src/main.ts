@@ -102,6 +102,11 @@ async function main() {
     renderer.glassParams.specularAngle = parseFloat(specularAngleSlider.value) * Math.PI / 180
   })
 
+  const specularSaturationSlider = document.getElementById('specularSaturation') as HTMLInputElement
+  specularSaturationSlider?.addEventListener('input', () => {
+    renderer.glassParams.specularSaturation = parseFloat(specularSaturationSlider.value)
+  })
+
   const bgBrightnessSlider = document.getElementById('bgBrightness') as HTMLInputElement
   bgBrightnessSlider?.addEventListener('input', () => {
     renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)

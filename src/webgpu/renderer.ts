@@ -14,6 +14,7 @@ export interface GlassParams {
   specularOpacity: number // specular highlight opacity (0-1)
   specularAngle: number   // specular light angle in radians
   bgBrightness: number    // background brightness multiplier
+  specularSaturation: number // specular saturation boost (1 = normal, >1 = more saturated)
 }
 
 export class WebGPURenderer {
@@ -36,6 +37,7 @@ export class WebGPURenderer {
     specularOpacity: 0.4,
     specularAngle: Math.PI / 3, // 60 degrees
     bgBrightness: 1.0,
+    specularSaturation: 4.0,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -54,9 +56,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (16 floats = 64 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (20 floats = 80 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 64,
+      size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -112,6 +114,10 @@ export class WebGPURenderer {
       this.glassParams.specularAngle,
       this.glassParams.bgBrightness,
       window.devicePixelRatio || 1,
+      this.glassParams.specularSaturation,
+      0, // padding
+      0, // padding
+      0, // padding
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

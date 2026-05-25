@@ -16,6 +16,8 @@ export const shaderCode = `
     specular_angle: f32,
     bg_brightness: f32,
     device_pixel_ratio: f32,
+    specular_saturation: f32,
+    _pad0: f32,
   }
 
   struct VertexOutput {
@@ -94,6 +96,12 @@ export const shaderCode = `
     }
 
     return refracted_x * (remaining_height / refracted_y);
+  }
+
+  // Adjust color saturation (saturation > 1 = more saturated, < 1 = desaturated)
+  fn adjust_saturation(color: vec3f, saturation: f32) -> vec3f {
+    let luminance = dot(color, vec3f(0.299, 0.587, 0.114));
+    return mix(vec3f(luminance), color, saturation);
   }
 
   // Calculate specular highlight intensity
@@ -247,7 +255,11 @@ export const shaderCode = `
       uniforms.specular_angle
     );
 
-    // Blend specular highlight (white) on top of the refracted color
+    // Apply saturation boost where specular is visible
+    let saturated_color = adjust_saturation(color, uniforms.specular_saturation);
+    color = mix(color, saturated_color, specular_intensity);
+
+    // Blend specular highlight (white) on top of the saturated color
     let specular_color = vec3f(1.0, 1.0, 1.0);
     color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
 
