@@ -115,6 +115,19 @@ async function main() {
   const renderer = new WebGPURenderer(mainCanvas)
   await renderer.init()
 
+  // Store user-selected values from UI (baseline values)
+  const userParams = {
+    circleSize: renderer.glassParams.circleSize, // Baseline 1.0
+    scaleRatio: renderer.glassParams.scaleRatio, // Baseline 1.0
+    magnifyingScale: renderer.glassParams.magnifyingScale,
+    shadowOpacity: renderer.glassParams.shadowOpacity,
+    shadowBlur: renderer.glassParams.shadowBlur,
+    shadowOffsetX: renderer.glassParams.shadowOffsetX,
+    shadowOffsetY: renderer.glassParams.shadowOffsetY,
+    specularOpacity: renderer.glassParams.specularOpacity,
+    glassBgOpacity: renderer.glassParams.glassBgOpacity,
+  }
+
   // Local state for surface type (string version for displacement map)
   let currentSurfaceType: SurfaceType = 'convex-circle'
 
@@ -131,7 +144,7 @@ async function main() {
       displacementCanvas,
       displacements1D,
       renderer.glassParams.bezelWidth,
-      renderer.glassParams.scaleRatio
+      userParams.scaleRatio
     )
   }
 
@@ -154,6 +167,28 @@ async function main() {
 
   let draggingGlass = false
   let glassDragOffset = { x: 0, y: 0 }
+  let lastPointerPos = { x: 0, y: 0 }
+  let currentVelocity = { x: 0, y: 0 }
+
+  function createSpring(value: number, stiffness: number, damping: number) {
+    return { value, velocity: 0, target: value, stiffness, damping }
+  }
+
+  // Animate cheap parameters while the shader keeps refraction math resolution-independent.
+  const springs = {
+    scale: createSpring(renderer.glassParams.circleSize, 360, 18),
+    refraction: createSpring(renderer.glassParams.scaleRatio, 420, 18),
+    magnification: createSpring(renderer.glassParams.magnifyingScale, 360, 22),
+    deformationX: createSpring(1.0, 300, 15),
+    deformationY: createSpring(1.0, 300, 15),
+    shadowOpacity: createSpring(renderer.glassParams.shadowOpacity, 360, 24),
+    shadowBlur: createSpring(renderer.glassParams.shadowBlur, 360, 24),
+    shadowOffsetY: createSpring(renderer.glassParams.shadowOffsetY, 360, 24),
+    specularOpacity: createSpring(renderer.glassParams.specularOpacity, 420, 20),
+    glassBgOpacity: createSpring(renderer.glassParams.glassBgOpacity, 800, 50),
+    liquid: createSpring(0, 300, 13),
+  }
+  let lastFrameTime = performance.now()
 
   function updateCanvasCursor(event: PointerEvent) {
     if (draggingGlass) {
@@ -171,7 +206,7 @@ async function main() {
     const max = circleSizeSlider ? parseFloat(circleSizeSlider.max) : 1.3
     const clampedSize = Math.min(Math.max(size, min), max)
 
-    renderer.glassParams.circleSize = clampedSize
+    userParams.circleSize = clampedSize
     if (circleSizeSlider) {
       circleSizeSlider.value = clampedSize.toFixed(2)
     }
@@ -215,7 +250,14 @@ async function main() {
 
     draggingGlass = true
     glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
+    lastPointerPos = { x: event.clientX, y: event.clientY }
+    currentVelocity = { x: 0, y: 0 }
+
+    springs.liquid.value = Math.max(springs.liquid.value, 0.72)
+    springs.liquid.velocity += 2.6
+
     mainCanvas.style.cursor = 'grabbing'
+
     mainCanvas.setPointerCapture(event.pointerId)
     event.preventDefault()
   })
@@ -226,12 +268,26 @@ async function main() {
       return
     }
 
+    // Calculate velocity
+    currentVelocity.x = event.clientX - lastPointerPos.x
+    currentVelocity.y = event.clientY - lastPointerPos.y
+    lastPointerPos = { x: event.clientX, y: event.clientY }
+
     renderer.setGlassCenterFromClientPoint(event.clientX, event.clientY, glassDragOffset)
     event.preventDefault()
   })
 
   mainCanvas.addEventListener('pointerup', (event) => {
+    if (!draggingGlass) {
+      updateCanvasCursor(event)
+      return
+    }
+
     draggingGlass = false
+    currentVelocity = { x: 0, y: 0 }
+    springs.liquid.value = Math.max(springs.liquid.value, 0.58)
+    springs.liquid.velocity -= 3.0
+
     if (mainCanvas.hasPointerCapture(event.pointerId)) {
       mainCanvas.releasePointerCapture(event.pointerId)
     }
@@ -239,6 +295,8 @@ async function main() {
   })
 
   mainCanvas.addEventListener('pointercancel', (event) => {
+    if (!draggingGlass) return
+
     draggingGlass = false
     if (mainCanvas.hasPointerCapture(event.pointerId)) {
       mainCanvas.releasePointerCapture(event.pointerId)
@@ -271,7 +329,7 @@ async function main() {
       setRectWidth(currentWidth * scale)
       setRectHeight(currentHeight * scale)
     } else {
-      setCircleSize(renderer.glassParams.circleSize + direction * 0.04)
+      setCircleSize(userParams.circleSize + direction * 0.04)
     }
     event.preventDefault()
   }, { passive: false })
@@ -364,6 +422,15 @@ async function main() {
     renderer.glassParams.rectHeight = preset.rectHeight
     renderer.glassParams.rectRadiusPercent = preset.rectRadiusPercent
     renderer.glassParams.scaleRatio = preset.scaleRatio
+    userParams.circleSize = preset.circleSize
+    userParams.scaleRatio = preset.scaleRatio
+    userParams.magnifyingScale = preset.magnifyingScale
+    userParams.shadowOpacity = preset.shadowOpacity
+    userParams.shadowBlur = preset.shadowBlur
+    userParams.shadowOffsetX = preset.shadowOffsetX
+    userParams.shadowOffsetY = preset.shadowOffsetY
+    userParams.specularOpacity = preset.specularOpacity
+    userParams.glassBgOpacity = preset.glassBgOpacity
     renderer.glassParams.blurAmount = preset.blurAmount
     renderer.glassParams.blurType = preset.blurType
     renderer.glassParams.progressiveBlur = preset.progressiveBlur
@@ -377,6 +444,33 @@ async function main() {
     renderer.glassParams.shadowBlur = preset.shadowBlur
     renderer.glassParams.shadowOffsetX = preset.shadowOffsetX
     renderer.glassParams.shadowOffsetY = preset.shadowOffsetY
+    springs.scale.value = preset.circleSize
+    springs.scale.target = preset.circleSize
+    springs.scale.velocity = 0
+    springs.refraction.value = preset.scaleRatio
+    springs.refraction.target = preset.scaleRatio
+    springs.refraction.velocity = 0
+    springs.magnification.value = preset.magnifyingScale
+    springs.magnification.target = preset.magnifyingScale
+    springs.magnification.velocity = 0
+    springs.shadowOpacity.value = preset.shadowOpacity
+    springs.shadowOpacity.target = preset.shadowOpacity
+    springs.shadowOpacity.velocity = 0
+    springs.shadowBlur.value = preset.shadowBlur
+    springs.shadowBlur.target = preset.shadowBlur
+    springs.shadowBlur.velocity = 0
+    springs.shadowOffsetY.value = preset.shadowOffsetY
+    springs.shadowOffsetY.target = preset.shadowOffsetY
+    springs.shadowOffsetY.velocity = 0
+    springs.specularOpacity.value = preset.specularOpacity
+    springs.specularOpacity.target = preset.specularOpacity
+    springs.specularOpacity.velocity = 0
+    springs.glassBgOpacity.value = preset.glassBgOpacity
+    springs.glassBgOpacity.target = preset.glassBgOpacity
+    springs.glassBgOpacity.velocity = 0
+    springs.liquid.value = 0
+    springs.liquid.target = 0
+    springs.liquid.velocity = 0
 
     surfaceButtons.forEach((button) => {
       button.classList.toggle('active', button.getAttribute('data-surface') === preset.surfaceType)
@@ -438,7 +532,7 @@ async function main() {
   })
 
   magnifyingScaleSlider?.addEventListener('input', () => {
-    renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
+    userParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
 
   circleSizeSlider?.addEventListener('input', () => {
@@ -475,7 +569,7 @@ async function main() {
   })
 
   scaleSlider?.addEventListener('input', () => {
-    renderer.glassParams.scaleRatio = parseFloat(scaleSlider.value)
+    userParams.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()
   })
 
@@ -489,7 +583,7 @@ async function main() {
   })
 
   specularOpacitySlider?.addEventListener('input', () => {
-    renderer.glassParams.specularOpacity = parseFloat(specularOpacitySlider.value)
+    userParams.specularOpacity = parseFloat(specularOpacitySlider.value)
   })
 
   specularAngleSlider?.addEventListener('input', () => {
@@ -526,7 +620,7 @@ async function main() {
   })
 
   glassBgOpacitySlider?.addEventListener('input', () => {
-    renderer.glassParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
+    userParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
   })
 
   const bgBrightnessSlider = document.getElementById('bgBrightness') as HTMLInputElement
@@ -535,19 +629,19 @@ async function main() {
   })
 
   shadowOpacitySlider?.addEventListener('input', () => {
-    renderer.glassParams.shadowOpacity = parseFloat(shadowOpacitySlider.value)
+    userParams.shadowOpacity = parseFloat(shadowOpacitySlider.value)
   })
 
   shadowBlurSlider?.addEventListener('input', () => {
-    renderer.glassParams.shadowBlur = parseFloat(shadowBlurSlider.value)
+    userParams.shadowBlur = parseFloat(shadowBlurSlider.value)
   })
 
   shadowOffsetXSlider?.addEventListener('input', () => {
-    renderer.glassParams.shadowOffsetX = parseFloat(shadowOffsetXSlider.value)
+    userParams.shadowOffsetX = parseFloat(shadowOffsetXSlider.value)
   })
 
   shadowOffsetYSlider?.addEventListener('input', () => {
-    renderer.glassParams.shadowOffsetY = parseFloat(shadowOffsetYSlider.value)
+    userParams.shadowOffsetY = parseFloat(shadowOffsetYSlider.value)
   })
 
   // Handle resize for displacement map canvas
@@ -558,6 +652,62 @@ async function main() {
 
   // Render loop
   function render() {
+    const now = performance.now()
+    const dt = Math.min((now - lastFrameTime) / 1000, 0.05)
+    lastFrameTime = now
+
+    if (draggingGlass) {
+      springs.scale.target = userParams.circleSize * 1.16
+      springs.refraction.target = userParams.scaleRatio * 1.34
+      springs.magnification.target = userParams.magnifyingScale
+      springs.shadowOpacity.target = Math.min(userParams.shadowOpacity + 0.1, 1)
+      springs.shadowBlur.target = userParams.shadowBlur * 0.72
+      springs.shadowOffsetY.target = userParams.shadowOffsetY + 5
+      springs.specularOpacity.target = Math.min(userParams.specularOpacity + 0.22, 1)
+      springs.glassBgOpacity.target = userParams.glassBgOpacity
+      springs.liquid.target = 0
+    } else {
+      springs.scale.target = userParams.circleSize
+      springs.refraction.target = userParams.scaleRatio
+      springs.magnification.target = userParams.magnifyingScale
+      springs.shadowOpacity.target = userParams.shadowOpacity
+      springs.shadowBlur.target = userParams.shadowBlur
+      springs.shadowOffsetY.target = userParams.shadowOffsetY
+      springs.specularOpacity.target = userParams.specularOpacity
+      springs.glassBgOpacity.target = userParams.glassBgOpacity
+      springs.liquid.target = 0
+    }
+
+    springs.deformationX.target = 1.0 + springs.liquid.value * 0.12
+    springs.deformationY.target = 1.0 - springs.liquid.value * 0.08
+
+    // Update springs
+    for (const key in springs) {
+      const s = springs[key as keyof typeof springs]
+      let remaining = dt
+      while (remaining > 0) {
+        const step = Math.min(remaining, 1 / 120)
+        const acceleration = (s.target - s.value) * s.stiffness - s.velocity * s.damping
+        s.velocity += acceleration * step
+        s.value += s.velocity * step
+        remaining -= step
+      }
+    }
+
+    // Apply spring values to renderer
+    renderer.glassParams.circleSize = springs.scale.value
+    renderer.glassParams.scaleRatio = springs.refraction.value
+    renderer.glassParams.magnifyingScale = springs.magnification.value
+    renderer.glassParams.scaleX = springs.deformationX.value
+    renderer.glassParams.scaleY = springs.deformationY.value
+    renderer.glassParams.shadowOpacity = springs.shadowOpacity.value
+    renderer.glassParams.shadowBlur = springs.shadowBlur.value
+    renderer.glassParams.shadowOffsetX = userParams.shadowOffsetX
+    renderer.glassParams.shadowOffsetY = springs.shadowOffsetY.value
+    renderer.glassParams.specularOpacity = springs.specularOpacity.value
+    renderer.glassParams.glassBgOpacity = springs.glassBgOpacity.value
+    renderer.glassParams.liquidStrength = 0
+
     renderer.render()
     requestAnimationFrame(render)
   }

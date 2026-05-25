@@ -19,8 +19,8 @@ export const shaderCode = `
     specular_saturation: f32,
     specular_type: f32,
     progressive_blur_type: f32,
-    specular_pad_0: f32,
-    specular_pad_1: f32,
+    scale_x: f32,
+    scale_y: f32,
     blur_amount: f32,
     shadow_opacity: f32,
     shadow_blur: f32,
@@ -40,6 +40,10 @@ export const shaderCode = `
     glass_tint_r: f32,
     glass_tint_g: f32,
     glass_tint_b: f32,
+    liquid_click_x: f32,
+    liquid_click_y: f32,
+    liquid_age: f32,
+    liquid_strength: f32,
   }
 
   struct VertexOutput {
@@ -291,15 +295,16 @@ export const shaderCode = `
   }
 
   fn shape_signed_distance(p: vec2f) -> f32 {
+    let scaled_p = p / vec2f(uniforms.scale_x, uniforms.scale_y);
     if (uniforms.shape_type > 0.5) {
       return rounded_rect_sdf(
-        p,
+        scaled_p,
         vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5,
         uniforms.rect_radius
       );
     }
 
-    return length(p) - uniforms.glass_radius;
+    return length(scaled_p) - uniforms.glass_radius;
   }
 
   fn shape_normal(p: vec2f) -> vec2f {
@@ -324,6 +329,32 @@ export const shaderCode = `
     let to_center = pixel - center;
     let magnify_displacement = to_center * (uniforms.magnifying_scale / magnify_ratio);
     return pixel - magnify_displacement;
+  }
+
+  fn liquidize_sample_offset(pixel: vec2f, shape_reference: f32, distance_from_edge: f32) -> vec2f {
+    let strength = uniforms.liquid_strength;
+    let age = uniforms.liquid_age;
+
+    if (strength <= 0.001 || age < 0.0 || age > 2.0 || distance_from_edge <= 0.0) {
+      return vec2f(0.0);
+    }
+
+    let to_click = pixel - vec2f(uniforms.liquid_click_x, uniforms.liquid_click_y);
+    let r = length(to_click);
+    let dir = to_click / max(r, 0.001);
+    let radius = max(shape_reference * 1.25, 1.0);
+    let normalized_r = r / radius;
+
+    let time_envelope = exp(-age * 1.8) * (1.0 - smoothstep(1.65, 2.0, age));
+    let spatial_envelope = exp(-normalized_r * 1.45) * (1.0 - smoothstep(0.82, 1.15, normalized_r));
+    let edge_mask = smoothstep(0.0, shape_reference * 0.14, distance_from_edge);
+
+    let traveling_wave = sin(normalized_r * 19.0 - age * 24.0) * spatial_envelope;
+    let contact_dent = exp(-normalized_r * normalized_r * 14.0) * exp(-age * 5.0);
+    let rebound = exp(-pow(normalized_r - age * 0.62, 2.0) * 22.0) * exp(-age * 1.55);
+
+    let amplitude = (traveling_wave * 22.0 - contact_dent * 34.0 + rebound * 18.0) * strength * time_envelope * edge_mask;
+    return dir * amplitude;
   }
 
   fn get_shape_half_height() -> f32 {
@@ -479,7 +510,8 @@ export const shaderCode = `
     if (distance_from_edge >= bezel_pixels) {
       // Progressive blur: minimal blur in center
       let center_blur = calculate_progressive_blur(to_pixel, 1.0);
-      var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
+      let liquid_offset = liquidize_sample_offset(pixel, shape_reference, distance_from_edge);
+      var center_color = sample_background_blurred(magnified_pixel + liquid_offset, uniforms.time, center_blur);
       center_color = apply_glass_tint(center_color);
       return vec4f(center_color, 1.0);
     }
@@ -508,6 +540,7 @@ export const shaderCode = `
 
     // Apply displacement (rays bend toward center for convex glass)
     var displaced_pixel = magnified_pixel - direction * displacement;
+    displaced_pixel += liquidize_sample_offset(pixel, shape_reference, distance_from_edge);
 
     // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
     let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);

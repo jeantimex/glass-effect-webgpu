@@ -16,6 +16,8 @@ export interface GlassParams {
   bgBrightness: number    // background brightness multiplier
   specularSaturation: number // specular saturation boost (1 = normal, >1 = more saturated)
   specularType: number    // 0=rim lighting, 1=layered specular
+  scaleX: number          // horizontal scale multiplier for liquid effect
+  scaleY: number          // vertical scale multiplier for liquid effect
   blurAmount: number         // blur radius in pixels
   blurType: number           // 0=gaussian, 1=frosted scatter
   shadowOpacity: number      // shadow darkness (0-1)
@@ -36,6 +38,7 @@ export interface GlassParams {
   glassTintG: number         // glass tint green channel (0-1)
   glassTintB: number         // glass tint blue channel (0-1)
   useImageBg: boolean        // use image background instead of grid
+  liquidStrength: number     // click liquidize strength (0-1+)
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner'
@@ -59,10 +62,12 @@ export class WebGPURenderer {
   private startTime = performance.now()
   private textureCache = new Map<string, GPUTexture>()
   private backgroundRequestId = 0
-  private renderedCircleSize = 1.0
   private glassCenterX = 0.5
   private glassCenterY = 0.5
   private gridOffset = 0
+  private liquidClickX = 0
+  private liquidClickY = 0
+  private liquidClickStartTime = -1000
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -76,6 +81,8 @@ export class WebGPURenderer {
     bgBrightness: 1.0,
     specularSaturation: 4.0,
     specularType: 0,
+    scaleX: 1.0,
+    scaleY: 1.0,
     blurAmount: 0.0,
     blurType: 1,
     shadowOpacity: 0.1,
@@ -96,6 +103,7 @@ export class WebGPURenderer {
     glassTintG: 1,
     glassTintB: 1,
     useImageBg: false,
+    liquidStrength: 0,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -114,9 +122,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (40 floats = 160 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (44 floats = 176 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 160,
+      size: 176,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -302,7 +310,7 @@ export class WebGPURenderer {
   }
 
   private getGlassRadius(): number {
-    return Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
+    return Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.glassParams.circleSize
   }
 
   private getRectSize(): { width: number; height: number; radius: number } {
@@ -394,20 +402,24 @@ export class WebGPURenderer {
     this.glassCenterY = clampedY / this.canvas.height
   }
 
+  triggerLiquidize(clientX: number, clientY: number, strength = 1): void {
+    const point = this.clientPointToCanvasPoint(clientX, clientY)
+    this.liquidClickX = point.x
+    this.liquidClickY = point.y
+    this.liquidClickStartTime = (performance.now() - this.startTime) / 1000
+    this.glassParams.liquidStrength = Math.max(this.glassParams.liquidStrength, strength)
+  }
+
   render(): void {
     this.resizeCanvas()
 
-    this.renderedCircleSize += (this.glassParams.circleSize - this.renderedCircleSize) * 0.18
-    if (Math.abs(this.glassParams.circleSize - this.renderedCircleSize) < 0.001) {
-      this.renderedCircleSize = this.glassParams.circleSize
-    }
-
     // Calculate glass radius based on canvas size
-    const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
+    const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.glassParams.circleSize
     const rect = this.getRectSize()
 
     // Update uniforms
     const uniformTime = (performance.now() - this.startTime) / 1000
+    const liquidAge = uniformTime - this.liquidClickStartTime
     const uniformData = new Float32Array([
       this.canvas.width,
       this.canvas.height,
@@ -428,8 +440,8 @@ export class WebGPURenderer {
       this.glassParams.specularSaturation,
       this.glassParams.specularType,
       this.glassParams.progressiveBlurType,
-      0.0,
-      0.0,
+      this.glassParams.scaleX,
+      this.glassParams.scaleY,
       this.glassParams.blurAmount,
       this.glassParams.shadowOpacity,
       this.glassParams.shadowBlur,
@@ -449,6 +461,10 @@ export class WebGPURenderer {
       this.glassParams.glassTintR,
       this.glassParams.glassTintG,
       this.glassParams.glassTintB,
+      this.liquidClickX,
+      this.liquidClickY,
+      liquidAge,
+      this.glassParams.liquidStrength,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
