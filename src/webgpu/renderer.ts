@@ -24,6 +24,7 @@ export interface GlassParams {
   glassBgOpacity: number     // glass background tint opacity (0-1)
   refractiveIndex: number    // glass refractive index (1.0-2.5)
   magnifyingScale: number    // magnification scale (zoom effect)
+  circleSize: number         // circle radius scale multiplier
   useImageBg: boolean        // use image background instead of grid
 }
 
@@ -48,6 +49,7 @@ export class WebGPURenderer {
   private startTime = performance.now()
   private textureCache = new Map<string, GPUTexture>()
   private backgroundRequestId = 0
+  private renderedCircleSize = 1.0
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -69,6 +71,7 @@ export class WebGPURenderer {
     glassBgOpacity: 0,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
+    circleSize: 1.0,
     useImageBg: false,
   }
 
@@ -271,8 +274,13 @@ export class WebGPURenderer {
   render(): void {
     this.resizeCanvas()
 
+    this.renderedCircleSize += (this.glassParams.circleSize - this.renderedCircleSize) * 0.18
+    if (Math.abs(this.glassParams.circleSize - this.renderedCircleSize) < 0.001) {
+      this.renderedCircleSize = this.glassParams.circleSize
+    }
+
     // Calculate glass radius based on canvas size
-    const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35
+    const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
 
     // Update uniforms
     const uniformTime = (performance.now() - this.startTime) / 1000

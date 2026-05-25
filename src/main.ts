@@ -88,6 +88,11 @@ async function main() {
     renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
 
+  const circleSizeSlider = document.getElementById('circleSize') as HTMLInputElement
+  circleSizeSlider?.addEventListener('input', () => {
+    renderer.glassParams.circleSize = parseFloat(circleSizeSlider.value)
+  })
+
   const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement
   backgroundTypeSelect?.addEventListener('change', () => {
     renderer.setBackground(backgroundTypeSelect.value as BackgroundType).catch(console.error)
