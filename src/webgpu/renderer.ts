@@ -33,7 +33,7 @@ export class WebGPURenderer {
     surfaceType: 0,
     gridCellSize: 105,
     gridSpeed: 40,
-    specularOpacity: 0.6,
+    specularOpacity: 0.4,
     specularAngle: Math.PI / 3, // 60 degrees
     bgBrightness: 1.0,
   }
@@ -111,7 +111,7 @@ export class WebGPURenderer {
       this.glassParams.specularOpacity,
       this.glassParams.specularAngle,
       this.glassParams.bgBrightness,
-      0, // padding
+      window.devicePixelRatio || 1,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

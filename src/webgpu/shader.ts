@@ -15,7 +15,7 @@ export const shaderCode = `
     specular_opacity: f32,
     specular_angle: f32,
     bg_brightness: f32,
-    _pad0: f32,
+    device_pixel_ratio: f32,
   }
 
   struct VertexOutput {
@@ -103,8 +103,8 @@ export const shaderCode = `
     direction: vec2f,
     specular_angle: f32
   ) -> f32 {
-    // Specular only within first 1-2 pixels from the outer edge
-    let rim_width = 1.5;
+    // Specular rim width scales with device pixel ratio
+    let rim_width = uniforms.device_pixel_ratio;
     if (distance_from_edge > rim_width) {
       return 0.0;
     }
