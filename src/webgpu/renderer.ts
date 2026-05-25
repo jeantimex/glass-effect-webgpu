@@ -4,6 +4,13 @@ import {
   createPipeline,
 } from './shader'
 
+export interface GlassParams {
+  bezelWidth: number
+  glassThickness: number
+  scaleRatio: number
+  surfaceType: number  // 0=convex-circle, 1=convex-squircle, 2=concave, 3=lip
+}
+
 export class WebGPURenderer {
   private canvas: HTMLCanvasElement
   private device!: GPUDevice
@@ -13,6 +20,13 @@ export class WebGPURenderer {
   private bindGroup!: GPUBindGroup
   private uniformBuffer!: GPUBuffer
   private startTime = performance.now()
+
+  public glassParams: GlassParams = {
+    bezelWidth: 60,
+    glassThickness: 50,
+    scaleRatio: 1.0,
+    surfaceType: 0,
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -30,9 +44,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (canvas_width, canvas_height, time, padding)
+    // Create uniform buffer (12 floats = 48 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 16,
+      size: 48,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -66,13 +80,24 @@ export class WebGPURenderer {
   render(): void {
     this.resizeCanvas()
 
+    // Calculate glass radius based on canvas size
+    const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35
+
     // Update uniforms
     const uniformTime = (performance.now() - this.startTime) / 1000
     const uniformData = new Float32Array([
       this.canvas.width,
       this.canvas.height,
       uniformTime,
-      0,
+      this.canvas.width / 2,   // glass_center_x
+      this.canvas.height / 2,  // glass_center_y
+      glassRadius,             // glass_radius
+      this.glassParams.bezelWidth,
+      this.glassParams.glassThickness,
+      this.glassParams.scaleRatio,
+      this.glassParams.surfaceType,
+      0,  // padding
+      0,  // padding
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

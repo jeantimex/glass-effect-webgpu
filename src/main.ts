@@ -6,14 +6,14 @@ import {
   renderDisplacementMap2D,
 } from './displacement-map'
 
-interface GlassParams {
-  surfaceType: SurfaceType
-  bezelWidth: number
-  glassThickness: number
-  scaleRatio: number
-}
-
 const REFRACTIVE_INDEX = 1.5 // Fixed at glass refractive index
+
+const surfaceTypeMap: Record<SurfaceType, number> = {
+  'convex-circle': 0,
+  'convex-squircle': 1,
+  'concave': 2,
+  'lip': 3,
+}
 
 async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
@@ -27,24 +27,24 @@ async function main() {
   const renderer = new WebGPURenderer(mainCanvas)
   await renderer.init()
 
-  // Glass parameters (matching reference defaults)
-  const params: GlassParams = {
-    surfaceType: 'convex-circle',
-    bezelWidth: 60,
-    glassThickness: 50,
-    scaleRatio: 1.0,
-  }
+  // Local state for surface type (string version for displacement map)
+  let currentSurfaceType: SurfaceType = 'convex-circle'
 
-  // Update displacement map
+  // Update displacement map visualization
   function updateDisplacementMap() {
     const displacements1D = calculateDisplacementMap1D(
-      params.glassThickness,
-      params.bezelWidth,
-      params.surfaceType,
+      renderer.glassParams.glassThickness,
+      renderer.glassParams.bezelWidth,
+      currentSurfaceType,
       REFRACTIVE_INDEX,
       128
     )
-    renderDisplacementMap2D(displacementCanvas, displacements1D, params.bezelWidth, params.scaleRatio)
+    renderDisplacementMap2D(
+      displacementCanvas,
+      displacements1D,
+      renderer.glassParams.bezelWidth,
+      renderer.glassParams.scaleRatio
+    )
   }
 
   // Initial render
@@ -56,7 +56,8 @@ async function main() {
     btn.addEventListener('click', () => {
       surfaceButtons.forEach((b) => b.classList.remove('active'))
       btn.classList.add('active')
-      params.surfaceType = btn.getAttribute('data-surface') as SurfaceType
+      currentSurfaceType = btn.getAttribute('data-surface') as SurfaceType
+      renderer.glassParams.surfaceType = surfaceTypeMap[currentSurfaceType]
       updateDisplacementMap()
     })
   })
@@ -67,17 +68,17 @@ async function main() {
   const scaleSlider = document.getElementById('scaleRatio') as HTMLInputElement
 
   bezelSlider?.addEventListener('input', () => {
-    params.bezelWidth = parseInt(bezelSlider.value)
+    renderer.glassParams.bezelWidth = parseInt(bezelSlider.value)
     updateDisplacementMap()
   })
 
   thicknessSlider?.addEventListener('input', () => {
-    params.glassThickness = parseInt(thicknessSlider.value)
+    renderer.glassParams.glassThickness = parseInt(thicknessSlider.value)
     updateDisplacementMap()
   })
 
   scaleSlider?.addEventListener('input', () => {
-    params.scaleRatio = parseFloat(scaleSlider.value)
+    renderer.glassParams.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()
   })
 
