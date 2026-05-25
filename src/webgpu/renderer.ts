@@ -27,6 +27,13 @@ export interface GlassParams {
   useImageBg: boolean        // use image background instead of grid
 }
 
+export type BackgroundType = 'grid' | 'leaves' | 'banner'
+
+const backgroundImageUrls: Record<Exclude<BackgroundType, 'grid'>, string> = {
+  leaves: '/assets/leaves.jpg',
+  banner: '/assets/banner.jpeg',
+}
+
 export class WebGPURenderer {
   private canvas: HTMLCanvasElement
   private device!: GPUDevice
@@ -39,6 +46,8 @@ export class WebGPURenderer {
   private bgSampler!: GPUSampler
   private bindGroupLayout!: GPUBindGroupLayout
   private startTime = performance.now()
+  private textureCache = new Map<string, GPUTexture>()
+  private backgroundRequestId = 0
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -92,8 +101,9 @@ export class WebGPURenderer {
       mipmapFilter: 'linear',
     })
 
-    // Load background texture
-    await this.loadBackgroundTexture()
+    // Load default image texture. Grid mode does not sample it, but the bind group
+    // still needs a valid texture binding.
+    this.bgTexture = await this.loadBackgroundTexture(backgroundImageUrls.leaves)
 
     // Create bind group layout and group
     this.bindGroupLayout = createBindGroupLayout(this.device)
@@ -113,15 +123,40 @@ export class WebGPURenderer {
     this.resizeCanvas()
   }
 
-  private async loadBackgroundTexture(): Promise<void> {
+  async setBackground(type: BackgroundType): Promise<void> {
+    const requestId = ++this.backgroundRequestId
+
+    if (type === 'grid') {
+      this.glassParams.useImageBg = false
+      return
+    }
+
+    const texture = await this.loadBackgroundTexture(backgroundImageUrls[type])
+    if (requestId !== this.backgroundRequestId) return
+
+    this.bgTexture = texture
+    this.glassParams.useImageBg = true
+    this.bindGroup = createBindGroup(
+      this.device,
+      this.bindGroupLayout,
+      this.uniformBuffer,
+      this.bgTexture,
+      this.bgSampler
+    )
+  }
+
+  private async loadBackgroundTexture(url: string): Promise<GPUTexture> {
+    const cachedTexture = this.textureCache.get(url)
+    if (cachedTexture) return cachedTexture
+
     const img = new Image()
-    img.src = '/assets/leaves.jpg'
+    img.src = url
     await img.decode()
 
     // Calculate mip level count
     const mipLevelCount = Math.floor(Math.log2(Math.max(img.width, img.height))) + 1
 
-    this.bgTexture = this.device.createTexture({
+    const texture = this.device.createTexture({
       size: [img.width, img.height],
       format: 'rgba8unorm',
       mipLevelCount,
@@ -130,12 +165,15 @@ export class WebGPURenderer {
 
     this.device.queue.copyExternalImageToTexture(
       { source: img },
-      { texture: this.bgTexture },
+      { texture },
       [img.width, img.height]
     )
 
     // Generate mipmaps
-    await this.generateMipmaps(this.bgTexture, img.width, img.height, mipLevelCount)
+    await this.generateMipmaps(texture, img.width, img.height, mipLevelCount)
+
+    this.textureCache.set(url, texture)
+    return texture
   }
 
   private async generateMipmaps(texture: GPUTexture, width: number, height: number, mipLevelCount: number): Promise<void> {

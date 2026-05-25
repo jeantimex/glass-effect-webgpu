@@ -116,6 +116,24 @@ body {
   cursor: pointer;
 }
 
+.control-row select {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: #222;
+  color: #ddd;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.control-row select:focus {
+  outline: 2px solid rgba(107, 158, 255, 0.45);
+  outline-offset: 1px;
+}
+
 #displacementMap {
   width: 100%;
   aspect-ratio: 1;

@@ -1,5 +1,5 @@
 import './style.css'
-import { WebGPURenderer } from './webgpu/renderer'
+import { BackgroundType, WebGPURenderer } from './webgpu/renderer'
 import {
   SurfaceType,
   calculateDisplacementMap1D,
@@ -88,9 +88,9 @@ async function main() {
     renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
 
-  const useImageBgCheckbox = document.getElementById('useImageBg') as HTMLInputElement
-  useImageBgCheckbox?.addEventListener('change', () => {
-    renderer.glassParams.useImageBg = useImageBgCheckbox.checked
+  const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement
+  backgroundTypeSelect?.addEventListener('change', () => {
+    renderer.setBackground(backgroundTypeSelect.value as BackgroundType).catch(console.error)
   })
 
   scaleSlider?.addEventListener('input', () => {
