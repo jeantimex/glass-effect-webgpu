@@ -14,6 +14,50 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
+type PresetType = 'circle-lens'
+
+interface GlassPreset {
+  surfaceType: SurfaceType
+  bezelWidth: number
+  glassThickness: number
+  refractiveIndex: number
+  magnifyingScale: number
+  circleSize: number
+  scaleRatio: number
+  blurAmount: number
+  progressiveBlur: number
+  glassBgOpacity: number
+  specularOpacity: number
+  specularAngle: number
+  specularSaturation: number
+  shadowOpacity: number
+  shadowBlur: number
+  shadowOffsetX: number
+  shadowOffsetY: number
+}
+
+const presets: Record<PresetType, GlassPreset> = {
+  'circle-lens': {
+    surfaceType: 'convex-circle',
+    bezelWidth: 60,
+    glassThickness: 50,
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+    circleSize: 1,
+    scaleRatio: 1,
+    blurAmount: 0,
+    progressiveBlur: 0,
+    glassBgOpacity: 0,
+    specularOpacity: 0.4,
+    specularAngle: 60,
+    specularSaturation: 4,
+    shadowOpacity: 0.1,
+    shadowBlur: 30,
+    shadowOffsetX: 0,
+    shadowOffsetY: 15,
+  },
+}
+
 async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
   const displacementCanvas = document.getElementById('displacementMap') as HTMLCanvasElement
@@ -152,10 +196,74 @@ async function main() {
   })
 
   // Sliders
+  const presetSelect = document.getElementById('presetType') as HTMLSelectElement
   const bezelSlider = document.getElementById('bezelWidth') as HTMLInputElement
   const thicknessSlider = document.getElementById('glassThickness') as HTMLInputElement
   const scaleSlider = document.getElementById('scaleRatio') as HTMLInputElement
   const gridCellSizeSlider = document.getElementById('gridCellSize') as HTMLInputElement
+  const refractiveIndexSlider = document.getElementById('refractiveIndex') as HTMLInputElement
+  const magnifyingScaleSlider = document.getElementById('magnifyingScale') as HTMLInputElement
+  const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement
+  const specularAngleSlider = document.getElementById('specularAngle') as HTMLInputElement
+  const specularSaturationSlider = document.getElementById('specularSaturation') as HTMLInputElement
+  const blurAmountSlider = document.getElementById('blurAmount') as HTMLInputElement
+  const progressiveBlurSlider = document.getElementById('progressiveBlur') as HTMLInputElement
+  const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
+  const shadowOpacitySlider = document.getElementById('shadowOpacity') as HTMLInputElement
+  const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
+  const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
+  const shadowOffsetYSlider = document.getElementById('shadowOffsetY') as HTMLInputElement
+
+  function setSliderValue(slider: HTMLInputElement | null, value: number) {
+    if (slider) slider.value = String(value)
+  }
+
+  function applyPreset(type: PresetType) {
+    const preset = presets[type]
+    currentSurfaceType = preset.surfaceType
+    renderer.glassParams.surfaceType = surfaceTypeMap[preset.surfaceType]
+    renderer.glassParams.bezelWidth = preset.bezelWidth
+    renderer.glassParams.glassThickness = preset.glassThickness
+    renderer.glassParams.refractiveIndex = preset.refractiveIndex
+    renderer.glassParams.magnifyingScale = preset.magnifyingScale
+    renderer.glassParams.circleSize = preset.circleSize
+    renderer.glassParams.scaleRatio = preset.scaleRatio
+    renderer.glassParams.blurAmount = preset.blurAmount
+    renderer.glassParams.progressiveBlur = preset.progressiveBlur
+    renderer.glassParams.glassBgOpacity = preset.glassBgOpacity
+    renderer.glassParams.specularOpacity = preset.specularOpacity
+    renderer.glassParams.specularAngle = preset.specularAngle * Math.PI / 180
+    renderer.glassParams.specularSaturation = preset.specularSaturation
+    renderer.glassParams.shadowOpacity = preset.shadowOpacity
+    renderer.glassParams.shadowBlur = preset.shadowBlur
+    renderer.glassParams.shadowOffsetX = preset.shadowOffsetX
+    renderer.glassParams.shadowOffsetY = preset.shadowOffsetY
+
+    surfaceButtons.forEach((button) => {
+      button.classList.toggle('active', button.getAttribute('data-surface') === preset.surfaceType)
+    })
+    setSliderValue(bezelSlider, preset.bezelWidth)
+    setSliderValue(thicknessSlider, preset.glassThickness)
+    setSliderValue(refractiveIndexSlider, preset.refractiveIndex)
+    setSliderValue(magnifyingScaleSlider, preset.magnifyingScale)
+    setSliderValue(circleSizeSlider, preset.circleSize)
+    setSliderValue(scaleSlider, preset.scaleRatio)
+    setSliderValue(blurAmountSlider, preset.blurAmount)
+    setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
+    setSliderValue(glassBgOpacitySlider, preset.glassBgOpacity)
+    setSliderValue(specularOpacitySlider, preset.specularOpacity)
+    setSliderValue(specularAngleSlider, preset.specularAngle)
+    setSliderValue(specularSaturationSlider, preset.specularSaturation)
+    setSliderValue(shadowOpacitySlider, preset.shadowOpacity)
+    setSliderValue(shadowBlurSlider, preset.shadowBlur)
+    setSliderValue(shadowOffsetXSlider, preset.shadowOffsetX)
+    setSliderValue(shadowOffsetYSlider, preset.shadowOffsetY)
+    updateDisplacementMap()
+  }
+
+  presetSelect?.addEventListener('change', () => {
+    applyPreset(presetSelect.value as PresetType)
+  })
 
   bezelSlider?.addEventListener('input', () => {
     renderer.glassParams.bezelWidth = parseInt(bezelSlider.value)
@@ -167,13 +275,11 @@ async function main() {
     updateDisplacementMap()
   })
 
-  const refractiveIndexSlider = document.getElementById('refractiveIndex') as HTMLInputElement
   refractiveIndexSlider?.addEventListener('input', () => {
     renderer.glassParams.refractiveIndex = parseFloat(refractiveIndexSlider.value)
     updateDisplacementMap()
   })
 
-  const magnifyingScaleSlider = document.getElementById('magnifyingScale') as HTMLInputElement
   magnifyingScaleSlider?.addEventListener('input', () => {
     renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
@@ -183,8 +289,20 @@ async function main() {
   })
 
   const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement
+  const gridOnlyControls = document.querySelectorAll<HTMLElement>('.grid-only-control')
+
+  function updateBackgroundControls() {
+    const isGrid = backgroundTypeSelect?.value === 'grid'
+    gridOnlyControls.forEach((control) => {
+      control.classList.toggle('hidden', !isGrid)
+    })
+  }
+
+  updateBackgroundControls()
+
   backgroundTypeSelect?.addEventListener('change', () => {
     renderer.setBackground(backgroundTypeSelect.value as BackgroundType).catch(console.error)
+    updateBackgroundControls()
   })
 
   scaleSlider?.addEventListener('input', () => {
@@ -201,32 +319,26 @@ async function main() {
     renderer.setGridSpeed(parseFloat(gridSpeedSlider.value))
   })
 
-  const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement
   specularOpacitySlider?.addEventListener('input', () => {
     renderer.glassParams.specularOpacity = parseFloat(specularOpacitySlider.value)
   })
 
-  const specularAngleSlider = document.getElementById('specularAngle') as HTMLInputElement
   specularAngleSlider?.addEventListener('input', () => {
     renderer.glassParams.specularAngle = parseFloat(specularAngleSlider.value) * Math.PI / 180
   })
 
-  const specularSaturationSlider = document.getElementById('specularSaturation') as HTMLInputElement
   specularSaturationSlider?.addEventListener('input', () => {
     renderer.glassParams.specularSaturation = parseFloat(specularSaturationSlider.value)
   })
 
-  const blurAmountSlider = document.getElementById('blurAmount') as HTMLInputElement
   blurAmountSlider?.addEventListener('input', () => {
     renderer.glassParams.blurAmount = parseFloat(blurAmountSlider.value)
   })
 
-  const progressiveBlurSlider = document.getElementById('progressiveBlur') as HTMLInputElement
   progressiveBlurSlider?.addEventListener('input', () => {
     renderer.glassParams.progressiveBlur = parseFloat(progressiveBlurSlider.value)
   })
 
-  const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
   glassBgOpacitySlider?.addEventListener('input', () => {
     renderer.glassParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
   })
@@ -236,22 +348,18 @@ async function main() {
     renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)
   })
 
-  const shadowOpacitySlider = document.getElementById('shadowOpacity') as HTMLInputElement
   shadowOpacitySlider?.addEventListener('input', () => {
     renderer.glassParams.shadowOpacity = parseFloat(shadowOpacitySlider.value)
   })
 
-  const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
   shadowBlurSlider?.addEventListener('input', () => {
     renderer.glassParams.shadowBlur = parseFloat(shadowBlurSlider.value)
   })
 
-  const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
   shadowOffsetXSlider?.addEventListener('input', () => {
     renderer.glassParams.shadowOffsetX = parseFloat(shadowOffsetXSlider.value)
   })
 
-  const shadowOffsetYSlider = document.getElementById('shadowOffsetY') as HTMLInputElement
   shadowOffsetYSlider?.addEventListener('input', () => {
     renderer.glassParams.shadowOffsetY = parseFloat(shadowOffsetYSlider.value)
   })

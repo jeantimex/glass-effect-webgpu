@@ -102,6 +102,27 @@ body {
   flex: 0 0 auto;
 }
 
+.control-group {
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.control-group:first-child {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: 0;
+}
+
+.control-group-title {
+  margin-bottom: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #777;
+}
+
 .displacement-section {
   flex-shrink: 0;
 }
@@ -151,6 +172,10 @@ body {
 
 .control-row:last-child {
   margin-bottom: 0;
+}
+
+.control-row.hidden {
+  display: none;
 }
 
 .control-row label {
