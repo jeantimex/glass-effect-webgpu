@@ -50,6 +50,20 @@ async function main() {
   // Initial render
   updateDisplacementMap()
 
+  document.querySelectorAll<HTMLButtonElement>('.section-header').forEach((header) => {
+    header.addEventListener('click', () => {
+      const section = header.closest<HTMLElement>('.panel-section')
+      if (!section) return
+
+      const collapsed = section.classList.toggle('collapsed')
+      header.setAttribute('aria-expanded', String(!collapsed))
+
+      if (!collapsed && section.classList.contains('displacement-section')) {
+        updateDisplacementMap()
+      }
+    })
+  })
+
   let draggingGlass = false
   let glassDragOffset = { x: 0, y: 0 }
 
