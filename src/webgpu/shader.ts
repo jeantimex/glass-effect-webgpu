@@ -101,7 +101,7 @@ export const shaderCode = `
     let color_mid = vec3f(0.55, 0.74, 0.73);
     let color_br = vec3f(0.92, 0.65, 0.65);
 
-    let t = (uv.x + uv.y) * 0.5;
+    let t = clamp((uv.x + uv.y) * 0.5, 0.0, 1.0);
     var bg_color: vec3f;
     if (t < 0.5) {
       bg_color = mix(color_tl, color_mid, t * 2.0);
@@ -182,12 +182,16 @@ export const shaderCode = `
     // The 0.5 factor matches SVG feDisplacementMap behavior (uses XC - 0.5 formula)
     // Scale by glass size to maintain proportional appearance (reference uses radius=110)
     let size_scale = uniforms.glass_radius / 110.0;
-    let displacement = calculate_displacement(
+    let raw_displacement = calculate_displacement(
       bezel_t,
       uniforms.surface_type,
       uniforms.bezel_width,
       uniforms.glass_thickness
     ) * uniforms.scale_ratio * 0.5 * size_scale;
+
+    // Limit maximum displacement to prevent extreme sampling
+    let max_displacement = bezel_pixels * 0.8;
+    let displacement = min(raw_displacement, max_displacement);
 
     // Direction from center (normalized)
     let direction = to_pixel / max(distance_from_center, 0.001);
