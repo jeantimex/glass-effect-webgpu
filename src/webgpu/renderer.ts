@@ -22,6 +22,7 @@ export interface GlassParams {
   shadowOffsetY: number      // shadow vertical offset
   progressiveBlur: number    // blur increases toward edges (0-1)
   glassBgOpacity: number     // glass background tint opacity (0-1)
+  refractiveIndex: number    // glass refractive index (1.0-2.5)
 }
 
 export class WebGPURenderer {
@@ -52,6 +53,7 @@ export class WebGPURenderer {
     shadowOffsetY: 15,
     progressiveBlur: 0,
     glassBgOpacity: 0,
+    refractiveIndex: 1.5,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -70,9 +72,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (24 floats = 96 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (28 floats = 112 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 96,
+      size: 112,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -136,6 +138,8 @@ export class WebGPURenderer {
       this.glassParams.shadowOffsetY,
       this.glassParams.progressiveBlur,
       this.glassParams.glassBgOpacity,
+      this.glassParams.refractiveIndex,
+      0, // padding
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

@@ -6,7 +6,6 @@ import {
   renderDisplacementMap2D,
 } from './displacement-map'
 
-const REFRACTIVE_INDEX = 1.5 // Fixed at glass refractive index
 
 const surfaceTypeMap: Record<SurfaceType, number> = {
   'convex-circle': 0,
@@ -36,7 +35,7 @@ async function main() {
       renderer.glassParams.glassThickness,
       renderer.glassParams.bezelWidth,
       currentSurfaceType,
-      REFRACTIVE_INDEX,
+      renderer.glassParams.refractiveIndex,
       128
     )
     renderDisplacementMap2D(
@@ -75,6 +74,12 @@ async function main() {
 
   thicknessSlider?.addEventListener('input', () => {
     renderer.glassParams.glassThickness = parseInt(thicknessSlider.value)
+    updateDisplacementMap()
+  })
+
+  const refractiveIndexSlider = document.getElementById('refractiveIndex') as HTMLInputElement
+  refractiveIndexSlider?.addEventListener('input', () => {
+    renderer.glassParams.refractiveIndex = parseFloat(refractiveIndexSlider.value)
     updateDisplacementMap()
   })
 

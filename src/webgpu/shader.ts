@@ -24,6 +24,8 @@ export const shaderCode = `
     shadow_offset_y: f32,
     progressive_blur: f32,
     glass_bg_opacity: f32,
+    refractive_index: f32,
+    _pad0: f32,
   }
 
   struct VertexOutput {
@@ -70,8 +72,8 @@ export const shaderCode = `
 
   // Refraction using Snell's law
   // Returns displacement amount for a ray hitting surface at bezel position x
-  fn calculate_displacement(bezel_t: f32, surface_type: f32, bezel_width: f32, glass_thickness: f32) -> f32 {
-    let eta = 1.0 / 1.5;  // air to glass (n=1.5)
+  fn calculate_displacement(bezel_t: f32, surface_type: f32, bezel_width: f32, glass_thickness: f32, refractive_index: f32) -> f32 {
+    let eta = 1.0 / refractive_index;  // air to glass
 
     let height = get_surface_height(bezel_t, surface_type);
     let derivative = get_surface_derivative(bezel_t, surface_type);
@@ -292,7 +294,8 @@ export const shaderCode = `
       bezel_t,
       uniforms.surface_type,
       uniforms.bezel_width,
-      uniforms.glass_thickness
+      uniforms.glass_thickness,
+      uniforms.refractive_index
     ) * uniforms.scale_ratio * 0.5 * size_scale;
 
     // Limit maximum displacement to prevent extreme sampling
