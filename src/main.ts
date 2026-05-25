@@ -92,6 +92,21 @@ async function main() {
     renderer.glassParams.gridSpeed = parseFloat(gridSpeedSlider.value)
   })
 
+  const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement
+  specularOpacitySlider?.addEventListener('input', () => {
+    renderer.glassParams.specularOpacity = parseFloat(specularOpacitySlider.value)
+  })
+
+  const specularAngleSlider = document.getElementById('specularAngle') as HTMLInputElement
+  specularAngleSlider?.addEventListener('input', () => {
+    renderer.glassParams.specularAngle = parseFloat(specularAngleSlider.value) * Math.PI / 180
+  })
+
+  const bgBrightnessSlider = document.getElementById('bgBrightness') as HTMLInputElement
+  bgBrightnessSlider?.addEventListener('input', () => {
+    renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)
+  })
+
   // Handle resize for displacement map canvas
   const resizeObserver = new ResizeObserver(() => {
     updateDisplacementMap()

@@ -1,4 +1,4 @@
-export const shaderCode = `
+var R=Object.defineProperty;var T=(e,t,i)=>t in e?R(e,t,{enumerable:!0,configurable:!0,writable:!0,value:i}):e[t]=i;var m=(e,t,i)=>T(e,typeof t!="symbol"?t+"":t,i);(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const r of document.querySelectorAll('link[rel="modulepreload"]'))n(r);new MutationObserver(r=>{for(const s of r)if(s.type==="childList")for(const l of s.addedNodes)l.tagName==="LINK"&&l.rel==="modulepreload"&&n(l)}).observe(document,{childList:!0,subtree:!0});function i(r){const s={};return r.integrity&&(s.integrity=r.integrity),r.referrerPolicy&&(s.referrerPolicy=r.referrerPolicy),r.crossOrigin==="use-credentials"?s.credentials="include":r.crossOrigin==="anonymous"?s.credentials="omit":s.credentials="same-origin",s}function n(r){if(r.ep)return;r.ep=!0;const s=i(r);fetch(r.href,s)}})();const k=`
   struct Uniforms {
     canvas_width: f32,
     canvas_height: f32,
@@ -14,8 +14,8 @@ export const shaderCode = `
     grid_speed: f32,
     specular_opacity: f32,
     specular_angle: f32,
-    bg_brightness: f32,
     _pad0: f32,
+    _pad1: f32,
   }
 
   struct VertexOutput {
@@ -162,8 +162,7 @@ export const shaderCode = `
     let grid_color = vec3f(0.84, 0.91, 0.90);
     let grid_opacity = 0.8;
 
-    let final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
-    return final_color * uniforms.bg_brightness;
+    return mix(bg_color, grid_color, grid_line * grid_opacity);
   }
 
   @vertex
@@ -253,57 +252,4 @@ export const shaderCode = `
 
     return vec4f(color, 1.0);
   }
-`
-
-export function createPipeline(
-  device: GPUDevice,
-  format: GPUTextureFormat,
-  bindGroupLayout: GPUBindGroupLayout
-): GPURenderPipeline {
-  const shaderModule = device.createShaderModule({ code: shaderCode })
-
-  const pipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [bindGroupLayout],
-  })
-
-  return device.createRenderPipeline({
-    layout: pipelineLayout,
-    vertex: {
-      module: shaderModule,
-      entryPoint: 'vs_main',
-    },
-    fragment: {
-      module: shaderModule,
-      entryPoint: 'fs_main',
-      targets: [{ format }],
-    },
-    primitive: {
-      topology: 'triangle-strip',
-    },
-  })
-}
-
-export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
-  return device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        buffer: { type: 'uniform' },
-      },
-    ],
-  })
-}
-
-export function createBindGroup(
-  device: GPUDevice,
-  layout: GPUBindGroupLayout,
-  uniformBuffer: GPUBuffer
-): GPUBindGroup {
-  return device.createBindGroup({
-    layout,
-    entries: [
-      { binding: 0, resource: { buffer: uniformBuffer } },
-    ],
-  })
-}
+`;function S(e,t,i){const n=e.createShaderModule({code:k}),r=e.createPipelineLayout({bindGroupLayouts:[i]});return e.createRenderPipeline({layout:r,vertex:{module:n,entryPoint:"vs_main"},fragment:{module:n,entryPoint:"fs_main",targets:[{format:t}]},primitive:{topology:"triangle-strip"}})}function F(e){return e.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:"uniform"}}]})}function D(e,t,i){return e.createBindGroup({layout:t,entries:[{binding:0,resource:{buffer:i}}]})}class A{constructor(t){m(this,"canvas");m(this,"device");m(this,"context");m(this,"format");m(this,"pipeline");m(this,"bindGroup");m(this,"uniformBuffer");m(this,"startTime",performance.now());m(this,"glassParams",{bezelWidth:60,glassThickness:50,scaleRatio:1,surfaceType:0,gridCellSize:105,gridSpeed:40,specularOpacity:.6,specularAngle:Math.PI/3});this.canvas=t}async init(){var n;const t=await((n=navigator.gpu)==null?void 0:n.requestAdapter());if(!t)throw new Error("WebGPU not supported");this.device=await t.requestDevice(),this.context=this.canvas.getContext("webgpu"),this.format=navigator.gpu.getPreferredCanvasFormat(),this.context.configure({device:this.device,format:this.format}),this.uniformBuffer=this.device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});const i=F(this.device);this.bindGroup=D(this.device,i,this.uniformBuffer),this.pipeline=S(this.device,this.format,i),window.addEventListener("resize",()=>this.resizeCanvas()),this.resizeCanvas()}resizeCanvas(){const t=window.devicePixelRatio||1,i=this.canvas.clientWidth*t,n=this.canvas.clientHeight*t;(this.canvas.width!==i||this.canvas.height!==n)&&(this.canvas.width=i,this.canvas.height=n)}render(){this.resizeCanvas();const t=Math.min(this.canvas.width,this.canvas.height)*.35,i=(performance.now()-this.startTime)/1e3,n=new Float32Array([this.canvas.width,this.canvas.height,i,this.canvas.width/2,this.canvas.height/2,t,this.glassParams.bezelWidth,this.glassParams.glassThickness,this.glassParams.scaleRatio,this.glassParams.surfaceType,this.glassParams.gridCellSize,this.glassParams.gridSpeed,this.glassParams.specularOpacity,this.glassParams.specularAngle,0,0]);this.device.queue.writeBuffer(this.uniformBuffer,0,n);const r=this.device.createCommandEncoder(),s=r.beginRenderPass({colorAttachments:[{view:this.context.getCurrentTexture().createView(),clearValue:{r:.1,g:.1,b:.12,a:1},loadOp:"clear",storeOp:"store"}]});s.setPipeline(this.pipeline),s.setBindGroup(0,this.bindGroup),s.draw(4),s.end(),this.device.queue.submit([r.finish()])}}const U={"convex-circle":e=>Math.sqrt(1-(1-e)**2),"convex-squircle":e=>Math.pow(1-Math.pow(1-e,4),1/4),concave:e=>1-Math.sqrt(1-(1-e)**2),lip:e=>{const t=Math.pow(1-Math.pow(1-e*2,4),.25),i=1-Math.sqrt(1-(1-e)**2)+.1,n=6*e**5-15*e**4+10*e**3;return t*(1-n)+i*n}};function W(e,t,i,n,r=128){const s=1/n,l=U[i];function g(a,u){const c=u,d=1-s*s*(1-c*c);if(d<0)return null;const h=Math.sqrt(d);return[-(s*c+h)*a,s-(s*c+h)*u]}return Array.from({length:r},(a,u)=>{const c=u/r,d=l(c),h=c<1?1e-4:-1e-4,f=(l(c+h)-d)/h,y=Math.sqrt(f*f+1),z=[-f/y,-1/y],o=g(z[0],z[1]);if(o){const _=d*t+e;return o[0]*(_/o[1])}else return 0})}function V(e,t,i,n=1){const r=e.getContext("2d");if(!r)return;const s=window.devicePixelRatio||1,l=e.clientWidth;e.width=l*s,e.height=l*s;const g=r.createImageData(e.width,e.height),a=g.data,u=Math.max(...t.map(Math.abs),1),c=l*s/2-20*s,d=e.width/2,h=e.height/2,v=i/110*c,f=90,y=106,z=80;for(let o=0;o<a.length;o+=4)a[o]=f,a[o+1]=y,a[o+2]=z,a[o+3]=255;for(let o=0;o<e.height;o++)for(let p=0;p<e.width;p++){const _=p-d,b=o-h,x=Math.sqrt(_*_+b*b),P=c-x;if(P<0||P>v)continue;const w=P/v,M=Math.min(t.length-1,Math.floor(w*t.length)),q=(t[M]||0)/u*n,C=x>.001?_/x:0,B=x>.001?b/x:0,O=-C*q,G=-B*q,L=Math.round(128+O*127),I=Math.round(128+G*127),E=(o*e.width+p)*4;a[E]=L,a[E+1]=I,a[E+2]=0,a[E+3]=255}for(let o=0;o<e.height;o++)for(let p=0;p<e.width;p++){const _=p-d,b=o-h,x=Math.sqrt(_*_+b*b);if(c-x>v){const w=(o*e.width+p)*4;a[w]=128,a[w+1]=128,a[w+2]=0,a[w+3]=255}}r.putImageData(g,0,0)}const N=1.5,H={"convex-circle":0,"convex-squircle":1,concave:2,lip:3};async function X(){const e=document.getElementById("mainCanvas"),t=document.getElementById("displacementMap");if(!e||!t)throw new Error("Canvas elements not found");const i=new A(e);await i.init();let n="convex-circle";function r(){const f=W(i.glassParams.glassThickness,i.glassParams.bezelWidth,n,N,128);V(t,f,i.glassParams.bezelWidth,i.glassParams.scaleRatio)}r();const s=document.querySelectorAll(".surface-btn");s.forEach(f=>{f.addEventListener("click",()=>{s.forEach(y=>y.classList.remove("active")),f.classList.add("active"),n=f.getAttribute("data-surface"),i.glassParams.surfaceType=H[n],r()})});const l=document.getElementById("bezelWidth"),g=document.getElementById("glassThickness"),a=document.getElementById("scaleRatio"),u=document.getElementById("gridCellSize");l==null||l.addEventListener("input",()=>{i.glassParams.bezelWidth=parseInt(l.value),r()}),g==null||g.addEventListener("input",()=>{i.glassParams.glassThickness=parseInt(g.value),r()}),a==null||a.addEventListener("input",()=>{i.glassParams.scaleRatio=parseFloat(a.value),r()}),u==null||u.addEventListener("input",()=>{i.glassParams.gridCellSize=parseFloat(u.value)});const c=document.getElementById("gridSpeed");c==null||c.addEventListener("input",()=>{i.glassParams.gridSpeed=parseFloat(c.value)});const d=document.getElementById("specularOpacity");d==null||d.addEventListener("input",()=>{i.glassParams.specularOpacity=parseFloat(d.value)}),new ResizeObserver(()=>{r()}).observe(t);function v(){i.render(),requestAnimationFrame(v)}v()}X().catch(console.error);
