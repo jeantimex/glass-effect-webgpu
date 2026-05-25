@@ -50,6 +50,10 @@ async function main() {
   // Initial render
   updateDisplacementMap()
 
+  // Log initial grid values
+  console.log('Initial Grid Cell Size:', renderer.glassParams.gridCellSize)
+  console.log('Initial Grid Speed:', renderer.glassParams.gridSpeed)
+
   // Surface type buttons
   const surfaceButtons = document.querySelectorAll('.surface-btn')
   surfaceButtons.forEach((btn) => {
@@ -85,11 +89,13 @@ async function main() {
 
   gridCellSizeSlider?.addEventListener('input', () => {
     renderer.glassParams.gridCellSize = parseFloat(gridCellSizeSlider.value)
+    console.log('Grid Cell Size:', renderer.glassParams.gridCellSize)
   })
 
   const gridSpeedSlider = document.getElementById('gridSpeed') as HTMLInputElement
   gridSpeedSlider?.addEventListener('input', () => {
     renderer.glassParams.gridSpeed = parseFloat(gridSpeedSlider.value)
+    console.log('Grid Speed:', renderer.glassParams.gridSpeed)
   })
 
   // Handle resize for displacement map canvas

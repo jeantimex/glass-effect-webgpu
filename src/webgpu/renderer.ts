@@ -28,8 +28,8 @@ export class WebGPURenderer {
     glassThickness: 50,
     scaleRatio: 1.0,
     surfaceType: 0,
-    gridCellSize: 60,
-    gridSpeed: 15,
+    gridCellSize: 105,
+    gridSpeed: 40,
   }
 
   constructor(canvas: HTMLCanvasElement) {

@@ -1,4 +1,4 @@
-export const shaderCode = `
+var k=Object.defineProperty;var L=(e,i,t)=>i in e?k(e,i,{enumerable:!0,configurable:!0,writable:!0,value:t}):e[i]=t;var m=(e,i,t)=>L(e,typeof i!="symbol"?i+"":i,t);(function(){const i=document.createElement("link").relList;if(i&&i.supports&&i.supports("modulepreload"))return;for(const r of document.querySelectorAll('link[rel="modulepreload"]'))n(r);new MutationObserver(r=>{for(const s of r)if(s.type==="childList")for(const l of s.addedNodes)l.tagName==="LINK"&&l.rel==="modulepreload"&&n(l)}).observe(document,{childList:!0,subtree:!0});function t(r){const s={};return r.integrity&&(s.integrity=r.integrity),r.referrerPolicy&&(s.referrerPolicy=r.referrerPolicy),r.crossOrigin==="use-credentials"?s.credentials="include":r.crossOrigin==="anonymous"?s.credentials="omit":s.credentials="same-origin",s}function n(r){if(r.ep)return;r.ep=!0;const s=t(r);fetch(r.href,s)}})();const O=`
   struct Uniforms {
     canvas_width: f32,
     canvas_height: f32,
@@ -200,57 +200,4 @@ export const shaderCode = `
 
     return vec4f(color, 1.0);
   }
-`
-
-export function createPipeline(
-  device: GPUDevice,
-  format: GPUTextureFormat,
-  bindGroupLayout: GPUBindGroupLayout
-): GPURenderPipeline {
-  const shaderModule = device.createShaderModule({ code: shaderCode })
-
-  const pipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [bindGroupLayout],
-  })
-
-  return device.createRenderPipeline({
-    layout: pipelineLayout,
-    vertex: {
-      module: shaderModule,
-      entryPoint: 'vs_main',
-    },
-    fragment: {
-      module: shaderModule,
-      entryPoint: 'fs_main',
-      targets: [{ format }],
-    },
-    primitive: {
-      topology: 'triangle-strip',
-    },
-  })
-}
-
-export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
-  return device.createBindGroupLayout({
-    entries: [
-      {
-        binding: 0,
-        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        buffer: { type: 'uniform' },
-      },
-    ],
-  })
-}
-
-export function createBindGroup(
-  device: GPUDevice,
-  layout: GPUBindGroupLayout,
-  uniformBuffer: GPUBuffer
-): GPUBindGroup {
-  return device.createBindGroup({
-    layout,
-    entries: [
-      { binding: 0, resource: { buffer: uniformBuffer } },
-    ],
-  })
-}
+`;function R(e,i,t){const n=e.createShaderModule({code:O}),r=e.createPipelineLayout({bindGroupLayouts:[t]});return e.createRenderPipeline({layout:r,vertex:{module:n,entryPoint:"vs_main"},fragment:{module:n,entryPoint:"fs_main",targets:[{format:i}]},primitive:{topology:"triangle-strip"}})}function F(e){return e.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:"uniform"}}]})}function D(e,i,t){return e.createBindGroup({layout:i,entries:[{binding:0,resource:{buffer:t}}]})}class A{constructor(i){m(this,"canvas");m(this,"device");m(this,"context");m(this,"format");m(this,"pipeline");m(this,"bindGroup");m(this,"uniformBuffer");m(this,"startTime",performance.now());m(this,"glassParams",{bezelWidth:60,glassThickness:50,scaleRatio:1,surfaceType:0,gridCellSize:105,gridSpeed:40});this.canvas=i}async init(){var n;const i=await((n=navigator.gpu)==null?void 0:n.requestAdapter());if(!i)throw new Error("WebGPU not supported");this.device=await i.requestDevice(),this.context=this.canvas.getContext("webgpu"),this.format=navigator.gpu.getPreferredCanvasFormat(),this.context.configure({device:this.device,format:this.format}),this.uniformBuffer=this.device.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});const t=F(this.device);this.bindGroup=D(this.device,t,this.uniformBuffer),this.pipeline=R(this.device,this.format,t),window.addEventListener("resize",()=>this.resizeCanvas()),this.resizeCanvas()}resizeCanvas(){const i=window.devicePixelRatio||1,t=this.canvas.clientWidth*i,n=this.canvas.clientHeight*i;(this.canvas.width!==t||this.canvas.height!==n)&&(this.canvas.width=t,this.canvas.height=n)}render(){this.resizeCanvas();const i=Math.min(this.canvas.width,this.canvas.height)*.35,t=(performance.now()-this.startTime)/1e3,n=new Float32Array([this.canvas.width,this.canvas.height,t,this.canvas.width/2,this.canvas.height/2,i,this.glassParams.bezelWidth,this.glassParams.glassThickness,this.glassParams.scaleRatio,this.glassParams.surfaceType,this.glassParams.gridCellSize,this.glassParams.gridSpeed]);this.device.queue.writeBuffer(this.uniformBuffer,0,n);const r=this.device.createCommandEncoder(),s=r.beginRenderPass({colorAttachments:[{view:this.context.getCurrentTexture().createView(),clearValue:{r:.1,g:.1,b:.12,a:1},loadOp:"clear",storeOp:"store"}]});s.setPipeline(this.pipeline),s.setBindGroup(0,this.bindGroup),s.draw(4),s.end(),this.device.queue.submit([r.finish()])}}const U={"convex-circle":e=>Math.sqrt(1-(1-e)**2),"convex-squircle":e=>Math.pow(1-Math.pow(1-e,4),1/4),concave:e=>1-Math.sqrt(1-(1-e)**2),lip:e=>{const i=Math.pow(1-Math.pow(1-e*2,4),.25),t=1-Math.sqrt(1-(1-e)**2)+.1,n=6*e**5-15*e**4+10*e**3;return i*(1-n)+t*n}};function W(e,i,t,n,r=128){const s=1/n,l=U[t];function p(a,d){const c=d,h=1-s*s*(1-c*c);if(h<0)return null;const u=Math.sqrt(h);return[-(s*c+u)*a,s-(s*c+u)*d]}return Array.from({length:r},(a,d)=>{const c=d/r,h=l(c),u=c<1?1e-4:-1e-4,v=(l(c+u)-h)/u,w=Math.sqrt(v*v+1),z=[-v/w,-1/w],o=p(z[0],z[1]);if(o){const _=h*i+e;return o[0]*(_/o[1])}else return 0})}function V(e,i,t,n=1){const r=e.getContext("2d");if(!r)return;const s=window.devicePixelRatio||1,l=e.clientWidth;e.width=l*s,e.height=l*s;const p=r.createImageData(e.width,e.height),a=p.data,d=Math.max(...i.map(Math.abs),1),c=l*s/2-20*s,h=e.width/2,u=e.height/2,f=t/110*c,v=90,w=106,z=80;for(let o=0;o<a.length;o+=4)a[o]=v,a[o+1]=w,a[o+2]=z,a[o+3]=255;for(let o=0;o<e.height;o++)for(let g=0;g<e.width;g++){const _=g-h,y=o-u,x=Math.sqrt(_*_+y*y),P=c-x;if(P<0||P>f)continue;const b=P/f,M=Math.min(i.length-1,Math.floor(b*i.length)),C=(i[M]||0)/d*n,q=x>.001?_/x:0,G=x>.001?y/x:0,S=-q*C,B=-G*C,I=Math.round(128+S*127),T=Math.round(128+B*127),E=(o*e.width+g)*4;a[E]=I,a[E+1]=T,a[E+2]=0,a[E+3]=255}for(let o=0;o<e.height;o++)for(let g=0;g<e.width;g++){const _=g-h,y=o-u,x=Math.sqrt(_*_+y*y);if(c-x>f){const b=(o*e.width+g)*4;a[b]=128,a[b+1]=128,a[b+2]=0,a[b+3]=255}}r.putImageData(p,0,0)}const N=1.5,H={"convex-circle":0,"convex-squircle":1,concave:2,lip:3};async function X(){const e=document.getElementById("mainCanvas"),i=document.getElementById("displacementMap");if(!e||!i)throw new Error("Canvas elements not found");const t=new A(e);await t.init();let n="convex-circle";function r(){const f=W(t.glassParams.glassThickness,t.glassParams.bezelWidth,n,N,128);V(i,f,t.glassParams.bezelWidth,t.glassParams.scaleRatio)}r(),console.log("Initial Grid Cell Size:",t.glassParams.gridCellSize),console.log("Initial Grid Speed:",t.glassParams.gridSpeed);const s=document.querySelectorAll(".surface-btn");s.forEach(f=>{f.addEventListener("click",()=>{s.forEach(v=>v.classList.remove("active")),f.classList.add("active"),n=f.getAttribute("data-surface"),t.glassParams.surfaceType=H[n],r()})});const l=document.getElementById("bezelWidth"),p=document.getElementById("glassThickness"),a=document.getElementById("scaleRatio"),d=document.getElementById("gridCellSize");l==null||l.addEventListener("input",()=>{t.glassParams.bezelWidth=parseInt(l.value),r()}),p==null||p.addEventListener("input",()=>{t.glassParams.glassThickness=parseInt(p.value),r()}),a==null||a.addEventListener("input",()=>{t.glassParams.scaleRatio=parseFloat(a.value),r()}),d==null||d.addEventListener("input",()=>{t.glassParams.gridCellSize=parseFloat(d.value),console.log("Grid Cell Size:",t.glassParams.gridCellSize)});const c=document.getElementById("gridSpeed");c==null||c.addEventListener("input",()=>{t.glassParams.gridSpeed=parseFloat(c.value),console.log("Grid Speed:",t.glassParams.gridSpeed)}),new ResizeObserver(()=>{r()}).observe(i);function u(){t.render(),requestAnimationFrame(u)}u()}X().catch(console.error);
