@@ -32,6 +32,7 @@ export const shaderCode = `
     rect_width: f32,
     rect_height: f32,
     rect_radius: f32,
+    blur_type: f32,
   }
 
   struct VertexOutput {
@@ -120,6 +121,85 @@ export const shaderCode = `
     return mix(vec3f(luminance), color, saturation);
   }
 
+  fn hash12(p: vec2f) -> f32 {
+    var p3 = fract(vec3f(p.x, p.y, p.x) * 0.1031);
+    p3 = p3 + vec3f(dot(p3, p3.yzx + vec3f(33.33)));
+    return fract((p3.x + p3.y) * p3.z);
+  }
+
+  fn value_noise(p: vec2f) -> f32 {
+    let i = floor(p);
+    let f = fract(p);
+    let u = f * f * (3.0 - 2.0 * f);
+
+    let a = hash12(i);
+    let b = hash12(i + vec2f(1.0, 0.0));
+    let c = hash12(i + vec2f(0.0, 1.0));
+    let d = hash12(i + vec2f(1.0, 1.0));
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  fn frost_noise(pixel: vec2f) -> f32 {
+    let p = pixel / max(uniforms.device_pixel_ratio, 1.0);
+    let fine = value_noise(p * 0.115);
+    let medium = value_noise(p * 0.043 + vec2f(19.7, 4.3));
+    let broad = value_noise(p * 0.017 + vec2f(3.1, 28.4));
+    return clamp(fine * 0.52 + medium * 0.33 + broad * 0.15, 0.0, 1.0);
+  }
+
+  fn texture_cover_uv(pixel: vec2f) -> vec2f {
+    let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
+    let tex_size = vec2f(textureDimensions(bg_texture));
+    let canvas_size = vec2f(uniforms.canvas_width, uniforms.canvas_height);
+    let canvas_aspect = canvas_size.x / canvas_size.y;
+    let tex_aspect = tex_size.x / tex_size.y;
+
+    var cover_uv = uv;
+    if (canvas_aspect > tex_aspect) {
+      let scale = canvas_aspect / tex_aspect;
+      cover_uv.y = (uv.y - 0.5) / scale + 0.5;
+    } else {
+      let scale = tex_aspect / canvas_aspect;
+      cover_uv.x = (uv.x - 0.5) / scale + 0.5;
+    }
+
+    return cover_uv;
+  }
+
+  fn sample_image_background(pixel: vec2f, mip_level: f32) -> vec3f {
+    return textureSampleLevel(bg_texture, bg_sampler, texture_cover_uv(pixel), mip_level).rgb;
+  }
+
+  fn sample_image_frosted(pixel: vec2f, blur: f32) -> vec3f {
+    let frost_strength = clamp(blur / 100.0, 0.0, 1.0);
+    let frost = frost_noise(pixel);
+    let mip_level = clamp(blur * 0.075 + frost * frost_strength * 2.5, 0.0, 10.0);
+    let scatter_radius = (blur * 0.35 + blur * blur * 0.004) * (0.55 + frost * 0.65);
+
+    let angle = hash12(floor(pixel * 0.031)) * 6.2831853;
+    let s = sin(angle);
+    let c = cos(angle);
+    let axis_x = vec2f(c, s);
+    let axis_y = vec2f(-s, c);
+
+    var color = sample_image_background(pixel, mip_level) * 0.32;
+    color += sample_image_background(pixel + (axis_x * 0.52 + axis_y * 0.18) * scatter_radius, mip_level + 0.35) * 0.12;
+    color += sample_image_background(pixel - (axis_x * 0.52 + axis_y * 0.18) * scatter_radius, mip_level + 0.35) * 0.12;
+    color += sample_image_background(pixel + (-axis_x * 0.21 + axis_y * 0.64) * scatter_radius, mip_level + 0.70) * 0.10;
+    color += sample_image_background(pixel - (-axis_x * 0.21 + axis_y * 0.64) * scatter_radius, mip_level + 0.70) * 0.10;
+    color += sample_image_background(pixel + (axis_x * 0.88 - axis_y * 0.38) * scatter_radius, mip_level + 1.00) * 0.08;
+    color += sample_image_background(pixel - (axis_x * 0.88 - axis_y * 0.38) * scatter_radius, mip_level + 1.00) * 0.08;
+    color += sample_image_background(pixel + (axis_x * 0.08 + axis_y * 1.05) * scatter_radius, mip_level + 1.25) * 0.04;
+    color += sample_image_background(pixel - (axis_x * 0.08 + axis_y * 1.05) * scatter_radius, mip_level + 1.25) * 0.04;
+
+    let haze = vec3f(dot(color, vec3f(0.299, 0.587, 0.114)));
+    color = mix(color, haze, frost_strength * 0.08);
+    color = color + vec3f((frost - 0.5) * frost_strength * 0.025);
+
+    return color * uniforms.bg_brightness;
+  }
+
   // Sample background with blur effect
   fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     // Use the internal function that applies blur softening to grid
@@ -195,31 +275,12 @@ export const shaderCode = `
 
     // If using image background, sample from texture with cover mode
     if (uniforms.use_image_bg > 0.5) {
-      // Get texture dimensions
-      let tex_size = vec2f(textureDimensions(bg_texture));
-      let canvas_size = vec2f(uniforms.canvas_width, uniforms.canvas_height);
-
-      // Calculate aspect ratios
-      let canvas_aspect = canvas_size.x / canvas_size.y;
-      let tex_aspect = tex_size.x / tex_size.y;
-
-      // Cover mode: scale to fill, crop excess
-      var cover_uv = uv;
-      if (canvas_aspect > tex_aspect) {
-        // Canvas is wider - scale by width, crop height
-        let scale = canvas_aspect / tex_aspect;
-        cover_uv.y = (uv.y - 0.5) / scale + 0.5;
-      } else {
-        // Canvas is taller - scale by height, crop width
-        let scale = tex_aspect / canvas_aspect;
-        cover_uv.x = (uv.x - 0.5) / scale + 0.5;
+      if (uniforms.blur_type < 0.5) {
+        let mip_level = blur * 0.1;
+        return sample_image_background(pixel, mip_level) * uniforms.bg_brightness;
       }
 
-      // Use mip level for blur (blur 0-100 maps to mip level 0-10)
-      let mip_level = blur * 0.1;
-      let tex_color = textureSampleLevel(bg_texture, bg_sampler, cover_uv, mip_level).rgb;
-
-      return tex_color * uniforms.bg_brightness;
+      return sample_image_frosted(pixel, blur);
     }
 
     // Gradient colors (teal to pink) - more saturated
@@ -244,14 +305,17 @@ export const shaderCode = `
     let grid_x = abs(fract(grid_pixel.x / grid_size) - 0.5) * 2.0;
     let grid_y = abs(fract(grid_pixel.y / grid_size) - 0.5) * 2.0;
 
-    // Blur makes lines thicker and edges softer (simulating Gaussian spread)
-    // Scaled for 0-100 range where 100 = fully blurred
-    let blur_spread = blur * 0.2;
+    let frost_strength = clamp(blur / 100.0, 0.0, 1.0);
+    let frost = frost_noise(pixel);
+    let local_blur = select(blur, blur * (0.76 + frost * 0.58), uniforms.blur_type > 0.5);
+
+    // Blur makes lines thicker and edges softer, with fine variation like a frosted surface.
+    let blur_spread = local_blur * 0.2;
     let line_width = base_line_width + blur_spread;
     let line_threshold = 1.0 - (line_width / grid_size);
 
     // Edge softness increases with blur
-    let edge_width = 0.02 + blur * 0.003;
+    let edge_width = 0.02 + local_blur * 0.003;
     let grid_line_x = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_x);
     let grid_line_y = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_y);
     let grid_line = max(grid_line_x, grid_line_y);
@@ -259,15 +323,19 @@ export const shaderCode = `
     let grid_color = vec3f(0.84, 0.91, 0.90);
     // Reduce grid contrast/opacity with blur (colors blend together)
     // At blur=100, grid is completely invisible
-    let blur_fade = max(0.0, 1.0 - blur * 0.015);
+    let blur_fade = max(0.0, 1.0 - local_blur * 0.015);
     let grid_opacity = 0.8 * blur_fade;
 
     // Also blend background colors toward average at high blur
-    let blur_color_blend = min(1.0, blur * 0.01);
+    let blur_color_blend = min(1.0, local_blur * 0.01);
     let avg_color = (color_tl + color_mid + color_br) / 3.0;
     bg_color = mix(bg_color, avg_color, blur_color_blend);
 
     var final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
+    if (uniforms.blur_type > 0.5) {
+      final_color = mix(final_color, avg_color, frost_strength * 0.08 * frost);
+      final_color = final_color + vec3f((frost - 0.5) * frost_strength * 0.025);
+    }
 
     // Brightness: 0=black, 1=normal, 2=2x bright
     return final_color * uniforms.bg_brightness;

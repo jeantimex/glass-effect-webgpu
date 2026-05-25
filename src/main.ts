@@ -29,6 +29,7 @@ interface GlassPreset {
   rectRadiusPercent: number
   scaleRatio: number
   blurAmount: number
+  blurType: number
   progressiveBlur: number
   glassBgOpacity: number
   specularOpacity: number
@@ -54,6 +55,7 @@ const presets: Record<PresetType, GlassPreset> = {
     rectRadiusPercent: 100,
     scaleRatio: 1,
     blurAmount: 0,
+    blurType: 1,
     progressiveBlur: 0,
     glassBgOpacity: 0,
     specularOpacity: 0.4,
@@ -77,6 +79,7 @@ const presets: Record<PresetType, GlassPreset> = {
     rectRadiusPercent: 100,
     scaleRatio: 1,
     blurAmount: 0,
+    blurType: 1,
     progressiveBlur: 0,
     glassBgOpacity: 0.08,
     specularOpacity: 0.4,
@@ -289,6 +292,7 @@ async function main() {
   const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement
   const specularAngleSlider = document.getElementById('specularAngle') as HTMLInputElement
   const specularSaturationSlider = document.getElementById('specularSaturation') as HTMLInputElement
+  const blurTypeSelect = document.getElementById('blurType') as HTMLSelectElement
   const blurAmountSlider = document.getElementById('blurAmount') as HTMLInputElement
   const progressiveBlurSlider = document.getElementById('progressiveBlur') as HTMLInputElement
   const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
@@ -328,6 +332,7 @@ async function main() {
     renderer.glassParams.rectRadiusPercent = preset.rectRadiusPercent
     renderer.glassParams.scaleRatio = preset.scaleRatio
     renderer.glassParams.blurAmount = preset.blurAmount
+    renderer.glassParams.blurType = preset.blurType
     renderer.glassParams.progressiveBlur = preset.progressiveBlur
     renderer.glassParams.glassBgOpacity = preset.glassBgOpacity
     renderer.glassParams.specularOpacity = preset.specularOpacity
@@ -350,6 +355,7 @@ async function main() {
     setSliderValue(rectHeightSlider, preset.rectHeight)
     setSliderValue(rectRadiusSlider, preset.rectRadiusPercent)
     setSliderValue(scaleSlider, preset.scaleRatio)
+    if (blurTypeSelect) blurTypeSelect.value = String(preset.blurType)
     setSliderValue(blurAmountSlider, preset.blurAmount)
     setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
     setSliderValue(glassBgOpacitySlider, preset.glassBgOpacity)
@@ -446,6 +452,10 @@ async function main() {
 
   specularSaturationSlider?.addEventListener('input', () => {
     renderer.glassParams.specularSaturation = parseFloat(specularSaturationSlider.value)
+  })
+
+  blurTypeSelect?.addEventListener('change', () => {
+    renderer.glassParams.blurType = parseFloat(blurTypeSelect.value)
   })
 
   blurAmountSlider?.addEventListener('input', () => {
