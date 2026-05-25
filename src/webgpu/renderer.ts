@@ -16,6 +16,10 @@ export interface GlassParams {
   bgBrightness: number    // background brightness multiplier
   specularSaturation: number // specular saturation boost (1 = normal, >1 = more saturated)
   blurAmount: number         // blur radius in pixels
+  shadowOpacity: number      // shadow darkness (0-1)
+  shadowBlur: number         // shadow blur/spread in pixels
+  shadowOffsetX: number      // shadow horizontal offset
+  shadowOffsetY: number      // shadow vertical offset
 }
 
 export class WebGPURenderer {
@@ -40,6 +44,10 @@ export class WebGPURenderer {
     bgBrightness: 0.5,
     specularSaturation: 4.0,
     blurAmount: 0.0,
+    shadowOpacity: 0.1,
+    shadowBlur: 30,
+    shadowOffsetX: 0,
+    shadowOffsetY: 15,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -58,9 +66,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (20 floats = 80 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (24 floats = 96 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -118,8 +126,10 @@ export class WebGPURenderer {
       window.devicePixelRatio || 1,
       this.glassParams.specularSaturation,
       this.glassParams.blurAmount,
-      0, // padding
-      0, // padding
+      this.glassParams.shadowOpacity,
+      this.glassParams.shadowBlur,
+      this.glassParams.shadowOffsetX,
+      this.glassParams.shadowOffsetY,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

@@ -117,6 +117,26 @@ async function main() {
     renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)
   })
 
+  const shadowOpacitySlider = document.getElementById('shadowOpacity') as HTMLInputElement
+  shadowOpacitySlider?.addEventListener('input', () => {
+    renderer.glassParams.shadowOpacity = parseFloat(shadowOpacitySlider.value)
+  })
+
+  const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
+  shadowBlurSlider?.addEventListener('input', () => {
+    renderer.glassParams.shadowBlur = parseFloat(shadowBlurSlider.value)
+  })
+
+  const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
+  shadowOffsetXSlider?.addEventListener('input', () => {
+    renderer.glassParams.shadowOffsetX = parseFloat(shadowOffsetXSlider.value)
+  })
+
+  const shadowOffsetYSlider = document.getElementById('shadowOffsetY') as HTMLInputElement
+  shadowOffsetYSlider?.addEventListener('input', () => {
+    renderer.glassParams.shadowOffsetY = parseFloat(shadowOffsetYSlider.value)
+  })
+
   // Handle resize for displacement map canvas
   const resizeObserver = new ResizeObserver(() => {
     updateDisplacementMap()

@@ -18,6 +18,10 @@ export const shaderCode = `
     device_pixel_ratio: f32,
     specular_saturation: f32,
     blur_amount: f32,
+    shadow_opacity: f32,
+    shadow_blur: f32,
+    shadow_offset_x: f32,
+    shadow_offset_y: f32,
   }
 
   struct VertexOutput {
@@ -239,9 +243,26 @@ export const shaderCode = `
     // Distance from edge (positive = inside glass)
     let distance_from_edge = uniforms.glass_radius - distance_from_center;
 
-    // Outside glass - render normal background
+    // Outside glass - render background with shadow
     if (distance_from_edge < 0.0) {
-      return vec4f(sample_background(pixel, uniforms.time), 1.0);
+      var bg = sample_background(pixel, uniforms.time);
+
+      // Calculate shadow
+      if (uniforms.shadow_opacity > 0.0) {
+        let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
+        let to_shadow = pixel - shadow_center;
+        let shadow_dist = length(to_shadow);
+        let shadow_edge = uniforms.glass_radius - shadow_dist;
+
+        // Soft shadow falloff
+        let shadow_blur = max(uniforms.shadow_blur, 1.0);
+        let shadow_alpha = smoothstep(-shadow_blur, shadow_blur * 0.5, shadow_edge) * uniforms.shadow_opacity;
+
+        // Darken background where shadow is
+        bg = mix(bg, vec3f(0.0), shadow_alpha);
+      }
+
+      return vec4f(bg, 1.0);
     }
 
     // Calculate bezel width in pixels (matching displacement map calculation)
