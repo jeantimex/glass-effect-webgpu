@@ -117,6 +117,11 @@ async function main() {
     renderer.glassParams.progressiveBlur = parseFloat(progressiveBlurSlider.value)
   })
 
+  const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
+  glassBgOpacitySlider?.addEventListener('input', () => {
+    renderer.glassParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
+  })
+
   const bgBrightnessSlider = document.getElementById('bgBrightness') as HTMLInputElement
   bgBrightnessSlider?.addEventListener('input', () => {
     renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)

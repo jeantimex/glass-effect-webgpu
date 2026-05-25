@@ -23,6 +23,7 @@ export const shaderCode = `
     shadow_offset_x: f32,
     shadow_offset_y: f32,
     progressive_blur: f32,
+    glass_bg_opacity: f32,
   }
 
   struct VertexOutput {
@@ -273,7 +274,11 @@ export const shaderCode = `
     if (distance_from_edge >= bezel_pixels) {
       // Progressive blur: minimal blur in center
       let center_blur = uniforms.blur_amount;
-      return vec4f(sample_background_blurred(pixel, uniforms.time, center_blur), 1.0);
+      var center_color = sample_background_blurred(pixel, uniforms.time, center_blur);
+      // Apply glass background tint
+      let glass_bg = vec3f(1.0, 1.0, 1.0);
+      center_color = mix(center_color, glass_bg, uniforms.glass_bg_opacity);
+      return vec4f(center_color, 1.0);
     }
 
     // In bezel region - apply refraction
@@ -306,6 +311,10 @@ export const shaderCode = `
 
     // Sample background at displaced position (with optional blur)
     var color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
+
+    // Apply glass background tint
+    let glass_bg = vec3f(1.0, 1.0, 1.0);
+    color = mix(color, glass_bg, uniforms.glass_bg_opacity);
 
     // Calculate and apply specular highlight
     let specular_intensity = calculate_specular(
