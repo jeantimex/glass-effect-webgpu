@@ -9,6 +9,8 @@ export interface GlassParams {
   glassThickness: number
   scaleRatio: number
   surfaceType: number  // 0=convex-circle, 1=convex-squircle, 2=concave, 3=lip
+  gridCellSize: number // grid cell size in pixels
+  gridSpeed: number    // grid animation speed multiplier
 }
 
 export class WebGPURenderer {
@@ -26,6 +28,8 @@ export class WebGPURenderer {
     glassThickness: 50,
     scaleRatio: 1.0,
     surfaceType: 0,
+    gridCellSize: 60,
+    gridSpeed: 15,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -96,8 +100,8 @@ export class WebGPURenderer {
       this.glassParams.glassThickness,
       this.glassParams.scaleRatio,
       this.glassParams.surfaceType,
-      0,  // padding
-      0,  // padding
+      this.glassParams.gridCellSize,
+      this.glassParams.gridSpeed,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

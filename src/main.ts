@@ -66,6 +66,7 @@ async function main() {
   const bezelSlider = document.getElementById('bezelWidth') as HTMLInputElement
   const thicknessSlider = document.getElementById('glassThickness') as HTMLInputElement
   const scaleSlider = document.getElementById('scaleRatio') as HTMLInputElement
+  const gridCellSizeSlider = document.getElementById('gridCellSize') as HTMLInputElement
 
   bezelSlider?.addEventListener('input', () => {
     renderer.glassParams.bezelWidth = parseInt(bezelSlider.value)
@@ -80,6 +81,15 @@ async function main() {
   scaleSlider?.addEventListener('input', () => {
     renderer.glassParams.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()
+  })
+
+  gridCellSizeSlider?.addEventListener('input', () => {
+    renderer.glassParams.gridCellSize = parseFloat(gridCellSizeSlider.value)
+  })
+
+  const gridSpeedSlider = document.getElementById('gridSpeed') as HTMLInputElement
+  gridSpeedSlider?.addEventListener('input', () => {
+    renderer.glassParams.gridSpeed = parseFloat(gridSpeedSlider.value)
   })
 
   // Handle resize for displacement map canvas
