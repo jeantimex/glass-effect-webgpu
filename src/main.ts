@@ -33,6 +33,7 @@ interface GlassPreset {
   blurType: number
   progressiveBlur: number
   glassBgOpacity: number
+  specularType: number
   specularOpacity: number
   specularAngle: number
   specularSaturation: number
@@ -59,6 +60,7 @@ const presets: Record<PresetType, GlassPreset> = {
     blurType: 1,
     progressiveBlur: 0,
     glassBgOpacity: 0,
+    specularType: 0,
     specularOpacity: 0.4,
     specularAngle: 60,
     specularSaturation: 4,
@@ -83,6 +85,7 @@ const presets: Record<PresetType, GlassPreset> = {
     blurType: 1,
     progressiveBlur: 0,
     glassBgOpacity: 0.08,
+    specularType: 0,
     specularOpacity: 0.4,
     specularAngle: 60,
     specularSaturation: 4,
@@ -293,6 +296,7 @@ async function main() {
   const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement
   const specularAngleSlider = document.getElementById('specularAngle') as HTMLInputElement
   const specularSaturationSlider = document.getElementById('specularSaturation') as HTMLInputElement
+  const specularTypeSelect = document.getElementById('specularType') as HTMLSelectElement
   const blurTypeSelect = document.getElementById('blurType') as HTMLSelectElement
   const blurAmountSlider = document.getElementById('blurAmount') as HTMLInputElement
   const progressiveBlurSlider = document.getElementById('progressiveBlur') as HTMLInputElement
@@ -336,6 +340,12 @@ async function main() {
     renderer.glassParams.glassTintB = resolvedTheme === 'dark' ? darkTint : 1
   }
 
+  function updateSpecularControls() {
+    const isLayeredSpecular = renderer.glassParams.specularType === 1
+    const saturationRow = specularSaturationSlider?.closest<HTMLElement>('.control-row')
+    saturationRow?.classList.toggle('hidden', isLayeredSpecular)
+  }
+
   function applyPreset(type: PresetType) {
     const preset = presets[type]
     renderer.glassParams.shapeType = preset.shapeType
@@ -354,6 +364,7 @@ async function main() {
     renderer.glassParams.blurType = preset.blurType
     renderer.glassParams.progressiveBlur = preset.progressiveBlur
     renderer.glassParams.glassBgOpacity = preset.glassBgOpacity
+    renderer.glassParams.specularType = preset.specularType
     renderer.glassParams.specularOpacity = preset.specularOpacity
     renderer.glassParams.specularAngle = preset.specularAngle * Math.PI / 180
     renderer.glassParams.specularSaturation = preset.specularSaturation
@@ -374,6 +385,7 @@ async function main() {
     setSliderValue(rectHeightSlider, preset.rectHeight)
     setSliderValue(rectRadiusSlider, preset.rectRadiusPercent)
     setSliderValue(scaleSlider, preset.scaleRatio)
+    if (specularTypeSelect) specularTypeSelect.value = String(preset.specularType)
     if (blurTypeSelect) blurTypeSelect.value = String(preset.blurType)
     setSliderValue(blurAmountSlider, preset.blurAmount)
     setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
@@ -391,6 +403,7 @@ async function main() {
 
   updateShapeControls()
   updateGlassTheme()
+  updateSpecularControls()
 
   const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
   colorSchemeQuery.addEventListener('change', () => {
@@ -479,6 +492,11 @@ async function main() {
 
   specularSaturationSlider?.addEventListener('input', () => {
     renderer.glassParams.specularSaturation = parseFloat(specularSaturationSlider.value)
+  })
+
+  specularTypeSelect?.addEventListener('change', () => {
+    renderer.glassParams.specularType = parseFloat(specularTypeSelect.value)
+    updateSpecularControls()
   })
 
   blurTypeSelect?.addEventListener('change', () => {

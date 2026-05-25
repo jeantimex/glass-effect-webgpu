@@ -17,6 +17,10 @@ export const shaderCode = `
     bg_brightness: f32,
     device_pixel_ratio: f32,
     specular_saturation: f32,
+    specular_type: f32,
+    specular_pad_0: f32,
+    specular_pad_1: f32,
+    specular_pad_2: f32,
     blur_amount: f32,
     shadow_opacity: f32,
     shadow_blur: f32,
@@ -261,6 +265,26 @@ export const shaderCode = `
     return intensity * intensity;
   }
 
+  fn calculate_layered_specular(
+    distance_from_edge: f32,
+    direction: vec2f,
+    specular_angle: f32
+  ) -> f32 {
+    let rim_width = uniforms.device_pixel_ratio;
+    if (distance_from_edge > rim_width) {
+      return 0.0;
+    }
+
+    let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
+    let normal_2d = vec2f(direction.x, -direction.y);
+    let dot_product = abs(dot(normal_2d, specular_dir));
+    let t = distance_from_edge / rim_width;
+    let rim_coefficient = sqrt(1.0 - (1.0 - t) * (1.0 - t));
+    let intensity = dot_product * rim_coefficient;
+
+    return intensity * intensity;
+  }
+
   fn rounded_rect_sdf(p: vec2f, half_size: vec2f, radius: f32) -> f32 {
     let q = abs(p) - half_size + vec2f(radius);
     return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
@@ -474,20 +498,30 @@ export const shaderCode = `
     color = apply_glass_tint(color);
 
     // Calculate and apply specular highlight
-    let specular_intensity = calculate_specular(
-      distance_from_edge,
-      bezel_pixels,
-      direction,
-      uniforms.specular_angle
-    );
+    if (uniforms.specular_type > 0.5) {
+      let specular_intensity = calculate_layered_specular(
+        distance_from_edge,
+        direction,
+        uniforms.specular_angle
+      );
+      let specular_color = vec3f(1.0, 1.0, 1.0);
+      color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
+    } else {
+      let specular_intensity = calculate_specular(
+        distance_from_edge,
+        bezel_pixels,
+        direction,
+        uniforms.specular_angle
+      );
 
-    // Apply saturation boost where specular is visible
-    let saturated_color = adjust_saturation(color, uniforms.specular_saturation);
-    color = mix(color, saturated_color, specular_intensity);
+      // Apply saturation boost where specular is visible
+      let saturated_color = adjust_saturation(color, uniforms.specular_saturation);
+      color = mix(color, saturated_color, specular_intensity);
 
-    // Blend specular highlight (white) on top of the saturated color
-    let specular_color = vec3f(1.0, 1.0, 1.0);
-    color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
+      // Blend specular highlight (white) on top of the saturated color
+      let specular_color = vec3f(1.0, 1.0, 1.0);
+      color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
+    }
 
     return vec4f(color, 1.0);
   }
