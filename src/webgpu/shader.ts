@@ -29,9 +29,9 @@ export const shaderCode = `
     use_image_bg: f32,
     grid_offset: f32,
     shape_type: f32,
-    pill_width: f32,
-    pill_height: f32,
-    pill_radius: f32,
+    rect_width: f32,
+    rect_height: f32,
+    rect_radius: f32,
   }
 
   struct VertexOutput {
@@ -167,8 +167,8 @@ export const shaderCode = `
     if (uniforms.shape_type > 0.5) {
       return rounded_rect_sdf(
         p,
-        vec2f(uniforms.pill_width, uniforms.pill_height) * 0.5,
-        uniforms.pill_radius
+        vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5,
+        uniforms.rect_radius
       );
     }
 
@@ -327,7 +327,7 @@ export const shaderCode = `
     }
 
     // Calculate bezel width in pixels (matching displacement map calculation)
-    let shape_reference = select(uniforms.glass_radius, min(uniforms.pill_width, uniforms.pill_height) * 0.5, uniforms.shape_type > 0.5);
+    let shape_reference = select(uniforms.glass_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
     let bezel_pixels = (uniforms.bezel_width / 110.0) * shape_reference;
 
     // Inside flat center - no refraction, but apply blur and magnification

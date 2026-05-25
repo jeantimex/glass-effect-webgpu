@@ -14,7 +14,7 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-type PresetType = 'circle-lens' | 'pill'
+type PresetType = 'circle-lens' | 'rectangle'
 
 interface GlassPreset {
   shapeType: number
@@ -24,8 +24,9 @@ interface GlassPreset {
   refractiveIndex: number
   magnifyingScale: number
   circleSize: number
-  pillWidth: number
-  pillHeight: number
+  rectWidth: number
+  rectHeight: number
+  rectRadiusPercent: number
   scaleRatio: number
   blurAmount: number
   progressiveBlur: number
@@ -48,8 +49,9 @@ const presets: Record<PresetType, GlassPreset> = {
     refractiveIndex: 1.5,
     magnifyingScale: 0,
     circleSize: 1,
-    pillWidth: 420,
-    pillHeight: 96,
+    rectWidth: 420,
+    rectHeight: 96,
+    rectRadiusPercent: 100,
     scaleRatio: 1,
     blurAmount: 0,
     progressiveBlur: 0,
@@ -62,7 +64,7 @@ const presets: Record<PresetType, GlassPreset> = {
     shadowOffsetX: 0,
     shadowOffsetY: 15,
   },
-  pill: {
+  rectangle: {
     shapeType: 1,
     surfaceType: 'convex-squircle',
     bezelWidth: 60,
@@ -70,8 +72,9 @@ const presets: Record<PresetType, GlassPreset> = {
     refractiveIndex: 1.5,
     magnifyingScale: 0,
     circleSize: 1,
-    pillWidth: 420,
-    pillHeight: 96,
+    rectWidth: 420,
+    rectHeight: 96,
+    rectRadiusPercent: 100,
     scaleRatio: 1,
     blurAmount: 0,
     progressiveBlur: 0,
@@ -90,8 +93,9 @@ async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
   const displacementCanvas = document.getElementById('displacementMap') as HTMLCanvasElement
   const circleSizeSlider = document.getElementById('circleSize') as HTMLInputElement
-  const pillWidthSlider = document.getElementById('pillWidth') as HTMLInputElement
-  const pillHeightSlider = document.getElementById('pillHeight') as HTMLInputElement
+  const rectWidthSlider = document.getElementById('rectWidth') as HTMLInputElement
+  const rectHeightSlider = document.getElementById('rectHeight') as HTMLInputElement
+  const rectRadiusSlider = document.getElementById('rectRadius') as HTMLInputElement
 
   if (!mainCanvas || !displacementCanvas) {
     throw new Error('Canvas elements not found')
@@ -163,25 +167,36 @@ async function main() {
     }
   }
 
-  function setPillWidth(width: number) {
-    const min = pillWidthSlider ? parseFloat(pillWidthSlider.min) : 160
-    const max = pillWidthSlider ? parseFloat(pillWidthSlider.max) : 760
+  function setRectWidth(width: number) {
+    const min = rectWidthSlider ? parseFloat(rectWidthSlider.min) : 48
+    const max = rectWidthSlider ? parseFloat(rectWidthSlider.max) : 760
     const clampedWidth = Math.min(Math.max(width, min), max)
 
-    renderer.glassParams.pillWidth = clampedWidth
-    if (pillWidthSlider) {
-      pillWidthSlider.value = String(clampedWidth)
+    renderer.glassParams.rectWidth = clampedWidth
+    if (rectWidthSlider) {
+      rectWidthSlider.value = String(clampedWidth)
     }
   }
 
-  function setPillHeight(height: number) {
-    const min = pillHeightSlider ? parseFloat(pillHeightSlider.min) : 48
-    const max = pillHeightSlider ? parseFloat(pillHeightSlider.max) : 240
+  function setRectHeight(height: number) {
+    const min = rectHeightSlider ? parseFloat(rectHeightSlider.min) : 48
+    const max = rectHeightSlider ? parseFloat(rectHeightSlider.max) : 760
     const clampedHeight = Math.min(Math.max(height, min), max)
 
-    renderer.glassParams.pillHeight = clampedHeight
-    if (pillHeightSlider) {
-      pillHeightSlider.value = String(clampedHeight)
+    renderer.glassParams.rectHeight = clampedHeight
+    if (rectHeightSlider) {
+      rectHeightSlider.value = String(clampedHeight)
+    }
+  }
+
+  function setRectRadiusPercent(radiusPercent: number) {
+    const min = rectRadiusSlider ? parseFloat(rectRadiusSlider.min) : 0
+    const max = rectRadiusSlider ? parseFloat(rectRadiusSlider.max) : 100
+    const clampedRadius = Math.min(Math.max(radiusPercent, min), max)
+
+    renderer.glassParams.rectRadiusPercent = clampedRadius
+    if (rectRadiusSlider) {
+      rectRadiusSlider.value = String(clampedRadius)
     }
   }
 
@@ -232,8 +247,19 @@ async function main() {
 
     const direction = event.deltaY > 0 ? -1 : 1
     if (renderer.glassParams.shapeType === 1) {
-      setPillWidth(renderer.glassParams.pillWidth + direction * 24)
-      setPillHeight(renderer.glassParams.pillHeight + direction * 6)
+      const targetScale = direction > 0 ? 1.06 : 1 / 1.06
+      const minWidth = rectWidthSlider ? parseFloat(rectWidthSlider.min) : 48
+      const maxWidth = rectWidthSlider ? parseFloat(rectWidthSlider.max) : 760
+      const minHeight = rectHeightSlider ? parseFloat(rectHeightSlider.min) : 48
+      const maxHeight = rectHeightSlider ? parseFloat(rectHeightSlider.max) : 760
+      const currentWidth = renderer.glassParams.rectWidth
+      const currentHeight = renderer.glassParams.rectHeight
+      const scale = direction > 0
+        ? Math.min(targetScale, maxWidth / currentWidth, maxHeight / currentHeight)
+        : Math.max(targetScale, minWidth / currentWidth, minHeight / currentHeight)
+
+      setRectWidth(currentWidth * scale)
+      setRectHeight(currentHeight * scale)
     } else {
       setCircleSize(renderer.glassParams.circleSize + direction * 0.04)
     }
@@ -271,19 +297,19 @@ async function main() {
   const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
   const shadowOffsetYSlider = document.getElementById('shadowOffsetY') as HTMLInputElement
   const circleOnlyControls = document.querySelectorAll<HTMLElement>('.circle-only-control')
-  const pillOnlyControls = document.querySelectorAll<HTMLElement>('.pill-only-control')
+  const rectOnlyControls = document.querySelectorAll<HTMLElement>('.rect-only-control')
 
   function setSliderValue(slider: HTMLInputElement | null, value: number) {
     if (slider) slider.value = String(value)
   }
 
   function updateShapeControls() {
-    const isPill = renderer.glassParams.shapeType === 1
+    const isRectangle = renderer.glassParams.shapeType === 1
     circleOnlyControls.forEach((control) => {
-      control.classList.toggle('hidden', isPill)
+      control.classList.toggle('hidden', isRectangle)
     })
-    pillOnlyControls.forEach((control) => {
-      control.classList.toggle('hidden', !isPill)
+    rectOnlyControls.forEach((control) => {
+      control.classList.toggle('hidden', !isRectangle)
     })
   }
 
@@ -297,8 +323,9 @@ async function main() {
     renderer.glassParams.refractiveIndex = preset.refractiveIndex
     renderer.glassParams.magnifyingScale = preset.magnifyingScale
     renderer.glassParams.circleSize = preset.circleSize
-    renderer.glassParams.pillWidth = preset.pillWidth
-    renderer.glassParams.pillHeight = preset.pillHeight
+    renderer.glassParams.rectWidth = preset.rectWidth
+    renderer.glassParams.rectHeight = preset.rectHeight
+    renderer.glassParams.rectRadiusPercent = preset.rectRadiusPercent
     renderer.glassParams.scaleRatio = preset.scaleRatio
     renderer.glassParams.blurAmount = preset.blurAmount
     renderer.glassParams.progressiveBlur = preset.progressiveBlur
@@ -319,8 +346,9 @@ async function main() {
     setSliderValue(refractiveIndexSlider, preset.refractiveIndex)
     setSliderValue(magnifyingScaleSlider, preset.magnifyingScale)
     setSliderValue(circleSizeSlider, preset.circleSize)
-    setSliderValue(pillWidthSlider, preset.pillWidth)
-    setSliderValue(pillHeightSlider, preset.pillHeight)
+    setSliderValue(rectWidthSlider, preset.rectWidth)
+    setSliderValue(rectHeightSlider, preset.rectHeight)
+    setSliderValue(rectRadiusSlider, preset.rectRadiusPercent)
     setSliderValue(scaleSlider, preset.scaleRatio)
     setSliderValue(blurAmountSlider, preset.blurAmount)
     setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
@@ -365,12 +393,16 @@ async function main() {
     setCircleSize(parseFloat(circleSizeSlider.value))
   })
 
-  pillWidthSlider?.addEventListener('input', () => {
-    setPillWidth(parseFloat(pillWidthSlider.value))
+  rectWidthSlider?.addEventListener('input', () => {
+    setRectWidth(parseFloat(rectWidthSlider.value))
   })
 
-  pillHeightSlider?.addEventListener('input', () => {
-    setPillHeight(parseFloat(pillHeightSlider.value))
+  rectHeightSlider?.addEventListener('input', () => {
+    setRectHeight(parseFloat(rectHeightSlider.value))
+  })
+
+  rectRadiusSlider?.addEventListener('input', () => {
+    setRectRadiusPercent(parseFloat(rectRadiusSlider.value))
   })
 
   const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement
