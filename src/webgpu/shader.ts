@@ -26,6 +26,8 @@ export const shaderCode = `
     glass_bg_opacity: f32,
     refractive_index: f32,
     magnifying_scale: f32,
+    use_image_bg: f32,
+    _pad0: f32,
   }
 
   struct VertexOutput {
@@ -34,6 +36,8 @@ export const shaderCode = `
   }
 
   @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+  @group(0) @binding(1) var bg_texture: texture_2d<f32>;
+  @group(0) @binding(2) var bg_sampler: sampler;
 
   // Surface height functions (x = 0 at edge, x = 1 at end of bezel)
   fn surface_convex_circle(x: f32) -> f32 {
@@ -154,6 +158,35 @@ export const shaderCode = `
   fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
 
+    // If using image background, sample from texture with cover mode
+    if (uniforms.use_image_bg > 0.5) {
+      // Get texture dimensions
+      let tex_size = vec2f(textureDimensions(bg_texture));
+      let canvas_size = vec2f(uniforms.canvas_width, uniforms.canvas_height);
+
+      // Calculate aspect ratios
+      let canvas_aspect = canvas_size.x / canvas_size.y;
+      let tex_aspect = tex_size.x / tex_size.y;
+
+      // Cover mode: scale to fill, crop excess
+      var cover_uv = uv;
+      if (canvas_aspect > tex_aspect) {
+        // Canvas is wider - scale by width, crop height
+        let scale = canvas_aspect / tex_aspect;
+        cover_uv.y = (uv.y - 0.5) / scale + 0.5;
+      } else {
+        // Canvas is taller - scale by height, crop width
+        let scale = tex_aspect / canvas_aspect;
+        cover_uv.x = (uv.x - 0.5) / scale + 0.5;
+      }
+
+      // Use mip level for blur (blur 0-100 maps to mip level 0-10)
+      let mip_level = blur * 0.1;
+      let tex_color = textureSampleLevel(bg_texture, bg_sampler, cover_uv, mip_level).rgb;
+
+      return tex_color * uniforms.bg_brightness;
+    }
+
     // Gradient colors (teal to pink) - more saturated
     let color_tl = vec3f(0.20, 0.78, 0.76);
     let color_mid = vec3f(0.55, 0.74, 0.73);
@@ -201,13 +234,8 @@ export const shaderCode = `
 
     var final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
 
-    // Brightness: 0=black, 0.5=normal, 1=white
-    if (uniforms.bg_brightness <= 0.5) {
-      final_color = final_color * (uniforms.bg_brightness * 2.0);
-    } else {
-      final_color = mix(final_color, vec3f(1.0), (uniforms.bg_brightness - 0.5) * 2.0);
-    }
-    return final_color;
+    // Brightness: 0=black, 1=normal, 2=2x bright
+    return final_color * uniforms.bg_brightness;
   }
 
   fn sample_background(pixel: vec2f, time: f32) -> vec3f {
@@ -385,6 +413,16 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         buffer: { type: 'uniform' },
       },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: 'float' },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.FRAGMENT,
+        sampler: { type: 'filtering' },
+      },
     ],
   })
 }
@@ -392,12 +430,16 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
 export function createBindGroup(
   device: GPUDevice,
   layout: GPUBindGroupLayout,
-  uniformBuffer: GPUBuffer
+  uniformBuffer: GPUBuffer,
+  texture: GPUTexture,
+  sampler: GPUSampler
 ): GPUBindGroup {
   return device.createBindGroup({
     layout,
     entries: [
       { binding: 0, resource: { buffer: uniformBuffer } },
+      { binding: 1, resource: texture.createView() },
+      { binding: 2, resource: sampler },
     ],
   })
 }

@@ -88,6 +88,11 @@ async function main() {
     renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
   })
 
+  const useImageBgCheckbox = document.getElementById('useImageBg') as HTMLInputElement
+  useImageBgCheckbox?.addEventListener('change', () => {
+    renderer.glassParams.useImageBg = useImageBgCheckbox.checked
+  })
+
   scaleSlider?.addEventListener('input', () => {
     renderer.glassParams.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()

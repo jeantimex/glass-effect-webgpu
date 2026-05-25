@@ -24,6 +24,7 @@ export interface GlassParams {
   glassBgOpacity: number     // glass background tint opacity (0-1)
   refractiveIndex: number    // glass refractive index (1.0-2.5)
   magnifyingScale: number    // magnification scale (zoom effect)
+  useImageBg: boolean        // use image background instead of grid
 }
 
 export class WebGPURenderer {
@@ -34,6 +35,9 @@ export class WebGPURenderer {
   private pipeline!: GPURenderPipeline
   private bindGroup!: GPUBindGroup
   private uniformBuffer!: GPUBuffer
+  private bgTexture!: GPUTexture
+  private bgSampler!: GPUSampler
+  private bindGroupLayout!: GPUBindGroupLayout
   private startTime = performance.now()
 
   public glassParams: GlassParams = {
@@ -45,7 +49,7 @@ export class WebGPURenderer {
     gridSpeed: 40,
     specularOpacity: 0.4,
     specularAngle: Math.PI / 3, // 60 degrees
-    bgBrightness: 0.5,
+    bgBrightness: 1.0,
     specularSaturation: 4.0,
     blurAmount: 0.0,
     shadowOpacity: 0.1,
@@ -56,6 +60,7 @@ export class WebGPURenderer {
     glassBgOpacity: 0,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
+    useImageBg: false,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -80,20 +85,138 @@ export class WebGPURenderer {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
+    // Create sampler with mipmap support
+    this.bgSampler = this.device.createSampler({
+      magFilter: 'linear',
+      minFilter: 'linear',
+      mipmapFilter: 'linear',
+    })
+
+    // Load background texture
+    await this.loadBackgroundTexture()
+
     // Create bind group layout and group
-    const bindGroupLayout = createBindGroupLayout(this.device)
+    this.bindGroupLayout = createBindGroupLayout(this.device)
     this.bindGroup = createBindGroup(
       this.device,
-      bindGroupLayout,
-      this.uniformBuffer
+      this.bindGroupLayout,
+      this.uniformBuffer,
+      this.bgTexture,
+      this.bgSampler
     )
 
     // Create pipeline
-    this.pipeline = createPipeline(this.device, this.format, bindGroupLayout)
+    this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
 
     // Setup resize listener
     window.addEventListener('resize', () => this.resizeCanvas())
     this.resizeCanvas()
+  }
+
+  private async loadBackgroundTexture(): Promise<void> {
+    const img = new Image()
+    img.src = '/assets/leaves.jpg'
+    await img.decode()
+
+    // Calculate mip level count
+    const mipLevelCount = Math.floor(Math.log2(Math.max(img.width, img.height))) + 1
+
+    this.bgTexture = this.device.createTexture({
+      size: [img.width, img.height],
+      format: 'rgba8unorm',
+      mipLevelCount,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+
+    this.device.queue.copyExternalImageToTexture(
+      { source: img },
+      { texture: this.bgTexture },
+      [img.width, img.height]
+    )
+
+    // Generate mipmaps
+    await this.generateMipmaps(this.bgTexture, img.width, img.height, mipLevelCount)
+  }
+
+  private async generateMipmaps(texture: GPUTexture, width: number, height: number, mipLevelCount: number): Promise<void> {
+    const mipmapShaderModule = this.device.createShaderModule({
+      code: `
+        var<private> pos: array<vec2f, 4> = array(
+          vec2f(-1.0, 1.0), vec2f(1.0, 1.0), vec2f(-1.0, -1.0), vec2f(1.0, -1.0)
+        );
+        var<private> uv: array<vec2f, 4> = array(
+          vec2f(0.0, 0.0), vec2f(1.0, 0.0), vec2f(0.0, 1.0), vec2f(1.0, 1.0)
+        );
+
+        struct VertexOutput {
+          @builtin(position) position: vec4f,
+          @location(0) texCoord: vec2f,
+        }
+
+        @vertex
+        fn vs(@builtin(vertex_index) i: u32) -> VertexOutput {
+          var o: VertexOutput;
+          o.position = vec4f(pos[i], 0.0, 1.0);
+          o.texCoord = uv[i];
+          return o;
+        }
+
+        @group(0) @binding(0) var inTexture: texture_2d<f32>;
+        @group(0) @binding(1) var inSampler: sampler;
+
+        @fragment
+        fn fs(@location(0) texCoord: vec2f) -> @location(0) vec4f {
+          return textureSample(inTexture, inSampler, texCoord);
+        }
+      `
+    })
+
+    const pipeline = this.device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: mipmapShaderModule, entryPoint: 'vs' },
+      fragment: {
+        module: mipmapShaderModule,
+        entryPoint: 'fs',
+        targets: [{ format: 'rgba8unorm' }]
+      },
+      primitive: { topology: 'triangle-strip' }
+    })
+
+    const sampler = this.device.createSampler({ minFilter: 'linear', magFilter: 'linear' })
+
+    let mipWidth = width
+    let mipHeight = height
+
+    for (let i = 1; i < mipLevelCount; i++) {
+      const srcView = texture.createView({ baseMipLevel: i - 1, mipLevelCount: 1 })
+      mipWidth = Math.max(1, mipWidth >> 1)
+      mipHeight = Math.max(1, mipHeight >> 1)
+      const dstView = texture.createView({ baseMipLevel: i, mipLevelCount: 1 })
+
+      const bindGroup = this.device.createBindGroup({
+        layout: pipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: srcView },
+          { binding: 1, resource: sampler }
+        ]
+      })
+
+      const commandEncoder = this.device.createCommandEncoder()
+      const passEncoder = commandEncoder.beginRenderPass({
+        colorAttachments: [{
+          view: dstView,
+          loadOp: 'clear',
+          storeOp: 'store'
+        }]
+      })
+
+      passEncoder.setPipeline(pipeline)
+      passEncoder.setBindGroup(0, bindGroup)
+      passEncoder.draw(4)
+      passEncoder.end()
+
+      this.device.queue.submit([commandEncoder.finish()])
+    }
   }
 
   private resizeCanvas(): void {
@@ -142,6 +265,8 @@ export class WebGPURenderer {
       this.glassParams.glassBgOpacity,
       this.glassParams.refractiveIndex,
       this.glassParams.magnifyingScale,
+      this.glassParams.useImageBg ? 1.0 : 0.0,
+      0, // padding
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
