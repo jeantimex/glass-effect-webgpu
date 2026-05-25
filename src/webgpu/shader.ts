@@ -161,28 +161,45 @@ export const shaderCode = `
 
     // Grid - fixed pixel size for cells
     let grid_size = uniforms.grid_cell_size;
-    let line_width = 3.0;
+    let base_line_width = 3.0;
     let anim_offset = time * uniforms.grid_speed;
     let grid_pixel = pixel - vec2f(anim_offset, anim_offset);
 
     let grid_x = abs(fract(grid_pixel.x / grid_size) - 0.5) * 2.0;
     let grid_y = abs(fract(grid_pixel.y / grid_size) - 0.5) * 2.0;
 
-    // Soften grid edges based on blur amount
-    let blur_softness = blur * 0.003;
+    // Blur makes lines thicker and edges softer (simulating Gaussian spread)
+    // Scaled for 0-100 range where 100 = fully blurred
+    let blur_spread = blur * 0.2;
+    let line_width = base_line_width + blur_spread;
     let line_threshold = 1.0 - (line_width / grid_size);
-    let edge_width = 0.02 + blur_softness;
-    let grid_line_x = smoothstep(line_threshold, line_threshold + edge_width, grid_x);
-    let grid_line_y = smoothstep(line_threshold, line_threshold + edge_width, grid_y);
+
+    // Edge softness increases with blur
+    let edge_width = 0.02 + blur * 0.003;
+    let grid_line_x = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_x);
+    let grid_line_y = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_y);
     let grid_line = max(grid_line_x, grid_line_y);
 
     let grid_color = vec3f(0.84, 0.91, 0.90);
-    // Reduce grid opacity based on blur (fades out the grid)
-    let blur_fade = 1.0 / (1.0 + blur * 0.025);
+    // Reduce grid contrast/opacity with blur (colors blend together)
+    // At blur=100, grid is completely invisible
+    let blur_fade = max(0.0, 1.0 - blur * 0.015);
     let grid_opacity = 0.8 * blur_fade;
 
-    let final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
-    return final_color * uniforms.bg_brightness;
+    // Also blend background colors toward average at high blur
+    let blur_color_blend = min(1.0, blur * 0.01);
+    let avg_color = (color_tl + color_mid + color_br) / 3.0;
+    bg_color = mix(bg_color, avg_color, blur_color_blend);
+
+    var final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
+
+    // Brightness: 0=black, 0.5=normal, 1=white
+    if (uniforms.bg_brightness <= 0.5) {
+      final_color = final_color * (uniforms.bg_brightness * 2.0);
+    } else {
+      final_color = mix(final_color, vec3f(1.0), (uniforms.bg_brightness - 0.5) * 2.0);
+    }
+    return final_color;
   }
 
   fn sample_background(pixel: vec2f, time: f32) -> vec3f {

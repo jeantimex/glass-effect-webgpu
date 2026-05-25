@@ -37,7 +37,7 @@ export class WebGPURenderer {
     gridSpeed: 40,
     specularOpacity: 0.4,
     specularAngle: Math.PI / 3, // 60 degrees
-    bgBrightness: 1.0,
+    bgBrightness: 0.5,
     specularSaturation: 4.0,
     blurAmount: 0.0,
   }
