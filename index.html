@@ -7,6 +7,53 @@
     <title>Glass Effect WebGPU</title>
   </head>
   <body>
+    <div id="app">
+      <div class="panel">
+        <div class="panel-section">
+          <h4>SURFACE</h4>
+          <div class="surface-buttons">
+            <button class="surface-btn active" data-surface="convex-circle" title="Convex Circle">
+              <svg viewBox="0 0 40 40"><path d="M5 35 Q5 5 35 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button class="surface-btn" data-surface="convex-squircle" title="Convex Squircle">
+              <svg viewBox="0 0 40 40"><path d="M5 35 Q5 20 20 10 Q30 5 35 5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button class="surface-btn" data-surface="concave" title="Concave">
+              <svg viewBox="0 0 40 40"><path d="M5 5 Q5 35 35 35" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+            <button class="surface-btn" data-surface="lip" title="Lip">
+              <svg viewBox="0 0 40 40"><path d="M5 25 Q10 5 20 15 Q30 25 35 20" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h4>CONTROLS</h4>
+          <div class="control-row">
+            <label>Bezel Width</label>
+            <input type="range" id="bezelWidth" min="10" max="100" value="60">
+          </div>
+          <div class="control-row">
+            <label>Glass Thickness</label>
+            <input type="range" id="glassThickness" min="10" max="200" value="100">
+          </div>
+          <div class="control-row">
+            <label>Refractive Index</label>
+            <input type="range" id="refractiveIndex" min="100" max="250" value="150">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h4>DISPLACEMENT MAP</h4>
+          <canvas id="displacementMap"></canvas>
+        </div>
+      </div>
+
+      <div class="preview">
+        <h4>PREVIEW</h4>
+        <canvas id="mainCanvas"></canvas>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

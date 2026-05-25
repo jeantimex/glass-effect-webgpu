@@ -1,4 +1,3 @@
-import { loadImage, createTextureFromImage } from './texture'
 import {
   createBindGroupLayout,
   createBindGroup,
@@ -13,14 +12,13 @@ export class WebGPURenderer {
   private pipeline!: GPURenderPipeline
   private bindGroup!: GPUBindGroup
   private uniformBuffer!: GPUBuffer
-  private imageBitmap!: ImageBitmap
   private startTime = performance.now()
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
   }
 
-  async init(imageUrl: string): Promise<void> {
+  async init(): Promise<void> {
     // Initialize WebGPU
     const adapter = await navigator.gpu?.requestAdapter()
     if (!adapter) {
@@ -32,21 +30,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Load image
-    this.imageBitmap = await loadImage(imageUrl)
-
-    // Create texture
-    const texture = createTextureFromImage(this.device, this.imageBitmap)
-
-    // Create sampler
-    const sampler = this.device.createSampler({
-      magFilter: 'linear',
-      minFilter: 'linear',
-    })
-
-    // Create uniform buffer
+    // Create uniform buffer (canvas_width, canvas_height, time, padding)
     this.uniformBuffer = this.device.createBuffer({
-      size: 48,
+      size: 16,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -55,8 +41,6 @@ export class WebGPURenderer {
     this.bindGroup = createBindGroup(
       this.device,
       bindGroupLayout,
-      texture,
-      sampler,
       this.uniformBuffer
     )
 
@@ -82,21 +66,12 @@ export class WebGPURenderer {
   render(): void {
     this.resizeCanvas()
 
-    // Update uniforms with current canvas dimensions
-    const circleRadius = Math.min(this.canvas.width, this.canvas.height) * 0.22
+    // Update uniforms
     const uniformTime = (performance.now() - this.startTime) / 1000
     const uniformData = new Float32Array([
-      this.imageBitmap.width,
-      this.imageBitmap.height,
       this.canvas.width,
       this.canvas.height,
-      this.canvas.width * 0.5,
-      this.canvas.height * 0.5,
-      circleRadius,
-      circleRadius * 0.24,
       uniformTime,
-      0,
-      0,
       0,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)

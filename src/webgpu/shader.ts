@@ -1,17 +1,9 @@
 export const shaderCode = `
   struct Uniforms {
-    image_width: f32,
-    image_height: f32,
     canvas_width: f32,
     canvas_height: f32,
-    circle_x: f32,
-    circle_y: f32,
-    circle_radius: f32,
-    circle_bezel_width: f32,
     time: f32,
     _pad0: f32,
-    _pad1: f32,
-    _pad2: f32,
   }
 
   struct VertexOutput {
@@ -19,27 +11,15 @@ export const shaderCode = `
     @location(0) uv: vec2f,
   }
 
-  @group(0) @binding(2) var<uniform> uniforms: Uniforms;
+  @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
   @vertex
   fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    let canvas_aspect = uniforms.canvas_width / uniforms.canvas_height;
-    let image_aspect = uniforms.image_width / uniforms.image_height;
-
-    var scale_x = 1.0;
-    var scale_y = 1.0;
-
-    if (canvas_aspect > image_aspect) {
-      scale_y = canvas_aspect / image_aspect;
-    } else {
-      scale_x = image_aspect / canvas_aspect;
-    }
-
     let pos = array(
-      vec2f(-scale_x,  scale_y),
-      vec2f(-scale_x, -scale_y),
-      vec2f( scale_x,  scale_y),
-      vec2f( scale_x, -scale_y),
+      vec2f(-1.0,  1.0),
+      vec2f(-1.0, -1.0),
+      vec2f( 1.0,  1.0),
+      vec2f( 1.0, -1.0),
     );
     let uv = array(
       vec2f(0.0, 0.0),
@@ -54,41 +34,50 @@ export const shaderCode = `
     return output;
   }
 
-  @group(0) @binding(0) var image_texture: texture_2d<f32>;
-  @group(0) @binding(1) var image_sampler: sampler;
-
   @fragment
   fn fs_main(input: VertexOutput) -> @location(0) vec4f {
-    let source = textureSample(image_texture, image_sampler, input.uv);
-    let circle_center = vec2f(uniforms.circle_x, uniforms.circle_y);
-    let pixel = input.position.xy;
-    let to_pixel = pixel - circle_center;
-    let distance_from_center = length(to_pixel);
-    let signed_distance_from_edge = uniforms.circle_radius - distance_from_center;
+    let uv = input.uv;
 
-    if (signed_distance_from_edge < 0.0) {
-      return source;
+    // Gradient colors (teal to pink)
+    let color_tl = vec3f(0.31, 0.74, 0.73);  // #4FBDBB teal
+    let color_mid = vec3f(0.69, 0.74, 0.73); // #AFBDBB gray-teal
+    let color_br = vec3f(0.87, 0.74, 0.73);  // #DFBDBB pink
+
+    // Diagonal gradient based on uv.x + uv.y
+    let t = (uv.x + uv.y) * 0.5;
+    var bg_color: vec3f;
+    if (t < 0.5) {
+      bg_color = mix(color_tl, color_mid, t * 2.0);
+    } else {
+      bg_color = mix(color_mid, color_br, (t - 0.5) * 2.0);
     }
 
-    let bezel = max(uniforms.circle_bezel_width, 1.0);
-    let bezel_t = clamp(signed_distance_from_edge / bezel, 0.0, 1.0);
-    let outer_alpha = smoothstep(-1.0, 1.0, signed_distance_from_edge);
-    let rim_alpha = smoothstep(0.0, 1.0, bezel_t) * (1.0 - smoothstep(0.58, 1.0, bezel_t));
+    // Grid parameters
+    let grid_size = 50.0;  // Size of each grid cell in pixels
+    let line_width = 3.0;  // Width of grid lines
 
-    let radial = select(vec2f(0.0, -1.0), to_pixel / max(distance_from_center, 0.0001), distance_from_center > 0.0001);
-    let light_dir = normalize(vec2f(0.72, -0.42));
-    let specular = pow(max(dot(-radial, light_dir), 0.0), 9.0) * rim_alpha;
-    let edge = 1.0 - smoothstep(0.0, 2.2, abs(signed_distance_from_edge));
+    // Animate grid movement (diagonal)
+    let anim_offset = uniforms.time * 15.0;  // Speed of animation
+    let pixel = input.position.xy + vec2f(anim_offset, anim_offset);
 
-    let glass_tint = vec3f(0.04, 0.08, 0.19);
-    let rim_color = vec3f(0.06, 0.19, 0.95);
-    let highlight_color = vec3f(1.0, 0.24, 0.62);
+    // Calculate grid lines
+    let grid_x = abs(fract(pixel.x / grid_size) - 0.5) * 2.0;
+    let grid_y = abs(fract(pixel.y / grid_size) - 0.5) * 2.0;
 
-    var color = mix(source.rgb, source.rgb * 0.48 + glass_tint, 0.34 * outer_alpha);
-    color = mix(color, rim_color, edge * 0.78);
-    color += highlight_color * specular * 0.9;
+    // Anti-aliased grid lines
+    let line_threshold = 1.0 - (line_width / grid_size);
+    let grid_line_x = smoothstep(line_threshold, line_threshold + 0.02, grid_x);
+    let grid_line_y = smoothstep(line_threshold, line_threshold + 0.02, grid_y);
+    let grid_line = max(grid_line_x, grid_line_y);
 
-    return vec4f(color, source.a);
+    // Grid line color (light, semi-transparent white)
+    let grid_color = vec3f(0.84, 0.91, 0.90);  // #D7E8E6
+    let grid_opacity = 0.8;
+
+    // Blend grid over background
+    let final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
+
+    return vec4f(final_color, 1.0);
   }
 `
 
@@ -125,19 +114,6 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
     entries: [
       {
         binding: 0,
-        visibility: GPUShaderStage.FRAGMENT,
-        texture: {
-          sampleType: 'float',
-          viewDimension: '2d',
-        },
-      },
-      {
-        binding: 1,
-        visibility: GPUShaderStage.FRAGMENT,
-        sampler: { type: 'filtering' },
-      },
-      {
-        binding: 2,
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         buffer: { type: 'uniform' },
       },
@@ -148,16 +124,12 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
 export function createBindGroup(
   device: GPUDevice,
   layout: GPUBindGroupLayout,
-  texture: GPUTexture,
-  sampler: GPUSampler,
   uniformBuffer: GPUBuffer
 ): GPUBindGroup {
   return device.createBindGroup({
     layout,
     entries: [
-      { binding: 0, resource: texture.createView() },
-      { binding: 1, resource: sampler },
-      { binding: 2, resource: { buffer: uniformBuffer } },
+      { binding: 0, resource: { buffer: uniformBuffer } },
     ],
   })
 }
