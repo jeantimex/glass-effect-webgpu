@@ -198,7 +198,7 @@ async function main() {
 
   const gridSpeedSlider = document.getElementById('gridSpeed') as HTMLInputElement
   gridSpeedSlider?.addEventListener('input', () => {
-    renderer.glassParams.gridSpeed = parseFloat(gridSpeedSlider.value)
+    renderer.setGridSpeed(parseFloat(gridSpeedSlider.value))
   })
 
   const specularOpacitySlider = document.getElementById('specularOpacity') as HTMLInputElement

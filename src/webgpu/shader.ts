@@ -27,7 +27,7 @@ export const shaderCode = `
     refractive_index: f32,
     magnifying_scale: f32,
     use_image_bg: f32,
-    _pad0: f32,
+    grid_offset: f32,
   }
 
   struct VertexOutput {
@@ -203,7 +203,7 @@ export const shaderCode = `
     // Grid - fixed pixel size for cells
     let grid_size = uniforms.grid_cell_size;
     let base_line_width = 3.0;
-    let anim_offset = time * uniforms.grid_speed;
+    let anim_offset = time * uniforms.grid_speed + uniforms.grid_offset;
     let grid_pixel = pixel - vec2f(anim_offset, anim_offset);
 
     let grid_x = abs(fract(grid_pixel.x / grid_size) - 0.5) * 2.0;

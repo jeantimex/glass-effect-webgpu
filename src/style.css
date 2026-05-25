@@ -28,6 +28,21 @@ body {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.panel::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .panel-section {
@@ -81,31 +96,10 @@ body {
 .controls-section {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.controls-section.collapsed {
-  flex: 0 0 auto;
 }
 
 .controls-content {
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.controls-content::-webkit-scrollbar {
-  width: 8px;
-}
-
-.controls-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-}
-
-.controls-content::-webkit-scrollbar-track {
-  background: transparent;
+  flex: 0 0 auto;
 }
 
 .displacement-section {

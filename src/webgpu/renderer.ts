@@ -52,6 +52,7 @@ export class WebGPURenderer {
   private renderedCircleSize = 1.0
   private glassCenterX = 0.5
   private glassCenterY = 0.5
+  private gridOffset = 0
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -148,6 +149,13 @@ export class WebGPURenderer {
       this.bgTexture,
       this.bgSampler
     )
+  }
+
+  setGridSpeed(speed: number): void {
+    const elapsedTime = (performance.now() - this.startTime) / 1000
+    const currentOffset = elapsedTime * this.glassParams.gridSpeed + this.gridOffset
+    this.glassParams.gridSpeed = speed
+    this.gridOffset = currentOffset - elapsedTime * speed
   }
 
   private async loadBackgroundTexture(url: string): Promise<GPUTexture> {
@@ -365,7 +373,7 @@ export class WebGPURenderer {
       this.glassParams.refractiveIndex,
       this.glassParams.magnifyingScale,
       this.glassParams.useImageBg ? 1.0 : 0.0,
-      0, // padding
+      this.gridOffset,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
