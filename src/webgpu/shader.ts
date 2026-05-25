@@ -17,7 +17,7 @@ export const shaderCode = `
     bg_brightness: f32,
     device_pixel_ratio: f32,
     specular_saturation: f32,
-    _pad0: f32,
+    blur_amount: f32,
   }
 
   struct VertexOutput {
@@ -104,6 +104,12 @@ export const shaderCode = `
     return mix(vec3f(luminance), color, saturation);
   }
 
+  // Sample background with blur effect
+  fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
+    // Use the internal function that applies blur softening to grid
+    return sample_background_internal(pixel, time, blur);
+  }
+
   // Calculate specular highlight intensity
   fn calculate_specular(
     distance_from_edge: f32,
@@ -136,8 +142,8 @@ export const shaderCode = `
     return intensity * intensity;
   }
 
-  // Sample background at a pixel position
-  fn sample_background(pixel: vec2f, time: f32) -> vec3f {
+  // Sample background at a pixel position (blur parameter softens grid lines)
+  fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
 
     // Gradient colors (teal to pink) - more saturated
@@ -162,16 +168,25 @@ export const shaderCode = `
     let grid_x = abs(fract(grid_pixel.x / grid_size) - 0.5) * 2.0;
     let grid_y = abs(fract(grid_pixel.y / grid_size) - 0.5) * 2.0;
 
+    // Soften grid edges based on blur amount
+    let blur_softness = blur * 0.003;
     let line_threshold = 1.0 - (line_width / grid_size);
-    let grid_line_x = smoothstep(line_threshold, line_threshold + 0.02, grid_x);
-    let grid_line_y = smoothstep(line_threshold, line_threshold + 0.02, grid_y);
+    let edge_width = 0.02 + blur_softness;
+    let grid_line_x = smoothstep(line_threshold, line_threshold + edge_width, grid_x);
+    let grid_line_y = smoothstep(line_threshold, line_threshold + edge_width, grid_y);
     let grid_line = max(grid_line_x, grid_line_y);
 
     let grid_color = vec3f(0.84, 0.91, 0.90);
-    let grid_opacity = 0.8;
+    // Reduce grid opacity based on blur (fades out the grid)
+    let blur_fade = 1.0 / (1.0 + blur * 0.025);
+    let grid_opacity = 0.8 * blur_fade;
 
     let final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
     return final_color * uniforms.bg_brightness;
+  }
+
+  fn sample_background(pixel: vec2f, time: f32) -> vec3f {
+    return sample_background_internal(pixel, time, 0.0);
   }
 
   @vertex
@@ -215,9 +230,9 @@ export const shaderCode = `
     // Calculate bezel width in pixels (matching displacement map calculation)
     let bezel_pixels = (uniforms.bezel_width / 110.0) * uniforms.glass_radius;
 
-    // Inside flat center - no refraction
+    // Inside flat center - no refraction, but apply blur if enabled
     if (distance_from_edge >= bezel_pixels) {
-      return vec4f(sample_background(pixel, uniforms.time), 1.0);
+      return vec4f(sample_background_blurred(pixel, uniforms.time, uniforms.blur_amount), 1.0);
     }
 
     // In bezel region - apply refraction
@@ -244,8 +259,8 @@ export const shaderCode = `
     // Apply displacement (rays bend toward center for convex glass)
     let displaced_pixel = pixel - direction * displacement;
 
-    // Sample background at displaced position
-    var color = sample_background(displaced_pixel, uniforms.time);
+    // Sample background at displaced position (with optional blur)
+    var color = sample_background_blurred(displaced_pixel, uniforms.time, uniforms.blur_amount);
 
     // Calculate and apply specular highlight
     let specular_intensity = calculate_specular(

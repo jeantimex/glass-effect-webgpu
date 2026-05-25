@@ -15,6 +15,7 @@ export interface GlassParams {
   specularAngle: number   // specular light angle in radians
   bgBrightness: number    // background brightness multiplier
   specularSaturation: number // specular saturation boost (1 = normal, >1 = more saturated)
+  blurAmount: number         // blur radius in pixels
 }
 
 export class WebGPURenderer {
@@ -38,6 +39,7 @@ export class WebGPURenderer {
     specularAngle: Math.PI / 3, // 60 degrees
     bgBrightness: 1.0,
     specularSaturation: 4.0,
+    blurAmount: 0.0,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -115,7 +117,7 @@ export class WebGPURenderer {
       this.glassParams.bgBrightness,
       window.devicePixelRatio || 1,
       this.glassParams.specularSaturation,
-      0, // padding
+      this.glassParams.blurAmount,
       0, // padding
       0, // padding
     ])
