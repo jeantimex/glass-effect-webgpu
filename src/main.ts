@@ -83,6 +83,11 @@ async function main() {
     updateDisplacementMap()
   })
 
+  const magnifyingScaleSlider = document.getElementById('magnifyingScale') as HTMLInputElement
+  magnifyingScaleSlider?.addEventListener('input', () => {
+    renderer.glassParams.magnifyingScale = parseFloat(magnifyingScaleSlider.value)
+  })
+
   scaleSlider?.addEventListener('input', () => {
     renderer.glassParams.scaleRatio = parseFloat(scaleSlider.value)
     updateDisplacementMap()

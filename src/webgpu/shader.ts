@@ -25,7 +25,7 @@ export const shaderCode = `
     progressive_blur: f32,
     glass_bg_opacity: f32,
     refractive_index: f32,
-    _pad0: f32,
+    magnifying_scale: f32,
   }
 
   struct VertexOutput {
@@ -272,11 +272,16 @@ export const shaderCode = `
     // Calculate bezel width in pixels (matching displacement map calculation)
     let bezel_pixels = (uniforms.bezel_width / 110.0) * uniforms.glass_radius;
 
-    // Inside flat center - no refraction, but apply blur if enabled
+    // Inside flat center - no refraction, but apply blur and magnification
     if (distance_from_edge >= bezel_pixels) {
+      // Apply magnifying displacement (zoom toward center)
+      let magnify_ratio = uniforms.glass_radius;
+      let magnify_displacement = to_pixel * (uniforms.magnifying_scale / magnify_ratio);
+      let magnified_pixel = pixel - magnify_displacement;
+
       // Progressive blur: minimal blur in center
       let center_blur = uniforms.blur_amount;
-      var center_color = sample_background_blurred(pixel, uniforms.time, center_blur);
+      var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
       // Apply glass background tint
       let glass_bg = vec3f(1.0, 1.0, 1.0);
       center_color = mix(center_color, glass_bg, uniforms.glass_bg_opacity);
@@ -306,7 +311,12 @@ export const shaderCode = `
     let direction = to_pixel / max(distance_from_center, 0.001);
 
     // Apply displacement (rays bend toward center for convex glass)
-    let displaced_pixel = pixel - direction * displacement;
+    var displaced_pixel = pixel - direction * displacement;
+
+    // Apply magnifying displacement (zoom toward center)
+    let magnify_ratio = uniforms.glass_radius;
+    let magnify_displacement = to_pixel * (uniforms.magnifying_scale / magnify_ratio);
+    displaced_pixel = displaced_pixel - magnify_displacement;
 
     // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
     let edge_factor = 1.0 - bezel_t;  // 1 at edge, 0 at inner

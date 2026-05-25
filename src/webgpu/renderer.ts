@@ -23,6 +23,7 @@ export interface GlassParams {
   progressiveBlur: number    // blur increases toward edges (0-1)
   glassBgOpacity: number     // glass background tint opacity (0-1)
   refractiveIndex: number    // glass refractive index (1.0-2.5)
+  magnifyingScale: number    // magnification scale (zoom effect)
 }
 
 export class WebGPURenderer {
@@ -54,6 +55,7 @@ export class WebGPURenderer {
     progressiveBlur: 0,
     glassBgOpacity: 0,
     refractiveIndex: 1.5,
+    magnifyingScale: 0,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -139,7 +141,7 @@ export class WebGPURenderer {
       this.glassParams.progressiveBlur,
       this.glassParams.glassBgOpacity,
       this.glassParams.refractiveIndex,
-      0, // padding
+      this.glassParams.magnifyingScale,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
