@@ -28,6 +28,10 @@ export const shaderCode = `
     magnifying_scale: f32,
     use_image_bg: f32,
     grid_offset: f32,
+    shape_type: f32,
+    pill_width: f32,
+    pill_height: f32,
+    pill_radius: f32,
   }
 
   struct VertexOutput {
@@ -154,6 +158,37 @@ export const shaderCode = `
     return intensity * intensity;
   }
 
+  fn rounded_rect_sdf(p: vec2f, half_size: vec2f, radius: f32) -> f32 {
+    let q = abs(p) - half_size + vec2f(radius);
+    return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+  }
+
+  fn shape_signed_distance(p: vec2f) -> f32 {
+    if (uniforms.shape_type > 0.5) {
+      return rounded_rect_sdf(
+        p,
+        vec2f(uniforms.pill_width, uniforms.pill_height) * 0.5,
+        uniforms.pill_radius
+      );
+    }
+
+    return length(p) - uniforms.glass_radius;
+  }
+
+  fn shape_normal(p: vec2f) -> vec2f {
+    let e = 1.0;
+    let dx = shape_signed_distance(p + vec2f(e, 0.0)) - shape_signed_distance(p - vec2f(e, 0.0));
+    let dy = shape_signed_distance(p + vec2f(0.0, e)) - shape_signed_distance(p - vec2f(0.0, e));
+    let normal = vec2f(dx, dy);
+    let normal_length = length(normal);
+
+    if (normal_length < 0.001) {
+      return normalize(p + vec2f(0.001, 0.0));
+    }
+
+    return normal / normal_length;
+  }
+
   // Sample background at a pixel position (blur parameter softens grid lines)
   fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
@@ -268,12 +303,8 @@ export const shaderCode = `
     let pixel = input.position.xy;
     let glass_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
 
-    // Vector from glass center to pixel
     let to_pixel = pixel - glass_center;
-    let distance_from_center = length(to_pixel);
-
-    // Distance from edge (positive = inside glass)
-    let distance_from_edge = uniforms.glass_radius - distance_from_center;
+    let distance_from_edge = -shape_signed_distance(to_pixel);
 
     // Outside glass - render background with shadow
     if (distance_from_edge < 0.0) {
@@ -282,9 +313,7 @@ export const shaderCode = `
       // Calculate shadow
       if (uniforms.shadow_opacity > 0.0) {
         let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
-        let to_shadow = pixel - shadow_center;
-        let shadow_dist = length(to_shadow);
-        let shadow_edge = uniforms.glass_radius - shadow_dist;
+        let shadow_edge = -shape_signed_distance(pixel - shadow_center);
 
         // Soft shadow falloff
         let shadow_blur = max(uniforms.shadow_blur, 1.0);
@@ -298,12 +327,13 @@ export const shaderCode = `
     }
 
     // Calculate bezel width in pixels (matching displacement map calculation)
-    let bezel_pixels = (uniforms.bezel_width / 110.0) * uniforms.glass_radius;
+    let shape_reference = select(uniforms.glass_radius, min(uniforms.pill_width, uniforms.pill_height) * 0.5, uniforms.shape_type > 0.5);
+    let bezel_pixels = (uniforms.bezel_width / 110.0) * shape_reference;
 
     // Inside flat center - no refraction, but apply blur and magnification
     if (distance_from_edge >= bezel_pixels) {
       // Apply magnifying displacement (zoom toward center)
-      let magnify_ratio = uniforms.glass_radius;
+      let magnify_ratio = shape_reference;
       let magnify_displacement = to_pixel * (uniforms.magnifying_scale / magnify_ratio);
       let magnified_pixel = pixel - magnify_displacement;
 
@@ -322,7 +352,7 @@ export const shaderCode = `
     // Get displacement magnitude
     // The 0.5 factor matches SVG feDisplacementMap behavior (uses XC - 0.5 formula)
     // Scale by glass size to maintain proportional appearance (reference uses radius=110)
-    let size_scale = uniforms.glass_radius / 110.0;
+    let size_scale = shape_reference / 110.0;
     let raw_displacement = calculate_displacement(
       bezel_t,
       uniforms.surface_type,
@@ -335,14 +365,14 @@ export const shaderCode = `
     let max_displacement = bezel_pixels * 0.8;
     let displacement = min(raw_displacement, max_displacement);
 
-    // Direction from center (normalized)
-    let direction = to_pixel / max(distance_from_center, 0.001);
+    // Direction from the nearest shape edge toward this pixel.
+    let direction = shape_normal(to_pixel);
 
     // Apply displacement (rays bend toward center for convex glass)
     var displaced_pixel = pixel - direction * displacement;
 
     // Apply magnifying displacement (zoom toward center)
-    let magnify_ratio = uniforms.glass_radius;
+    let magnify_ratio = shape_reference;
     let magnify_displacement = to_pixel * (uniforms.magnifying_scale / magnify_ratio);
     displaced_pixel = displaced_pixel - magnify_displacement;
 

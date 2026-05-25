@@ -14,15 +14,18 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-type PresetType = 'circle-lens'
+type PresetType = 'circle-lens' | 'pill'
 
 interface GlassPreset {
+  shapeType: number
   surfaceType: SurfaceType
   bezelWidth: number
   glassThickness: number
   refractiveIndex: number
   magnifyingScale: number
   circleSize: number
+  pillWidth: number
+  pillHeight: number
   scaleRatio: number
   blurAmount: number
   progressiveBlur: number
@@ -38,12 +41,15 @@ interface GlassPreset {
 
 const presets: Record<PresetType, GlassPreset> = {
   'circle-lens': {
+    shapeType: 0,
     surfaceType: 'convex-circle',
     bezelWidth: 60,
     glassThickness: 50,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
     circleSize: 1,
+    pillWidth: 420,
+    pillHeight: 96,
     scaleRatio: 1,
     blurAmount: 0,
     progressiveBlur: 0,
@@ -56,12 +62,36 @@ const presets: Record<PresetType, GlassPreset> = {
     shadowOffsetX: 0,
     shadowOffsetY: 15,
   },
+  pill: {
+    shapeType: 1,
+    surfaceType: 'convex-squircle',
+    bezelWidth: 60,
+    glassThickness: 50,
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+    circleSize: 1,
+    pillWidth: 420,
+    pillHeight: 96,
+    scaleRatio: 1,
+    blurAmount: 0,
+    progressiveBlur: 0,
+    glassBgOpacity: 0.08,
+    specularOpacity: 0.4,
+    specularAngle: 60,
+    specularSaturation: 4,
+    shadowOpacity: 0.12,
+    shadowBlur: 26,
+    shadowOffsetX: 0,
+    shadowOffsetY: 12,
+  },
 }
 
 async function main() {
   const mainCanvas = document.getElementById('mainCanvas') as HTMLCanvasElement
   const displacementCanvas = document.getElementById('displacementMap') as HTMLCanvasElement
   const circleSizeSlider = document.getElementById('circleSize') as HTMLInputElement
+  const pillWidthSlider = document.getElementById('pillWidth') as HTMLInputElement
+  const pillHeightSlider = document.getElementById('pillHeight') as HTMLInputElement
 
   if (!mainCanvas || !displacementCanvas) {
     throw new Error('Canvas elements not found')
@@ -133,6 +163,28 @@ async function main() {
     }
   }
 
+  function setPillWidth(width: number) {
+    const min = pillWidthSlider ? parseFloat(pillWidthSlider.min) : 160
+    const max = pillWidthSlider ? parseFloat(pillWidthSlider.max) : 760
+    const clampedWidth = Math.min(Math.max(width, min), max)
+
+    renderer.glassParams.pillWidth = clampedWidth
+    if (pillWidthSlider) {
+      pillWidthSlider.value = String(clampedWidth)
+    }
+  }
+
+  function setPillHeight(height: number) {
+    const min = pillHeightSlider ? parseFloat(pillHeightSlider.min) : 48
+    const max = pillHeightSlider ? parseFloat(pillHeightSlider.max) : 240
+    const clampedHeight = Math.min(Math.max(height, min), max)
+
+    renderer.glassParams.pillHeight = clampedHeight
+    if (pillHeightSlider) {
+      pillHeightSlider.value = String(clampedHeight)
+    }
+  }
+
   mainCanvas.addEventListener('pointerdown', (event) => {
     if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) return
 
@@ -179,7 +231,12 @@ async function main() {
     if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) return
 
     const direction = event.deltaY > 0 ? -1 : 1
-    setCircleSize(renderer.glassParams.circleSize + direction * 0.04)
+    if (renderer.glassParams.shapeType === 1) {
+      setPillWidth(renderer.glassParams.pillWidth + direction * 24)
+      setPillHeight(renderer.glassParams.pillHeight + direction * 6)
+    } else {
+      setCircleSize(renderer.glassParams.circleSize + direction * 0.04)
+    }
     event.preventDefault()
   }, { passive: false })
 
@@ -213,13 +270,26 @@ async function main() {
   const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
   const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
   const shadowOffsetYSlider = document.getElementById('shadowOffsetY') as HTMLInputElement
+  const circleOnlyControls = document.querySelectorAll<HTMLElement>('.circle-only-control')
+  const pillOnlyControls = document.querySelectorAll<HTMLElement>('.pill-only-control')
 
   function setSliderValue(slider: HTMLInputElement | null, value: number) {
     if (slider) slider.value = String(value)
   }
 
+  function updateShapeControls() {
+    const isPill = renderer.glassParams.shapeType === 1
+    circleOnlyControls.forEach((control) => {
+      control.classList.toggle('hidden', isPill)
+    })
+    pillOnlyControls.forEach((control) => {
+      control.classList.toggle('hidden', !isPill)
+    })
+  }
+
   function applyPreset(type: PresetType) {
     const preset = presets[type]
+    renderer.glassParams.shapeType = preset.shapeType
     currentSurfaceType = preset.surfaceType
     renderer.glassParams.surfaceType = surfaceTypeMap[preset.surfaceType]
     renderer.glassParams.bezelWidth = preset.bezelWidth
@@ -227,6 +297,8 @@ async function main() {
     renderer.glassParams.refractiveIndex = preset.refractiveIndex
     renderer.glassParams.magnifyingScale = preset.magnifyingScale
     renderer.glassParams.circleSize = preset.circleSize
+    renderer.glassParams.pillWidth = preset.pillWidth
+    renderer.glassParams.pillHeight = preset.pillHeight
     renderer.glassParams.scaleRatio = preset.scaleRatio
     renderer.glassParams.blurAmount = preset.blurAmount
     renderer.glassParams.progressiveBlur = preset.progressiveBlur
@@ -247,6 +319,8 @@ async function main() {
     setSliderValue(refractiveIndexSlider, preset.refractiveIndex)
     setSliderValue(magnifyingScaleSlider, preset.magnifyingScale)
     setSliderValue(circleSizeSlider, preset.circleSize)
+    setSliderValue(pillWidthSlider, preset.pillWidth)
+    setSliderValue(pillHeightSlider, preset.pillHeight)
     setSliderValue(scaleSlider, preset.scaleRatio)
     setSliderValue(blurAmountSlider, preset.blurAmount)
     setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
@@ -258,8 +332,11 @@ async function main() {
     setSliderValue(shadowBlurSlider, preset.shadowBlur)
     setSliderValue(shadowOffsetXSlider, preset.shadowOffsetX)
     setSliderValue(shadowOffsetYSlider, preset.shadowOffsetY)
+    updateShapeControls()
     updateDisplacementMap()
   }
+
+  updateShapeControls()
 
   presetSelect?.addEventListener('change', () => {
     applyPreset(presetSelect.value as PresetType)
@@ -286,6 +363,14 @@ async function main() {
 
   circleSizeSlider?.addEventListener('input', () => {
     setCircleSize(parseFloat(circleSizeSlider.value))
+  })
+
+  pillWidthSlider?.addEventListener('input', () => {
+    setPillWidth(parseFloat(pillWidthSlider.value))
+  })
+
+  pillHeightSlider?.addEventListener('input', () => {
+    setPillHeight(parseFloat(pillHeightSlider.value))
   })
 
   const backgroundTypeSelect = document.getElementById('backgroundType') as HTMLSelectElement

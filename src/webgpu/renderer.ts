@@ -25,6 +25,9 @@ export interface GlassParams {
   refractiveIndex: number    // glass refractive index (1.0-2.5)
   magnifyingScale: number    // magnification scale (zoom effect)
   circleSize: number         // circle radius scale multiplier
+  shapeType: number          // 0=circle, 1=pill
+  pillWidth: number          // pill width in CSS pixels
+  pillHeight: number         // pill height in CSS pixels
   useImageBg: boolean        // use image background instead of grid
 }
 
@@ -75,6 +78,9 @@ export class WebGPURenderer {
     refractiveIndex: 1.5,
     magnifyingScale: 0,
     circleSize: 1.0,
+    shapeType: 0,
+    pillWidth: 420,
+    pillHeight: 96,
     useImageBg: false,
   }
 
@@ -94,9 +100,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (28 floats = 112 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (32 floats = 128 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 112,
+      size: 128,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -285,6 +291,34 @@ export class WebGPURenderer {
     return Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
   }
 
+  private getPillSize(): { width: number; height: number; radius: number } {
+    const dpr = window.devicePixelRatio || 1
+    const width = this.glassParams.pillWidth * dpr
+    const height = this.glassParams.pillHeight * dpr
+
+    return {
+      width,
+      height,
+      radius: height / 2,
+    }
+  }
+
+  private getShapeBounds(): { halfWidth: number; halfHeight: number } {
+    if (this.glassParams.shapeType === 1) {
+      const pill = this.getPillSize()
+      return {
+        halfWidth: pill.width / 2,
+        halfHeight: pill.height / 2,
+      }
+    }
+
+    const radius = this.getGlassRadius()
+    return {
+      halfWidth: radius,
+      halfHeight: radius,
+    }
+  }
+
   private clientPointToCanvasPoint(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect()
     const scaleX = this.canvas.width / rect.width
@@ -303,6 +337,18 @@ export class WebGPURenderer {
     const dx = point.x - centerX
     const dy = point.y - centerY
 
+    if (this.glassParams.shapeType === 1) {
+      const pill = this.getPillSize()
+      const qx = Math.abs(dx) - (pill.width / 2 - pill.radius)
+      const qy = Math.abs(dy) - (pill.height / 2 - pill.radius)
+      const outsideX = Math.max(qx, 0)
+      const outsideY = Math.max(qy, 0)
+      const inside = Math.min(Math.max(qx, qy), 0)
+      const signedDistance = Math.sqrt(outsideX * outsideX + outsideY * outsideY) + inside - pill.radius
+
+      return signedDistance <= 0
+    }
+
     return Math.sqrt(dx * dx + dy * dy) <= this.getGlassRadius()
   }
 
@@ -320,11 +366,11 @@ export class WebGPURenderer {
     dragOffset: { x: number; y: number } = { x: 0, y: 0 }
   ): void {
     const point = this.clientPointToCanvasPoint(clientX, clientY)
-    const radius = this.getGlassRadius()
-    const minX = Math.min(radius, this.canvas.width / 2)
-    const maxX = Math.max(this.canvas.width - radius, this.canvas.width / 2)
-    const minY = Math.min(radius, this.canvas.height / 2)
-    const maxY = Math.max(this.canvas.height - radius, this.canvas.height / 2)
+    const bounds = this.getShapeBounds()
+    const minX = Math.min(bounds.halfWidth, this.canvas.width / 2)
+    const maxX = Math.max(this.canvas.width - bounds.halfWidth, this.canvas.width / 2)
+    const minY = Math.min(bounds.halfHeight, this.canvas.height / 2)
+    const maxY = Math.max(this.canvas.height - bounds.halfHeight, this.canvas.height / 2)
     const clampedX = Math.min(Math.max(point.x - dragOffset.x, minX), maxX)
     const clampedY = Math.min(Math.max(point.y - dragOffset.y, minY), maxY)
 
@@ -342,6 +388,7 @@ export class WebGPURenderer {
 
     // Calculate glass radius based on canvas size
     const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.renderedCircleSize
+    const pill = this.getPillSize()
 
     // Update uniforms
     const uniformTime = (performance.now() - this.startTime) / 1000
@@ -374,6 +421,10 @@ export class WebGPURenderer {
       this.glassParams.magnifyingScale,
       this.glassParams.useImageBg ? 1.0 : 0.0,
       this.gridOffset,
+      this.glassParams.shapeType,
+      pill.width,
+      pill.height,
+      pill.radius,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
