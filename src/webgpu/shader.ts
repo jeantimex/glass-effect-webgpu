@@ -18,9 +18,9 @@ export const shaderCode = `
     device_pixel_ratio: f32,
     specular_saturation: f32,
     specular_type: f32,
+    progressive_blur_type: f32,
     specular_pad_0: f32,
     specular_pad_1: f32,
-    specular_pad_2: f32,
     blur_amount: f32,
     shadow_opacity: f32,
     shadow_blur: f32,
@@ -326,6 +326,25 @@ export const shaderCode = `
     return pixel - magnify_displacement;
   }
 
+  fn get_shape_half_height() -> f32 {
+    return select(uniforms.glass_radius, uniforms.rect_height * 0.5, uniforms.shape_type > 0.5);
+  }
+
+  fn calculate_progressive_blur(to_pixel: vec2f, bezel_t: f32) -> f32 {
+    if (uniforms.progressive_blur_type > 0.5) {
+      let half_height = get_shape_half_height();
+      let normalized_y = clamp((to_pixel.y + half_height) / (half_height * 2.0), 0.0, 1.0);
+      let band_width = 0.18;
+      let top_band = 1.0 - smoothstep(0.0, band_width, normalized_y);
+      let bottom_band = smoothstep(1.0 - band_width, 1.0, normalized_y);
+      let band_mask = max(top_band, bottom_band);
+      return uniforms.blur_amount + uniforms.progressive_blur * 50.0 * band_mask;
+    }
+
+    let edge_factor = 1.0 - bezel_t;
+    return uniforms.blur_amount + edge_factor * uniforms.progressive_blur * 50.0;
+  }
+
   // Sample background at a pixel position (blur parameter softens grid lines)
   fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
@@ -459,7 +478,7 @@ export const shaderCode = `
     // Inside flat center - no refraction, but apply blur and magnification
     if (distance_from_edge >= bezel_pixels) {
       // Progressive blur: minimal blur in center
-      let center_blur = uniforms.blur_amount;
+      let center_blur = calculate_progressive_blur(to_pixel, 1.0);
       var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
       center_color = apply_glass_tint(center_color);
       return vec4f(center_color, 1.0);
@@ -491,8 +510,7 @@ export const shaderCode = `
     var displaced_pixel = magnified_pixel - direction * displacement;
 
     // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
-    let edge_factor = 1.0 - bezel_t;  // 1 at edge, 0 at inner
-    let progressive_blur = uniforms.blur_amount + edge_factor * uniforms.progressive_blur * 50.0;
+    let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);
 
     // Sample background at displaced position (with optional blur)
     var color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);

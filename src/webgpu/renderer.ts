@@ -23,6 +23,7 @@ export interface GlassParams {
   shadowOffsetX: number      // shadow horizontal offset
   shadowOffsetY: number      // shadow vertical offset
   progressiveBlur: number    // blur increases toward edges (0-1)
+  progressiveBlurType: number // 0=edge falloff, 1=overlay bands
   glassBgOpacity: number     // glass background tint opacity (0-1)
   refractiveIndex: number    // glass refractive index (1.0-2.5)
   magnifyingScale: number    // magnification scale (zoom effect)
@@ -82,6 +83,7 @@ export class WebGPURenderer {
     shadowOffsetX: 0,
     shadowOffsetY: 15,
     progressiveBlur: 0,
+    progressiveBlurType: 0,
     glassBgOpacity: 0,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
@@ -425,7 +427,7 @@ export class WebGPURenderer {
       window.devicePixelRatio || 1,
       this.glassParams.specularSaturation,
       this.glassParams.specularType,
-      0.0,
+      this.glassParams.progressiveBlurType,
       0.0,
       0.0,
       this.glassParams.blurAmount,
