@@ -126,6 +126,13 @@ async function main() {
     shadowOffsetY: renderer.glassParams.shadowOffsetY,
     specularOpacity: renderer.glassParams.specularOpacity,
     glassBgOpacity: renderer.glassParams.glassBgOpacity,
+    liquidEnabled: true,
+    liquidPressScale: 1.16,
+    liquidPressRefraction: 1.28,
+    liquidSpeed: 1,
+    liquidClickSquash: 1,
+    liquidDragSquash: 1,
+    liquidReleaseSquash: 1,
   }
 
   // Local state for surface type (string version for displacement map)
@@ -168,6 +175,7 @@ async function main() {
   let draggingGlass = false
   let glassDragOffset = { x: 0, y: 0 }
   let lastPointerPos = { x: 0, y: 0 }
+  let lastPointerTime = 0
   let currentVelocity = { x: 0, y: 0 }
 
   function createSpring(value: number, stiffness: number, damping: number) {
@@ -251,10 +259,13 @@ async function main() {
     draggingGlass = true
     glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
     lastPointerPos = { x: event.clientX, y: event.clientY }
+    lastPointerTime = performance.now()
     currentVelocity = { x: 0, y: 0 }
 
-    springs.liquid.value = Math.max(springs.liquid.value, 0.72)
-    springs.liquid.velocity += 2.6
+    if (userParams.liquidEnabled) {
+      springs.liquid.value = Math.max(springs.liquid.value, 0.72 * userParams.liquidClickSquash)
+      springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
+    }
 
     mainCanvas.style.cursor = 'grabbing'
 
@@ -268,10 +279,12 @@ async function main() {
       return
     }
 
-    // Calculate velocity
-    currentVelocity.x = event.clientX - lastPointerPos.x
-    currentVelocity.y = event.clientY - lastPointerPos.y
+    const now = performance.now()
+    const dt = Math.max((now - lastPointerTime) / 1000, 1 / 120)
+    currentVelocity.x = (event.clientX - lastPointerPos.x) / dt
+    currentVelocity.y = (event.clientY - lastPointerPos.y) / dt
     lastPointerPos = { x: event.clientX, y: event.clientY }
+    lastPointerTime = now
 
     renderer.setGlassCenterFromClientPoint(event.clientX, event.clientY, glassDragOffset)
     event.preventDefault()
@@ -285,8 +298,10 @@ async function main() {
 
     draggingGlass = false
     currentVelocity = { x: 0, y: 0 }
-    springs.liquid.value = Math.max(springs.liquid.value, 0.58)
-    springs.liquid.velocity -= 3.0
+    if (userParams.liquidEnabled) {
+      springs.liquid.value = Math.max(springs.liquid.value, 0.58 * userParams.liquidReleaseSquash)
+      springs.liquid.velocity -= 3.0 * userParams.liquidReleaseSquash
+    }
 
     if (mainCanvas.hasPointerCapture(event.pointerId)) {
       mainCanvas.releasePointerCapture(event.pointerId)
@@ -364,6 +379,13 @@ async function main() {
   const progressiveBlurTypeSelect = document.getElementById('progressiveBlurType') as HTMLSelectElement
   const glassThemeSelect = document.getElementById('glassTheme') as HTMLSelectElement
   const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
+  const liquidEnabledCheckbox = document.getElementById('liquidEnabled') as HTMLInputElement
+  const liquidPressScaleSlider = document.getElementById('liquidPressScale') as HTMLInputElement
+  const liquidPressRefractionSlider = document.getElementById('liquidPressRefraction') as HTMLInputElement
+  const liquidSpeedSlider = document.getElementById('liquidSpeed') as HTMLInputElement
+  const liquidClickSquashSlider = document.getElementById('liquidClickSquash') as HTMLInputElement
+  const liquidDragSquashSlider = document.getElementById('liquidDragSquash') as HTMLInputElement
+  const liquidReleaseSquashSlider = document.getElementById('liquidReleaseSquash') as HTMLInputElement
   const shadowOpacitySlider = document.getElementById('shadowOpacity') as HTMLInputElement
   const shadowBlurSlider = document.getElementById('shadowBlur') as HTMLInputElement
   const shadowOffsetXSlider = document.getElementById('shadowOffsetX') as HTMLInputElement
@@ -623,6 +645,45 @@ async function main() {
     userParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
   })
 
+  liquidEnabledCheckbox?.addEventListener('change', () => {
+    userParams.liquidEnabled = liquidEnabledCheckbox.checked
+    if (!userParams.liquidEnabled) {
+      springs.liquid.value = 0
+      springs.liquid.target = 0
+      springs.liquid.velocity = 0
+      springs.deformationX.value = 1
+      springs.deformationX.target = 1
+      springs.deformationX.velocity = 0
+      springs.deformationY.value = 1
+      springs.deformationY.target = 1
+      springs.deformationY.velocity = 0
+    }
+  })
+
+  liquidPressScaleSlider?.addEventListener('input', () => {
+    userParams.liquidPressScale = parseFloat(liquidPressScaleSlider.value)
+  })
+
+  liquidPressRefractionSlider?.addEventListener('input', () => {
+    userParams.liquidPressRefraction = parseFloat(liquidPressRefractionSlider.value)
+  })
+
+  liquidSpeedSlider?.addEventListener('input', () => {
+    userParams.liquidSpeed = parseFloat(liquidSpeedSlider.value)
+  })
+
+  liquidClickSquashSlider?.addEventListener('input', () => {
+    userParams.liquidClickSquash = parseFloat(liquidClickSquashSlider.value)
+  })
+
+  liquidDragSquashSlider?.addEventListener('input', () => {
+    userParams.liquidDragSquash = parseFloat(liquidDragSquashSlider.value)
+  })
+
+  liquidReleaseSquashSlider?.addEventListener('input', () => {
+    userParams.liquidReleaseSquash = parseFloat(liquidReleaseSquashSlider.value)
+  })
+
   const bgBrightnessSlider = document.getElementById('bgBrightness') as HTMLInputElement
   bgBrightnessSlider?.addEventListener('input', () => {
     renderer.glassParams.bgBrightness = parseFloat(bgBrightnessSlider.value)
@@ -655,15 +716,23 @@ async function main() {
     const now = performance.now()
     const dt = Math.min((now - lastFrameTime) / 1000, 0.05)
     lastFrameTime = now
+    const velocityDecay = Math.exp(-dt * (draggingGlass ? 5.5 : 12))
+    currentVelocity.x *= velocityDecay
+    currentVelocity.y *= velocityDecay
+    const speed = Math.hypot(currentVelocity.x, currentVelocity.y)
+    const liquidAmount = userParams.liquidEnabled ? 1 : 0
+    const dragLiquid = draggingGlass
+      ? Math.min(speed * 0.00018 * userParams.liquidDragSquash * liquidAmount, 0.28 * userParams.liquidDragSquash)
+      : 0
 
     if (draggingGlass) {
-      springs.scale.target = userParams.circleSize * 1.16
-      springs.refraction.target = userParams.scaleRatio * 1.34
+      springs.scale.target = userParams.circleSize * (userParams.liquidEnabled ? userParams.liquidPressScale : 1)
+      springs.refraction.target = userParams.scaleRatio * (userParams.liquidEnabled ? userParams.liquidPressRefraction + dragLiquid * 0.45 : 1)
       springs.magnification.target = userParams.magnifyingScale
-      springs.shadowOpacity.target = Math.min(userParams.shadowOpacity + 0.1, 1)
-      springs.shadowBlur.target = userParams.shadowBlur * 0.72
-      springs.shadowOffsetY.target = userParams.shadowOffsetY + 5
-      springs.specularOpacity.target = Math.min(userParams.specularOpacity + 0.22, 1)
+      springs.shadowOpacity.target = userParams.liquidEnabled ? Math.min(userParams.shadowOpacity + 0.1, 1) : userParams.shadowOpacity
+      springs.shadowBlur.target = userParams.liquidEnabled ? userParams.shadowBlur * 0.72 : userParams.shadowBlur
+      springs.shadowOffsetY.target = userParams.liquidEnabled ? userParams.shadowOffsetY + 5 : userParams.shadowOffsetY
+      springs.specularOpacity.target = userParams.liquidEnabled ? Math.min(userParams.specularOpacity + 0.22, 1) : userParams.specularOpacity
       springs.glassBgOpacity.target = userParams.glassBgOpacity
       springs.liquid.target = 0
     } else {
@@ -678,16 +747,19 @@ async function main() {
       springs.liquid.target = 0
     }
 
-    springs.deformationX.target = 1.0 + springs.liquid.value * 0.12
-    springs.deformationY.target = 1.0 - springs.liquid.value * 0.08
+    const velocityX = Math.min(Math.abs(currentVelocity.x) * 0.00016 * userParams.liquidDragSquash * liquidAmount, 0.24 * userParams.liquidDragSquash)
+    const velocityY = Math.min(Math.abs(currentVelocity.y) * 0.00016 * userParams.liquidDragSquash * liquidAmount, 0.24 * userParams.liquidDragSquash)
+    springs.deformationX.target = 1.0 + springs.liquid.value * 0.12 * liquidAmount + velocityX - velocityY * 0.45
+    springs.deformationY.target = 1.0 - springs.liquid.value * 0.08 * liquidAmount + velocityY - velocityX * 0.45
 
     // Update springs
+    const springSpeed = userParams.liquidEnabled ? userParams.liquidSpeed : 1
     for (const key in springs) {
       const s = springs[key as keyof typeof springs]
       let remaining = dt
       while (remaining > 0) {
         const step = Math.min(remaining, 1 / 120)
-        const acceleration = (s.target - s.value) * s.stiffness - s.velocity * s.damping
+        const acceleration = (s.target - s.value) * s.stiffness * springSpeed * springSpeed - s.velocity * s.damping * springSpeed
         s.velocity += acceleration * step
         s.value += s.velocity * step
         remaining -= step
@@ -695,11 +767,13 @@ async function main() {
     }
 
     // Apply spring values to renderer
-    renderer.glassParams.circleSize = springs.scale.value
+    const interactionScale = springs.scale.value / Math.max(userParams.circleSize, 0.001)
+    const isRectangle = renderer.glassParams.shapeType === 1
+    renderer.glassParams.circleSize = isRectangle ? userParams.circleSize : springs.scale.value
     renderer.glassParams.scaleRatio = springs.refraction.value
     renderer.glassParams.magnifyingScale = springs.magnification.value
-    renderer.glassParams.scaleX = springs.deformationX.value
-    renderer.glassParams.scaleY = springs.deformationY.value
+    renderer.glassParams.scaleX = springs.deformationX.value * (isRectangle ? interactionScale : 1)
+    renderer.glassParams.scaleY = springs.deformationY.value * (isRectangle ? interactionScale : 1)
     renderer.glassParams.shadowOpacity = springs.shadowOpacity.value
     renderer.glassParams.shadowBlur = springs.shadowBlur.value
     renderer.glassParams.shadowOffsetX = userParams.shadowOffsetX

@@ -203,6 +203,12 @@ body {
   cursor: pointer;
 }
 
+.control-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #6b9eff;
+}
+
 .control-row select {
   flex: 1;
   min-width: 0;
