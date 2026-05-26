@@ -71,7 +71,7 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     input.switchCenterY * canvas.height,
     params.switchTrackOffOpacity,
     params.switchTrackOnOpacity,
-    0,
+    params.maxDisplacementScale,
     0,
     0,
   ])

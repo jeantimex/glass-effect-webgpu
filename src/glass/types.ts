@@ -25,6 +25,7 @@ export interface GlassPreset {
   switchTrackHeight: number
   switchTrackOffOpacity: number
   switchTrackOnOpacity: number
+  maxDisplacementScale: number
   trackProgress: number
   scaleRatio: number
   blurAmount: number

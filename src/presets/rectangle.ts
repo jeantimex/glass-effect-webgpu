@@ -18,6 +18,7 @@ export class RectanglePreset extends GlassPresetDefinition {
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
+    maxDisplacementScale: 4.0,
     trackProgress: 1,
     scaleRatio: 1,
     blurAmount: 0,

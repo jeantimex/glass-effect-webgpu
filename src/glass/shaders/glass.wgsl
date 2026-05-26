@@ -48,7 +48,7 @@ struct Uniforms {
   switch_center_y: f32,
   switch_track_off_opacity: f32,
   switch_track_on_opacity: f32,
-  slider_pad_0: f32,
+  max_displacement_scale: f32,
   slider_pad_1: f32,
   slider_pad_2: f32,
 }
@@ -567,7 +567,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Limit extreme sampling. Rounded-rect UI controls need more room than the
   // circular demo because their SVG filters can pull color across the full rim.
-  let max_displacement = bezel_pixels * select(0.8, 4.0, uniforms.shape_type > 0.5);
+  let max_displacement = bezel_pixels * uniforms.max_displacement_scale;
   let displacement = min(raw_displacement, max_displacement);
 
   // Direction from the nearest shape edge toward this pixel.

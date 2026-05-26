@@ -47,5 +47,6 @@ export function createDefaultGlassParams(): GlassParams {
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
+    maxDisplacementScale: 0.8,
   }
 }

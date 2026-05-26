@@ -74,6 +74,7 @@ export class GlassControlPanel {
     renderer.glassParams.switchTrackHeight = preset.switchTrackHeight
     renderer.glassParams.switchTrackOffOpacity = preset.switchTrackOffOpacity
     renderer.glassParams.switchTrackOnOpacity = preset.switchTrackOnOpacity
+    renderer.glassParams.maxDisplacementScale = preset.maxDisplacementScale
     renderer.setSwitchProgress(preset.trackProgress)
     renderer.glassParams.scaleRatio = preset.scaleRatio
     renderer.glassParams.blurAmount = preset.blurAmount

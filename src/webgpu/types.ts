@@ -39,6 +39,7 @@ export interface GlassParams {
   switchTrackHeight: number
   switchTrackOffOpacity: number
   switchTrackOnOpacity: number
+  maxDisplacementScale: number
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner'
