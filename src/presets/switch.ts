@@ -1,0 +1,44 @@
+import type { GlassPreset } from '../glass/types'
+import { GlassPresetDefinition } from './base'
+
+export class SwitchPreset extends GlassPresetDefinition {
+  readonly id = 'switch'
+  readonly config: GlassPreset = {
+    shapeType: 1,
+    surfaceType: 'lip',
+    bezelWidth: 45,
+    glassThickness: 47,
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+    circleSize: 0.65,
+    rectWidth: 146,
+    rectHeight: 92,
+    rectRadiusPercent: 100,
+    switchTrackWidth: 184,
+    switchTrackHeight: 67,
+    switchTrackOffOpacity: 0.34,
+    switchTrackOnOpacity: 0.86,
+    trackProgress: 1,
+    scaleRatio: 0.4,
+    blurAmount: 0.2,
+    blurType: 0,
+    progressiveBlur: 0,
+    progressiveBlurType: 0,
+    glassBgOpacity: 0.1,
+    pressedGlassBgOpacity: 0,
+    specularType: 0,
+    specularOpacity: 0.5,
+    specularAngle: 60,
+    specularSaturation: 6,
+    shadowOpacity: 0.1,
+    shadowBlur: 22,
+    shadowOffsetX: 0,
+    shadowOffsetY: 4,
+    liquidPressScale: 1.38,
+    liquidPressRefraction: 2.25,
+    liquidClickSquash: 0.85,
+    liquidDragSquash: 1.1,
+    liquidReleaseSquash: 0.9,
+    liquidSpeed: 1.2,
+  }
+}

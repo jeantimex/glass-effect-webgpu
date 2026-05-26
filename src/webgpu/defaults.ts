@@ -1,0 +1,51 @@
+import type { BackgroundType, GlassParams } from './types'
+
+export const backgroundImageUrls: Record<Exclude<BackgroundType, 'grid'>, string> = {
+  leaves: '/assets/leaves.jpg',
+  banner: '/assets/banner.jpeg',
+}
+
+export function createDefaultGlassParams(): GlassParams {
+  return {
+    bezelWidth: 60,
+    glassThickness: 50,
+    scaleRatio: 1.0,
+    surfaceType: 0,
+    gridCellSize: 105,
+    gridSpeed: 40,
+    specularOpacity: 0.4,
+    specularAngle: Math.PI / 3,
+    bgBrightness: 1.0,
+    specularSaturation: 4.0,
+    specularType: 0,
+    scaleX: 1.0,
+    scaleY: 1.0,
+    blurAmount: 0.0,
+    blurType: 1,
+    shadowOpacity: 0.1,
+    shadowBlur: 30,
+    shadowOffsetX: 0,
+    shadowOffsetY: 15,
+    progressiveBlur: 0,
+    progressiveBlurType: 0,
+    glassBgOpacity: 0,
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+    circleSize: 1.0,
+    shapeType: 0,
+    rectWidth: 420,
+    rectHeight: 96,
+    rectRadiusPercent: 100,
+    glassTintR: 1,
+    glassTintG: 1,
+    glassTintB: 1,
+    useImageBg: false,
+    switchMode: false,
+    sliderMode: false,
+    switchProgress: 1,
+    switchTrackWidth: 160,
+    switchTrackHeight: 67,
+    switchTrackOffOpacity: 0.34,
+    switchTrackOnOpacity: 0.86,
+  }
+}
