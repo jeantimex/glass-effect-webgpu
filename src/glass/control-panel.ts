@@ -284,6 +284,12 @@ export class GlassControlPanel {
       renderer.glassParams.progressiveBlurType = parseFloat(controls.progressiveBlurTypeSelect.value)
     })
     controls.glassThemeSelect.addEventListener('change', () => this.updateGlassTheme())
+    controls.glassBgColorInput.addEventListener('input', () => {
+      const hex = controls.glassBgColorInput.value
+      renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
+      renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
+      renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
+    })
     controls.glassBgOpacitySlider.addEventListener('input', () => {
       userParams.glassBgOpacity = parseFloat(controls.glassBgOpacitySlider.value)
     })
@@ -373,17 +379,28 @@ export class GlassControlPanel {
 
   private resolveGlassTheme(): Exclude<GlassTheme, 'system'> {
     const selectedTheme = this.options.controls.glassThemeSelect.value as GlassTheme
-    if (selectedTheme === 'light' || selectedTheme === 'dark') return selectedTheme
+    if (selectedTheme === 'light' || selectedTheme === 'dark' || selectedTheme === 'custom') return selectedTheme
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   }
 
   private updateGlassTheme(): void {
-    const { renderer } = this.options
+    const { controls, renderer } = this.options
     const resolvedTheme = this.resolveGlassTheme()
-    const darkTint = 0x22 / 255
-    renderer.glassParams.glassTintR = resolvedTheme === 'dark' ? darkTint : 1
-    renderer.glassParams.glassTintG = resolvedTheme === 'dark' ? darkTint : 1
-    renderer.glassParams.glassTintB = resolvedTheme === 'dark' ? darkTint : 1
+    const isCustom = resolvedTheme === 'custom'
+
+    controls.glassCustomColorControls.forEach((control) => control.classList.toggle('hidden', !isCustom))
+
+    if (isCustom) {
+      const hex = controls.glassBgColorInput.value
+      renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
+      renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
+      renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
+    } else {
+      const darkTint = 0x22 / 255
+      renderer.glassParams.glassTintR = resolvedTheme === 'dark' ? darkTint : 1
+      renderer.glassParams.glassTintG = resolvedTheme === 'dark' ? darkTint : 1
+      renderer.glassParams.glassTintB = resolvedTheme === 'dark' ? darkTint : 1
+    }
   }
 
   private updateSpecularControls(): void {

@@ -32,6 +32,8 @@ export interface GlassControls {
   progressiveBlurSlider: HTMLInputElement
   progressiveBlurTypeSelect: HTMLSelectElement
   glassThemeSelect: HTMLSelectElement
+  glassBgColorInput: HTMLInputElement
+  glassCustomColorControls: NodeListOf<HTMLElement>
   glassBgOpacitySlider: HTMLInputElement
   pressedGlassBgOpacitySlider: HTMLInputElement
   liquidEnabledCheckbox: HTMLInputElement
@@ -96,6 +98,8 @@ export function getGlassControls(): GlassControls {
     progressiveBlurSlider: getElement<HTMLInputElement>('progressiveBlur'),
     progressiveBlurTypeSelect: getElement<HTMLSelectElement>('progressiveBlurType'),
     glassThemeSelect: getElement<HTMLSelectElement>('glassTheme'),
+    glassBgColorInput: getElement<HTMLInputElement>('glassBgColor'),
+    glassCustomColorControls: document.querySelectorAll<HTMLElement>('.glass-custom-color-control'),
     glassBgOpacitySlider: getElement<HTMLInputElement>('glassBgOpacity'),
     pressedGlassBgOpacitySlider: getElement<HTMLInputElement>('pressedGlassBgOpacity'),
     liquidEnabledCheckbox: getElement<HTMLInputElement>('liquidEnabled'),
