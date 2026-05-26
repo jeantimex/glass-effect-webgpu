@@ -80,6 +80,7 @@ export class GlassApp {
       userParams,
       springs,
       interaction,
+      () => this.currentPreset,
       () => panelControls.update(this.renderer, this.currentPreset)
     ).start()
   }
@@ -98,6 +99,8 @@ export class GlassApp {
       pressedGlassBgOpacity: 0,
       forceActive: false,
       liquidEnabled: true,
+      splitMenuOpen: false,
+      splitMenuProgress: 0,
       liquidPressScale: 1.16,
       liquidPressRefraction: 1.28,
       liquidSpeed: 1,

@@ -94,6 +94,8 @@ export class GlassControlPanel {
     renderer.glassParams.shadowOffsetX = preset.shadowOffsetX
     renderer.glassParams.shadowOffsetY = preset.shadowOffsetY
 
+    userParams.splitMenuOpen = false
+    userParams.splitMenuProgress = 0
     applyPresetToUserParams(userParams, preset)
     resetGlassSpringsFromPreset(springs, preset)
 

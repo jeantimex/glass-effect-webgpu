@@ -5,6 +5,7 @@ import { RectanglePreset } from './rectangle'
 import { PanelPreset } from './panel'
 import { SliderPreset } from './slider'
 import { SwitchPreset } from './switch'
+import { SplitMenuPreset } from './split-menu'
 
 export { GlassPresetDefinition } from './base'
 
@@ -14,6 +15,7 @@ export const presetDefinitions = {
   switch: new SwitchPreset(),
   slider: new SliderPreset(),
   panel: new PanelPreset(),
+  'split-menu': new SplitMenuPreset(),
 } satisfies Record<PresetType, GlassPresetDefinition>
 
 export function getPresetDefinition(type: PresetType): GlassPresetDefinition {

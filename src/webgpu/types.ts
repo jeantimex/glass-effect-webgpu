@@ -40,6 +40,9 @@ export interface GlassParams {
   switchTrackOffOpacity: number
   switchTrackOnOpacity: number
   maxDisplacementScale: number
+  splitMenuMode: boolean
+  splitMenuProgress: number
+  liquidEnabled: boolean
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner'

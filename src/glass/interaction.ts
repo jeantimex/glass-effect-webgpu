@@ -117,9 +117,15 @@ export class GlassInteraction {
     this.draggingGlass = false
     this.currentVelocity = { x: 0, y: 0 }
     const dragDistance = Math.hypot(event.clientX - this.pointerStartPos.x, event.clientY - this.pointerStartPos.y)
-    if (this.options.getCurrentPreset() === 'switch' && dragDistance < 4) {
+    
+    const preset = this.options.getCurrentPreset()
+    if (preset === 'switch' && dragDistance < 4) {
       renderer.setSwitchProgress(renderer.getSwitchProgress() > 0.5 ? 0 : 1)
+    } else if (preset === 'split-menu' && dragDistance < 4) {
+      userParams.splitMenuOpen = !userParams.splitMenuOpen
+      springs.splitMenuProgress.target = userParams.splitMenuOpen ? 1 : 0
     }
+
     if (userParams.liquidEnabled) {
       springs.liquid.value = Math.max(springs.liquid.value, 0.58 * userParams.liquidReleaseSquash)
       springs.liquid.velocity -= 3.0 * userParams.liquidReleaseSquash

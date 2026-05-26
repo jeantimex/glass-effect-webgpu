@@ -48,5 +48,8 @@ export function createDefaultGlassParams(): GlassParams {
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
     maxDisplacementScale: 0.8,
+    splitMenuMode: false,
+    splitMenuProgress: 0,
+    liquidEnabled: true,
   }
 }

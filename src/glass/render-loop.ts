@@ -1,7 +1,7 @@
 import type { WebGPURenderer } from '../webgpu/renderer'
 import type { GlassSprings } from './springs'
 import { stepGlassSprings } from './springs'
-import type { UserParams } from './types'
+import type { PresetType, UserParams } from './types'
 
 export interface InteractionRenderState {
   draggingGlass: boolean
@@ -16,6 +16,7 @@ export class GlassRenderLoop {
     private userParams: UserParams,
     private springs: GlassSprings,
     private interactionState: InteractionRenderState,
+    private getCurrentPreset: () => PresetType,
     private afterRender: () => void = () => {}
   ) {}
 
@@ -83,6 +84,7 @@ export class GlassRenderLoop {
   private applySpringValues(): void {
     const interactionScale = this.springs.scale.value
     const isRectangle = this.renderer.glassParams.shapeType === 1
+    const preset = this.getCurrentPreset()
     this.renderer.glassParams.circleSize = isRectangle ? this.userParams.circleSize : this.springs.scale.value
     this.renderer.glassParams.scaleRatio = this.springs.refraction.value
     this.renderer.glassParams.magnifyingScale = this.springs.magnification.value
@@ -94,5 +96,8 @@ export class GlassRenderLoop {
     this.renderer.glassParams.shadowOffsetY = this.springs.shadowOffsetY.value
     this.renderer.glassParams.specularOpacity = this.springs.specularOpacity.value
     this.renderer.glassParams.glassBgOpacity = this.springs.glassBgOpacity.value
+    this.renderer.glassParams.splitMenuProgress = this.springs.splitMenuProgress.value
+    this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled
+    this.renderer.glassParams.splitMenuMode = preset === 'split-menu'
   }
 }

@@ -49,8 +49,12 @@ struct Uniforms {
   switch_track_off_opacity: f32,
   switch_track_on_opacity: f32,
   max_displacement_scale: f32,
-  slider_pad_1: f32,
-  slider_pad_2: f32,
+  split_menu_mode: f32,
+  split_menu_progress: f32,
+  liquid_enabled: f32,
+  split_pad_1: f32,
+  split_pad_2: f32,
+  split_pad_3: f32,
 }
 
 struct VertexOutput {
@@ -159,6 +163,11 @@ fn apply_glass_theme(color: vec3f) -> vec3f {
 fn apply_glass_tint(color: vec3f) -> vec3f {
   let themed_color = mix(color, apply_glass_theme(color), uniforms.glass_bg_opacity);
   return mix(themed_color, glass_tint_color(), uniforms.glass_bg_opacity);
+}
+
+fn smin(a: f32, b: f32, k: f32) -> f32 {
+  let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
 }
 
 fn hash12(p: vec2f) -> f32 {
@@ -353,6 +362,54 @@ fn apply_track_overlay(pixel: vec2f, color: vec3f) -> vec3f {
 
 fn shape_signed_distance(p: vec2f) -> f32 {
   let scaled_p = p / vec2f(uniforms.scale_x, uniforms.scale_y);
+
+  if (uniforms.split_menu_mode > 0.5) {
+    let progress = uniforms.split_menu_progress;
+    // Use the circle radius as the master height for both elements
+    let base_radius = uniforms.glass_radius;
+    let base_height = base_radius * 2.0;
+    
+    // The menu splits into a circle on left and rounded rect on right
+    // Final separation distance (distance between centers)
+    let split_dist = 320.0 * uniforms.device_pixel_ratio * progress;
+
+    // Animate width from a circle (base_height) to target width
+    let target_width = uniforms.rect_width;
+    let current_width = mix(base_height, target_width, progress);
+
+    // Calculate symmetric offsets to center the whole group
+    // Leftmost edge: C_l - base_radius
+    // Rightmost edge: C_r + current_width/2
+    // We want (C_l - base_radius) = -(C_r + current_width/2)
+    // And C_r - C_l = split_dist
+    let offset_x = (base_radius - current_width * 0.5) * 0.5;
+    let split_dist_left = offset_x - split_dist * 0.5;
+    let split_dist_right = offset_x + split_dist * 0.5;
+
+    // Circle component (left)
+    let circle_p = scaled_p - vec2f(split_dist_left, 0.0);
+    let d_circle = length(circle_p) - base_radius;
+
+    // Rect component (right)
+    let rect_p = scaled_p - vec2f(split_dist_right, 0.0);
+    // Ensure radius makes it a pill (circle if width == height)
+    let current_radius = base_height * 0.5;
+    
+    let d_rect = rounded_rect_sdf(
+      rect_p,
+      vec2f(current_width, base_height) * 0.5,
+      current_radius
+    );
+
+    if (uniforms.liquid_enabled > 0.5) {
+      // k controls the "gooeyness". We decrease it slightly as it splits to allow separation.
+      let k = 80.0 * uniforms.device_pixel_ratio * (1.0 - progress * 0.8);
+      return smin(d_circle, d_rect, k);
+    } else {
+      return min(d_circle, d_rect);
+    }
+  }
+
   if (uniforms.shape_type > 0.5) {
     return rounded_rect_sdf(
       scaled_p,

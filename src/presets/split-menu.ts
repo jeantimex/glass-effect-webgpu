@@ -1,0 +1,45 @@
+import type { GlassPreset } from '../glass/types'
+import { GlassPresetDefinition } from './base'
+
+export class SplitMenuPreset extends GlassPresetDefinition {
+  readonly id = 'split-menu'
+  readonly config: GlassPreset = {
+    shapeType: 0,
+    surfaceType: 'convex-squircle',
+    bezelWidth: 60,
+    glassThickness: 50,
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+    circleSize: 0.35,
+    rectWidth: 260,
+    rectHeight: 140,
+    rectRadiusPercent: 100,
+    switchTrackWidth: 184,
+    switchTrackHeight: 67,
+    switchTrackOffOpacity: 0.34,
+    switchTrackOnOpacity: 0.86,
+    maxDisplacementScale: 0.8,
+    trackProgress: 1,
+    scaleRatio: 1,
+    blurAmount: 0,
+    blurType: 1,
+    progressiveBlur: 0,
+    progressiveBlurType: 0,
+    glassBgOpacity: 0.1,
+    pressedGlassBgOpacity: 0.2,
+    specularType: 1,
+    specularOpacity: 0.4,
+    specularAngle: 60,
+    specularSaturation: 4,
+    shadowOpacity: 0.1,
+    shadowBlur: 30,
+    shadowOffsetX: 0,
+    shadowOffsetY: 15,
+    liquidPressScale: 1.1,
+    liquidPressRefraction: 1.2,
+    liquidClickSquash: 1,
+    liquidDragSquash: 1,
+    liquidReleaseSquash: 1,
+    liquidSpeed: 1,
+  }
+}

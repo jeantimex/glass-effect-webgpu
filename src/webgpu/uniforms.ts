@@ -1,7 +1,7 @@
 import { getGlassRadius, getRectSize } from './geometry'
 import type { GlassParams } from './types'
 
-export const GLASS_UNIFORM_BUFFER_SIZE = 208
+export const GLASS_UNIFORM_BUFFER_SIZE = 224
 
 interface GlassUniformInput {
   canvas: HTMLCanvasElement
@@ -72,6 +72,10 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.switchTrackOffOpacity,
     params.switchTrackOnOpacity,
     params.maxDisplacementScale,
+    params.splitMenuMode ? 1.0 : 0.0,
+    params.splitMenuProgress,
+    params.liquidEnabled ? 1.0 : 0.0,
+    0,
     0,
     0,
   ])

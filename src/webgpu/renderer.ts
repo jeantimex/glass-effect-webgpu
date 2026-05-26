@@ -4,6 +4,7 @@ import {
   getShapeBounds,
   getSwitchMetrics,
   isPointInsideGlass,
+  isPointInsideSplitMenu,
   isPointInsideSwitchTrack,
   resizeCanvasToDisplaySize,
 } from './geometry'
@@ -96,6 +97,17 @@ export class WebGPURenderer {
   }
 
   isPointInsideGlass(clientX: number, clientY: number): boolean {
+    if (this.glassParams.splitMenuMode) {
+      return isPointInsideSplitMenu(
+        this.canvas,
+        this.glassParams,
+        this.glassCenterX,
+        this.glassCenterY,
+        clientX,
+        clientY
+      )
+    }
+
     return isPointInsideGlass(
       this.canvas,
       this.glassParams,

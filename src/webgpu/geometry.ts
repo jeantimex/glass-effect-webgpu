@@ -103,6 +103,46 @@ export function isPointInsideGlass(
   return Math.sqrt(dx * dx + dy * dy) <= getGlassRadius(canvas, params)
 }
 
+export function isPointInsideSplitMenu(
+  canvas: HTMLCanvasElement,
+  params: GlassParams,
+  glassCenterX: number,
+  glassCenterY: number,
+  clientX: number,
+  clientY: number
+): boolean {
+  const point = clientPointToCanvasPoint(canvas, clientX, clientY)
+  const centerX = glassCenterX * canvas.width
+  const centerY = glassCenterY * canvas.height
+  const dpr = window.devicePixelRatio || 1
+  
+  // Use scaled coordinates relative to center
+  const dx = (point.x - centerX) / params.scaleX
+  const dy = (point.y - centerY) / params.scaleY
+
+  const baseRadius = getGlassRadius(canvas, params)
+  const baseHeight = baseRadius * 2.0
+  const progress = params.splitMenuProgress
+  const splitDist = 320.0 * dpr * progress
+  
+  const targetWidth = params.rectWidth * dpr
+  const currentWidth = baseHeight + (targetWidth - baseHeight) * progress
+  
+  const offsetX = (baseRadius - currentWidth * 0.5) * 0.5
+  const splitDistLeft = offsetX - splitDist * 0.5
+  const splitDistRight = offsetX + splitDist * 0.5
+  
+  // Check circle (left)
+  const distCircle = Math.sqrt((dx - splitDistLeft) ** 2 + dy ** 2)
+  if (distCircle <= baseRadius) return true
+  
+  // Check rect (right)
+  const currentRadius = baseHeight * 0.5
+  const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, baseHeight, currentRadius)
+  
+  return distRect <= 0
+}
+
 export function isPointInsideSwitchTrack(
   canvas: HTMLCanvasElement,
   params: GlassParams,

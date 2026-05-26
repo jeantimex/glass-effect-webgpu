@@ -7,7 +7,7 @@ export const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-export type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider' | 'panel'
+export type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider' | 'panel' | 'split-menu'
 export type GlassTheme = 'system' | 'light' | 'dark'
 
 export interface GlassPreset {
@@ -63,6 +63,8 @@ export interface UserParams {
   pressedGlassBgOpacity: number
   forceActive: boolean
   liquidEnabled: boolean
+  splitMenuOpen: boolean
+  splitMenuProgress: number
   liquidPressScale: number
   liquidPressRefraction: number
   liquidSpeed: number
