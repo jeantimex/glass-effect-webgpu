@@ -4,6 +4,7 @@ import { GlassControlPanel } from './control-panel'
 import { DisplacementMapView } from './displacement-view'
 import { getGlassControls, setupCollapsibleSections } from './dom'
 import { GlassInteraction } from './interaction'
+import { PanelControlsOverlay } from './panel-controls'
 import { GlassRenderLoop } from './render-loop'
 import { createGlassSprings } from './springs'
 import type { PresetType, UserParams } from './types'
@@ -23,6 +24,7 @@ export class GlassApp {
     await this.renderer.init()
 
     const controls = getGlassControls()
+    const panelControls = new PanelControlsOverlay(controls.panelControls)
     const userParams = this.createInitialUserParams()
     const springs = createGlassSprings(this.renderer)
     const displacementMap = new DisplacementMapView(
@@ -73,7 +75,13 @@ export class GlassApp {
     const resizeObserver = new ResizeObserver(updateDisplacementMap)
     resizeObserver.observe(this.displacementCanvas)
 
-    new GlassRenderLoop(this.renderer, userParams, springs, interaction).start()
+    new GlassRenderLoop(
+      this.renderer,
+      userParams,
+      springs,
+      interaction,
+      () => panelControls.update(this.renderer, this.currentPreset)
+    ).start()
   }
 
   private createInitialUserParams(): UserParams {
@@ -88,6 +96,7 @@ export class GlassApp {
       specularOpacity: this.renderer.glassParams.specularOpacity,
       glassBgOpacity: this.renderer.glassParams.glassBgOpacity,
       pressedGlassBgOpacity: 0,
+      forceActive: false,
       liquidEnabled: true,
       liquidPressScale: 1.16,
       liquidPressRefraction: 1.28,

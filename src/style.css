@@ -260,3 +260,43 @@ body {
   display: block;
   touch-action: none;
 }
+
+.panel-controls {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  justify-items: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.panel-controls.hidden {
+  display: none;
+}
+
+.panel-controls button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #26272a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.panel-controls svg {
+  width: 26px;
+  height: 26px;
+  display: block;
+  fill: currentColor;
+}
+
+.panel-controls-primary svg {
+  width: 36px;
+  height: 36px;
+}

@@ -1,5 +1,6 @@
 export interface GlassControls {
   presetSelect: HTMLSelectElement
+  panelControls: HTMLElement
   bezelSlider: HTMLInputElement
   thicknessSlider: HTMLInputElement
   scaleSlider: HTMLInputElement
@@ -15,6 +16,7 @@ export interface GlassControls {
   switchTrackHeightSlider: HTMLInputElement
   switchTrackOffOpacitySlider: HTMLInputElement
   switchTrackOnOpacitySlider: HTMLInputElement
+  forceActiveCheckbox: HTMLInputElement
   backgroundTypeSelect: HTMLSelectElement
   bgBrightnessSlider: HTMLInputElement
   specularOpacitySlider: HTMLInputElement
@@ -57,6 +59,7 @@ function getElement<T extends HTMLElement>(id: string): T {
 export function getGlassControls(): GlassControls {
   return {
     presetSelect: getElement<HTMLSelectElement>('presetType'),
+    panelControls: getElement<HTMLElement>('panelControls'),
     bezelSlider: getElement<HTMLInputElement>('bezelWidth'),
     thicknessSlider: getElement<HTMLInputElement>('glassThickness'),
     scaleSlider: getElement<HTMLInputElement>('scaleRatio'),
@@ -72,6 +75,7 @@ export function getGlassControls(): GlassControls {
     switchTrackHeightSlider: getElement<HTMLInputElement>('switchTrackHeight'),
     switchTrackOffOpacitySlider: getElement<HTMLInputElement>('switchTrackOffOpacity'),
     switchTrackOnOpacitySlider: getElement<HTMLInputElement>('switchTrackOnOpacity'),
+    forceActiveCheckbox: getElement<HTMLInputElement>('forceActive'),
     backgroundTypeSelect: getElement<HTMLSelectElement>('backgroundType'),
     bgBrightnessSlider: getElement<HTMLInputElement>('bgBrightness'),
     specularOpacitySlider: getElement<HTMLInputElement>('specularOpacity'),

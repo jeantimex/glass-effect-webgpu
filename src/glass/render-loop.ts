@@ -15,7 +15,8 @@ export class GlassRenderLoop {
     private renderer: WebGPURenderer,
     private userParams: UserParams,
     private springs: GlassSprings,
-    private interactionState: InteractionRenderState
+    private interactionState: InteractionRenderState,
+    private afterRender: () => void = () => {}
   ) {}
 
   start(): void {
@@ -32,11 +33,13 @@ export class GlassRenderLoop {
     this.applySpringValues()
 
     this.renderer.render()
+    this.afterRender()
     requestAnimationFrame(this.render)
   }
 
   private updateSpringTargets(dt: number): void {
-    const velocityDecay = Math.exp(-dt * (this.interactionState.draggingGlass ? 5.5 : 12))
+    const active = this.interactionState.draggingGlass || this.userParams.forceActive
+    const velocityDecay = Math.exp(-dt * (active ? 5.5 : 12))
     this.interactionState.currentVelocity.x *= velocityDecay
     this.interactionState.currentVelocity.y *= velocityDecay
 
@@ -49,7 +52,7 @@ export class GlassRenderLoop {
       ? Math.min(speed * 0.00018 * this.userParams.liquidDragSquash * liquidAmount, 0.28 * this.userParams.liquidDragSquash)
       : 0
 
-    if (this.interactionState.draggingGlass) {
+    if (active) {
       this.springs.scale.target = this.userParams.circleSize * (this.userParams.liquidEnabled ? this.userParams.liquidPressScale : 1)
       this.springs.refraction.target = this.userParams.scaleRatio * (this.userParams.liquidEnabled ? this.userParams.liquidPressRefraction + dragLiquid * 0.45 : 1)
       this.springs.magnification.target = this.userParams.magnifyingScale

@@ -60,6 +60,9 @@ export class GlassControlPanel {
     renderer.glassParams.shapeType = preset.shapeType
     renderer.setSwitchMode(definition.isSwitchMode)
     renderer.setSliderMode(definition.isSliderMode)
+    if (type === 'panel') {
+      renderer.centerGlass()
+    }
     setCurrentSurfaceType(preset.surfaceType)
     renderer.glassParams.surfaceType = surfaceTypeMap[preset.surfaceType]
     renderer.glassParams.bezelWidth = preset.bezelWidth
@@ -201,6 +204,9 @@ export class GlassControlPanel {
     })
     controls.switchTrackOnOpacitySlider.addEventListener('input', () => {
       renderer.glassParams.switchTrackOnOpacity = parseFloat(controls.switchTrackOnOpacitySlider.value)
+    })
+    controls.forceActiveCheckbox.addEventListener('change', () => {
+      userParams.forceActive = controls.forceActiveCheckbox.checked
     })
 
     controls.backgroundTypeSelect.addEventListener('change', () => {

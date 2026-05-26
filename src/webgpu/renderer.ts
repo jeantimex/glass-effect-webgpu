@@ -137,6 +137,18 @@ export class WebGPURenderer {
     }
   }
 
+  centerGlass(): void {
+    this.glassCenterX = 0.5
+    this.glassCenterY = 0.5
+  }
+
+  getGlassCenterCssPosition(): { x: number; y: number } {
+    return {
+      x: this.glassCenterX * this.canvas.clientWidth,
+      y: this.glassCenterY * this.canvas.clientHeight,
+    }
+  }
+
   setSwitchProgress(progress: number): void {
     this.glassParams.switchProgress = Math.min(Math.max(progress, 0), 1)
     if (!this.glassParams.switchMode && !this.glassParams.sliderMode) return
