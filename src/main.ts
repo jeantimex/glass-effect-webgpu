@@ -980,7 +980,6 @@ async function main() {
     renderer.glassParams.shadowOffsetY = springs.shadowOffsetY.value
     renderer.glassParams.specularOpacity = springs.specularOpacity.value
     renderer.glassParams.glassBgOpacity = springs.glassBgOpacity.value
-    renderer.glassParams.liquidStrength = 0
 
     renderer.render()
     requestAnimationFrame(render)

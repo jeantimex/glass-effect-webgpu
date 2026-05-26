@@ -40,10 +40,6 @@ export const shaderCode = `
     glass_tint_r: f32,
     glass_tint_g: f32,
     glass_tint_b: f32,
-    liquid_click_x: f32,
-    liquid_click_y: f32,
-    liquid_age: f32,
-    liquid_strength: f32,
     switch_mode: f32,
     slider_mode: f32,
     switch_progress: f32,
@@ -81,7 +77,7 @@ export const shaderCode = `
   }
 
   fn surface_lip(x: f32) -> f32 {
-    let convex = pow(1.0 - pow(1.0 - clamp(x * 2.0, 0.0, 1.0), 4.0), 0.25);
+    let convex = pow(1.0 - pow(1.0 - x * 2.0, 4.0), 0.25);
     let concave = 1.0 - sqrt(1.0 - pow(1.0 - x, 2.0)) + 0.1;
     let smootherstep = 6.0 * pow(x, 5.0) - 15.0 * pow(x, 4.0) + 10.0 * pow(x, 3.0);
     return convex * (1.0 - smootherstep) + concave * smootherstep;
@@ -97,9 +93,11 @@ export const shaderCode = `
 
   fn get_surface_derivative(x: f32, surface_type: f32) -> f32 {
     let dx = 0.001;
-    let y1 = get_surface_height(x - dx, surface_type);
-    let y2 = get_surface_height(x + dx, surface_type);
-    return (y2 - y1) / (2.0 * dx);
+    let x1 = max(x - dx, 0.0);
+    let x2 = min(x + dx, 1.0);
+    let y1 = get_surface_height(x1, surface_type);
+    let y2 = get_surface_height(x2, surface_type);
+    return (y2 - y1) / max(x2 - x1, 0.000001);
   }
 
   // Refraction using Snell's law
@@ -391,32 +389,6 @@ export const shaderCode = `
     return pixel - magnify_displacement;
   }
 
-  fn liquidize_sample_offset(pixel: vec2f, shape_reference: f32, distance_from_edge: f32) -> vec2f {
-    let strength = uniforms.liquid_strength;
-    let age = uniforms.liquid_age;
-
-    if (strength <= 0.001 || age < 0.0 || age > 2.0 || distance_from_edge <= 0.0) {
-      return vec2f(0.0);
-    }
-
-    let to_click = pixel - vec2f(uniforms.liquid_click_x, uniforms.liquid_click_y);
-    let r = length(to_click);
-    let dir = to_click / max(r, 0.001);
-    let radius = max(shape_reference * 1.25, 1.0);
-    let normalized_r = r / radius;
-
-    let time_envelope = exp(-age * 1.8) * (1.0 - smoothstep(1.65, 2.0, age));
-    let spatial_envelope = exp(-normalized_r * 1.45) * (1.0 - smoothstep(0.82, 1.15, normalized_r));
-    let edge_mask = smoothstep(0.0, shape_reference * 0.14, distance_from_edge);
-
-    let traveling_wave = sin(normalized_r * 19.0 - age * 24.0) * spatial_envelope;
-    let contact_dent = exp(-normalized_r * normalized_r * 14.0) * exp(-age * 5.0);
-    let rebound = exp(-pow(normalized_r - age * 0.62, 2.0) * 22.0) * exp(-age * 1.55);
-
-    let amplitude = (traveling_wave * 22.0 - contact_dent * 34.0 + rebound * 18.0) * strength * time_envelope * edge_mask;
-    return dir * amplitude;
-  }
-
   fn get_shape_half_height() -> f32 {
     return select(uniforms.glass_radius, uniforms.rect_height * 0.5, uniforms.shape_type > 0.5);
   }
@@ -570,8 +542,7 @@ export const shaderCode = `
     if (distance_from_edge >= bezel_pixels) {
       // Progressive blur: minimal blur in center
       let center_blur = calculate_progressive_blur(to_pixel, 1.0);
-      let liquid_offset = liquidize_sample_offset(pixel, shape_reference, distance_from_edge);
-      var center_color = sample_background_blurred(magnified_pixel + liquid_offset, uniforms.time, center_blur);
+      var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
       center_color = apply_glass_tint(center_color);
       return vec4f(center_color, 1.0);
     }
@@ -608,7 +579,6 @@ export const shaderCode = `
       let outward_sample = magnified_pixel + direction * displacement * 0.65;
       displaced_pixel = mix(displaced_pixel, outward_sample, rim * 0.7);
     }
-    displaced_pixel += liquidize_sample_offset(pixel, shape_reference, distance_from_edge);
 
     // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
     let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);
