@@ -44,6 +44,14 @@ export const shaderCode = `
     liquid_click_y: f32,
     liquid_age: f32,
     liquid_strength: f32,
+    switch_mode: f32,
+    switch_progress: f32,
+    switch_track_width: f32,
+    switch_track_height: f32,
+    switch_center_x: f32,
+    switch_center_y: f32,
+    switch_track_off_opacity: f32,
+    switch_track_on_opacity: f32,
   }
 
   struct VertexOutput {
@@ -234,7 +242,7 @@ export const shaderCode = `
   // Sample background with blur effect
   fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     // Use the internal function that applies blur softening to grid
-    return sample_background_internal(pixel, time, blur);
+    return apply_switch_track(pixel, sample_background_internal(pixel, time, blur));
   }
 
   // Calculate specular highlight intensity
@@ -292,6 +300,26 @@ export const shaderCode = `
   fn rounded_rect_sdf(p: vec2f, half_size: vec2f, radius: f32) -> f32 {
     let q = abs(p) - half_size + vec2f(radius);
     return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+  }
+
+  fn apply_switch_track(pixel: vec2f, color: vec3f) -> vec3f {
+    if (uniforms.switch_mode < 0.5) {
+      return color;
+    }
+
+    let track_p = pixel - vec2f(uniforms.switch_center_x, uniforms.switch_center_y);
+    let track_sdf = rounded_rect_sdf(
+      track_p,
+      vec2f(uniforms.switch_track_width, uniforms.switch_track_height) * 0.5,
+      uniforms.switch_track_height * 0.5
+    );
+    let track_mask = 1.0 - smoothstep(-1.0, 1.0, track_sdf);
+    let off_color = vec3f(0.66, 0.67, 0.71);
+    let on_color = vec3f(0.23, 0.75, 0.31);
+    let track_color = mix(off_color, on_color, uniforms.switch_progress);
+    let track_opacity = mix(uniforms.switch_track_off_opacity, uniforms.switch_track_on_opacity, uniforms.switch_progress);
+
+    return mix(color, track_color, track_mask * track_opacity);
   }
 
   fn shape_signed_distance(p: vec2f) -> f32 {
@@ -449,7 +477,7 @@ export const shaderCode = `
   }
 
   fn sample_background(pixel: vec2f, time: f32) -> vec3f {
-    return sample_background_internal(pixel, time, 0.0);
+    return apply_switch_track(pixel, sample_background_internal(pixel, time, 0.0));
   }
 
   @vertex

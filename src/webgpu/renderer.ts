@@ -39,6 +39,12 @@ export interface GlassParams {
   glassTintB: number         // glass tint blue channel (0-1)
   useImageBg: boolean        // use image background instead of grid
   liquidStrength: number     // click liquidize strength (0-1+)
+  switchMode: boolean         // render and interact as a switch
+  switchProgress: number      // switch thumb position, 0=off, 1=on
+  switchTrackWidth: number    // switch track width in CSS pixels
+  switchTrackHeight: number   // switch track height in CSS pixels
+  switchTrackOffOpacity: number // off track opacity
+  switchTrackOnOpacity: number  // on track opacity
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner'
@@ -68,6 +74,8 @@ export class WebGPURenderer {
   private liquidClickX = 0
   private liquidClickY = 0
   private liquidClickStartTime = -1000
+  private switchCenterX = 0.5
+  private switchCenterY = 0.5
 
   public glassParams: GlassParams = {
     bezelWidth: 60,
@@ -104,6 +112,12 @@ export class WebGPURenderer {
     glassTintB: 1,
     useImageBg: false,
     liquidStrength: 0,
+    switchMode: false,
+    switchProgress: 1,
+    switchTrackWidth: 160,
+    switchTrackHeight: 67,
+    switchTrackOffOpacity: 0.34,
+    switchTrackOnOpacity: 0.86,
   }
 
   constructor(canvas: HTMLCanvasElement) {
@@ -122,9 +136,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (44 floats = 176 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (52 floats = 208 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 176,
+      size: 208,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -343,6 +357,26 @@ export class WebGPURenderer {
     }
   }
 
+  private getSwitchMetrics(): {
+    centerX: number
+    centerY: number
+    trackWidth: number
+    trackHeight: number
+    travel: number
+  } {
+    const dpr = window.devicePixelRatio || 1
+    const trackWidth = this.glassParams.switchTrackWidth * dpr
+    const trackHeight = this.glassParams.switchTrackHeight * dpr
+    const thumbWidth = this.glassParams.rectWidth * dpr
+    const thumbHeight = this.glassParams.rectHeight * dpr
+    const centerX = this.switchCenterX * this.canvas.width
+    const centerY = this.switchCenterY * this.canvas.height
+    const switchInset = 5 * dpr
+    const travel = Math.max(0, trackWidth - Math.max(trackHeight, Math.min(thumbWidth, thumbHeight)) - switchInset * 2)
+
+    return { centerX, centerY, trackWidth, trackHeight, travel }
+  }
+
   private clientPointToCanvasPoint(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect()
     const scaleX = this.canvas.width / rect.width
@@ -374,6 +408,64 @@ export class WebGPURenderer {
     }
 
     return Math.sqrt(dx * dx + dy * dy) <= this.getGlassRadius()
+  }
+
+  isPointInsideSwitchTrack(clientX: number, clientY: number): boolean {
+    if (!this.glassParams.switchMode) return false
+
+    const point = this.clientPointToCanvasPoint(clientX, clientY)
+    const metrics = this.getSwitchMetrics()
+    const radius = metrics.trackHeight / 2
+    const signedDistance = this.roundedRectDistance(
+      point.x - metrics.centerX,
+      point.y - metrics.centerY,
+      metrics.trackWidth,
+      metrics.trackHeight,
+      radius
+    )
+
+    return signedDistance <= 0
+  }
+
+  private roundedRectDistance(dx: number, dy: number, width: number, height: number, radius: number): number {
+    const qx = Math.abs(dx) - (width / 2 - radius)
+    const qy = Math.abs(dy) - (height / 2 - radius)
+    const outsideX = Math.max(qx, 0)
+    const outsideY = Math.max(qy, 0)
+    const inside = Math.min(Math.max(qx, qy), 0)
+
+    return Math.sqrt(outsideX * outsideX + outsideY * outsideY) + inside - radius
+  }
+
+  setSwitchMode(enabled: boolean): void {
+    this.glassParams.switchMode = enabled
+    if (enabled) {
+      this.switchCenterX = 0.5
+      this.switchCenterY = 0.5
+      this.setSwitchProgress(this.glassParams.switchProgress)
+    }
+  }
+
+  setSwitchProgress(progress: number): void {
+    this.glassParams.switchProgress = Math.min(Math.max(progress, 0), 1)
+    if (!this.glassParams.switchMode) return
+
+    const metrics = this.getSwitchMetrics()
+    const thumbCenterX = metrics.centerX + (this.glassParams.switchProgress - 0.5) * metrics.travel
+    this.glassCenterX = thumbCenterX / this.canvas.width
+    this.glassCenterY = metrics.centerY / this.canvas.height
+  }
+
+  getSwitchProgress(): number {
+    return this.glassParams.switchProgress
+  }
+
+  setSwitchProgressFromClientX(clientX: number): void {
+    const point = this.clientPointToCanvasPoint(clientX, 0)
+    const metrics = this.getSwitchMetrics()
+    if (metrics.travel <= 0) return
+
+    this.setSwitchProgress((point.x - metrics.centerX) / metrics.travel + 0.5)
   }
 
   getGlassDragOffset(clientX: number, clientY: number): { x: number; y: number } {
@@ -412,6 +504,9 @@ export class WebGPURenderer {
 
   render(): void {
     this.resizeCanvas()
+    if (this.glassParams.switchMode) {
+      this.setSwitchProgress(this.glassParams.switchProgress)
+    }
 
     // Calculate glass radius based on canvas size
     const glassRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.glassParams.circleSize
@@ -465,6 +560,14 @@ export class WebGPURenderer {
       this.liquidClickY,
       liquidAge,
       this.glassParams.liquidStrength,
+      this.glassParams.switchMode ? 1.0 : 0.0,
+      this.glassParams.switchProgress,
+      this.glassParams.switchTrackWidth * (window.devicePixelRatio || 1),
+      this.glassParams.switchTrackHeight * (window.devicePixelRatio || 1),
+      this.switchCenterX * this.canvas.width,
+      this.switchCenterY * this.canvas.height,
+      this.glassParams.switchTrackOffOpacity,
+      this.glassParams.switchTrackOnOpacity,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 
