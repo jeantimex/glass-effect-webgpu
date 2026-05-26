@@ -38,6 +38,7 @@ interface GlassPreset {
   progressiveBlur: number
   progressiveBlurType: number
   glassBgOpacity: number
+  pressedGlassBgOpacity: number
   specularType: number
   specularOpacity: number
   specularAngle: number
@@ -76,6 +77,7 @@ const presets: Record<PresetType, GlassPreset> = {
     progressiveBlur: 0,
     progressiveBlurType: 0,
     glassBgOpacity: 0,
+    pressedGlassBgOpacity: 0,
     specularType: 0,
     specularOpacity: 0.4,
     specularAngle: 60,
@@ -112,6 +114,7 @@ const presets: Record<PresetType, GlassPreset> = {
     progressiveBlur: 0,
     progressiveBlurType: 0,
     glassBgOpacity: 0.08,
+    pressedGlassBgOpacity: 0,
     specularType: 0,
     specularOpacity: 0.4,
     specularAngle: 60,
@@ -148,6 +151,7 @@ const presets: Record<PresetType, GlassPreset> = {
     progressiveBlur: 0,
     progressiveBlurType: 0,
     glassBgOpacity: 0.1,
+    pressedGlassBgOpacity: 0,
     specularType: 0,
     specularOpacity: 0.5,
     specularAngle: 60,
@@ -196,6 +200,7 @@ async function main() {
     shadowOffsetY: renderer.glassParams.shadowOffsetY,
     specularOpacity: renderer.glassParams.specularOpacity,
     glassBgOpacity: renderer.glassParams.glassBgOpacity,
+    pressedGlassBgOpacity: 0,
     liquidEnabled: true,
     liquidPressScale: 1.16,
     liquidPressRefraction: 1.28,
@@ -465,6 +470,7 @@ async function main() {
   const progressiveBlurTypeSelect = document.getElementById('progressiveBlurType') as HTMLSelectElement
   const glassThemeSelect = document.getElementById('glassTheme') as HTMLSelectElement
   const glassBgOpacitySlider = document.getElementById('glassBgOpacity') as HTMLInputElement
+  const pressedGlassBgOpacitySlider = document.getElementById('pressedGlassBgOpacity') as HTMLInputElement
   const liquidEnabledCheckbox = document.getElementById('liquidEnabled') as HTMLInputElement
   const liquidPressScaleSlider = document.getElementById('liquidPressScale') as HTMLInputElement
   const liquidPressRefractionSlider = document.getElementById('liquidPressRefraction') as HTMLInputElement
@@ -553,6 +559,7 @@ async function main() {
     userParams.shadowOffsetY = preset.shadowOffsetY
     userParams.specularOpacity = preset.specularOpacity
     userParams.glassBgOpacity = preset.glassBgOpacity
+    userParams.pressedGlassBgOpacity = preset.pressedGlassBgOpacity
     userParams.liquidPressScale = preset.liquidPressScale
     userParams.liquidPressRefraction = preset.liquidPressRefraction
     userParams.liquidClickSquash = preset.liquidClickSquash
@@ -622,6 +629,7 @@ async function main() {
     setSliderValue(progressiveBlurSlider, preset.progressiveBlur)
     if (progressiveBlurTypeSelect) progressiveBlurTypeSelect.value = String(preset.progressiveBlurType)
     setSliderValue(glassBgOpacitySlider, preset.glassBgOpacity)
+    setSliderValue(pressedGlassBgOpacitySlider, preset.pressedGlassBgOpacity)
     setSliderValue(liquidPressScaleSlider, preset.liquidPressScale)
     setSliderValue(liquidPressRefractionSlider, preset.liquidPressRefraction)
     setSliderValue(liquidClickSquashSlider, preset.liquidClickSquash)
@@ -783,6 +791,10 @@ async function main() {
     userParams.glassBgOpacity = parseFloat(glassBgOpacitySlider.value)
   })
 
+  pressedGlassBgOpacitySlider?.addEventListener('input', () => {
+    userParams.pressedGlassBgOpacity = parseFloat(pressedGlassBgOpacitySlider.value)
+  })
+
   liquidEnabledCheckbox?.addEventListener('change', () => {
     userParams.liquidEnabled = liquidEnabledCheckbox.checked
     if (!userParams.liquidEnabled) {
@@ -871,7 +883,7 @@ async function main() {
       springs.shadowBlur.target = userParams.liquidEnabled ? userParams.shadowBlur * 0.72 : userParams.shadowBlur
       springs.shadowOffsetY.target = userParams.liquidEnabled ? userParams.shadowOffsetY + 5 : userParams.shadowOffsetY
       springs.specularOpacity.target = userParams.liquidEnabled ? Math.min(userParams.specularOpacity + 0.22, 1) : userParams.specularOpacity
-      springs.glassBgOpacity.target = userParams.glassBgOpacity
+      springs.glassBgOpacity.target = userParams.pressedGlassBgOpacity
       springs.liquid.target = 0
     } else {
       springs.scale.target = userParams.circleSize
