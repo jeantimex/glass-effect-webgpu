@@ -6,7 +6,7 @@ export class SwitchPreset extends GlassPresetDefinition {
   readonly config: GlassPreset = {
     shapeType: 1,
     surfaceType: 'lip',
-    bezelWidth: 45,
+    bezelWidth: 19,
     glassThickness: 47,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
@@ -14,7 +14,7 @@ export class SwitchPreset extends GlassPresetDefinition {
     rectWidth: 146,
     rectHeight: 92,
     rectRadiusPercent: 100,
-    switchTrackWidth: 184,
+    switchTrackWidth: 160,
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,

@@ -534,8 +534,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     return vec4f(bg, 1.0);
   }
 
-  // Calculate bezel width in pixels (matching displacement map calculation)
-  let bezel_pixels = (uniforms.bezel_width / 110.0) * shape_reference;
+  // Circular demos use the old 110px reference radius. Rounded-rect filters
+  // define bezelWidth directly in the filter/object coordinate space.
+  let circle_bezel_pixels = (uniforms.bezel_width / 110.0) * shape_reference;
+  let rect_bezel_pixels = min(uniforms.bezel_width, shape_reference);
+  let bezel_pixels = select(circle_bezel_pixels, rect_bezel_pixels, uniforms.shape_type > 0.5);
 
   // Inside flat center - no refraction, but apply blur and magnification
   if (distance_from_edge >= bezel_pixels) {
@@ -551,15 +554,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Get displacement magnitude
   // The 0.5 factor matches SVG feDisplacementMap behavior (uses XC - 0.5 formula)
-  // Scale by glass size to maintain proportional appearance (reference uses radius=110)
-  let size_scale = shape_reference / 110.0;
+  // Scale circular demos by their 110px reference radius. Rounded rectangles
+  // already operate in object pixels, matching the SVG displacement map.
+  let displacement_scale = select(shape_reference / 110.0, 1.0, uniforms.shape_type > 0.5);
   let raw_displacement = calculate_displacement(
     bezel_t,
     uniforms.surface_type,
     uniforms.bezel_width,
     uniforms.glass_thickness,
     uniforms.refractive_index
-  ) * uniforms.scale_ratio * 0.5 * size_scale;
+  ) * uniforms.scale_ratio * 0.5 * displacement_scale;
 
   // Limit maximum displacement to prevent extreme sampling
   let max_displacement = bezel_pixels * 0.8;
@@ -570,14 +574,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Apply displacement (rays bend toward center for convex glass)
   var displaced_pixel = magnified_pixel - direction * displacement;
-  if (uniforms.slider_mode > 0.5) {
-    // Slider thumb in the CSS reference uses a separate filter stack that
-    // pulls the nearby track color into the rim. Bias the rim outward a bit
-    // so the blue fill is refracted at the thumb edge instead of only behind it.
-    let rim = 1.0 - smoothstep(0.0, max(bezel_pixels * 0.9, 1.0), distance_from_edge);
-    let outward_sample = magnified_pixel + direction * displacement * 0.65;
-    displaced_pixel = mix(displaced_pixel, outward_sample, rim * 0.7);
-  }
 
   // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
   let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);
