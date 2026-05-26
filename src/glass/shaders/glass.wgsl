@@ -565,8 +565,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     uniforms.refractive_index
   ) * uniforms.scale_ratio * 0.5 * displacement_scale;
 
-  // Limit maximum displacement to prevent extreme sampling
-  let max_displacement = bezel_pixels * 0.8;
+  // Limit extreme sampling. Rounded-rect UI controls need more room than the
+  // circular demo because their SVG filters can pull color across the full rim.
+  let max_displacement = bezel_pixels * select(0.8, 4.0, uniforms.shape_type > 0.5);
   let displacement = min(raw_displacement, max_displacement);
 
   // Direction from the nearest shape edge toward this pixel.

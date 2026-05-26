@@ -19,7 +19,7 @@ export class SliderPreset extends GlassPresetDefinition {
     switchTrackOffOpacity: 0.4,
     switchTrackOnOpacity: 0.95,
     trackProgress: 0.1,
-    scaleRatio: 0.4,
+    scaleRatio: 1.0,
     blurAmount: 0,
     blurType: 0,
     progressiveBlur: 0,
