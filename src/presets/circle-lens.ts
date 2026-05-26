@@ -3,6 +3,11 @@ import { GlassPresetDefinition } from './base'
 
 export class CircleLensPreset extends GlassPresetDefinition {
   readonly id = 'circle-lens'
+
+  override get supportsIcon(): boolean {
+    return true
+  }
+
   readonly config: GlassPreset = {
     shapeType: 0,
     surfaceType: 'convex-circle',

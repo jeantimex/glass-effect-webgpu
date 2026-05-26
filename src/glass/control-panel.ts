@@ -24,6 +24,7 @@ export class GlassControlPanel {
 
   setup(): void {
     this.updateShapeControls()
+    this.updateIconControls()
     this.updateBackgroundControls()
     this.updateGlassTheme()
     this.updateSpecularControls()
@@ -32,21 +33,21 @@ export class GlassControlPanel {
 
   setCircleSize(size: number): void {
     const { controls, userParams } = this.options
-    const clampedSize = clamp(size, parseFloat(controls.circleSizeSlider.min), parseFloat(controls.circleSizeSlider.max))
+    const clampedSize = Math.min(Math.max(size, parseFloat(controls.circleSizeSlider.min)), parseFloat(controls.circleSizeSlider.max))
     userParams.circleSize = clampedSize
     controls.circleSizeSlider.value = clampedSize.toFixed(2)
   }
 
   setRectWidth(width: number): void {
     const { controls, renderer } = this.options
-    const clampedWidth = clamp(width, parseFloat(controls.rectWidthSlider.min), parseFloat(controls.rectWidthSlider.max))
+    const clampedWidth = Math.min(Math.max(width, parseFloat(controls.rectWidthSlider.min)), parseFloat(controls.rectWidthSlider.max))
     renderer.glassParams.rectWidth = clampedWidth
     controls.rectWidthSlider.value = String(clampedWidth)
   }
 
   setRectHeight(height: number): void {
     const { controls, renderer } = this.options
-    const clampedHeight = clamp(height, parseFloat(controls.rectHeightSlider.min), parseFloat(controls.rectHeightSlider.max))
+    const clampedHeight = Math.min(Math.max(height, parseFloat(controls.rectHeightSlider.min)), parseFloat(controls.rectHeightSlider.max))
     renderer.glassParams.rectHeight = clampedHeight
     controls.rectHeightSlider.value = String(clampedHeight)
   }
@@ -135,7 +136,15 @@ export class GlassControlPanel {
     setSliderValue(controls.shadowBlurSlider, preset.shadowBlur)
     setSliderValue(controls.shadowOffsetXSlider, preset.shadowOffsetX)
     setSliderValue(controls.shadowOffsetYSlider, preset.shadowOffsetY)
+    
+    if (!definition.supportsIcon) {
+      renderer.glassParams.iconType = 0
+      renderer.setIcon(null).catch(console.error)
+      controls.iconTypeSelect.value = 'none'
+    }
+
     this.updateShapeControls()
+    this.updateIconControls()
     updateDisplacementMap()
   }
 
@@ -192,6 +201,29 @@ export class GlassControlPanel {
     })
     controls.rectRadiusSlider.addEventListener('input', () => {
       renderer.glassParams.rectRadiusPercent = parseFloat(controls.rectRadiusSlider.value)
+    })
+    controls.iconTypeSelect.addEventListener('change', () => {
+      const icon = controls.iconTypeSelect.value
+      if (icon === 'none') {
+        renderer.glassParams.iconType = 0
+        renderer.setIcon(null).catch(console.error)
+      } else {
+        renderer.glassParams.iconType = 1
+        renderer.setIcon(`/assets/icons/${icon}.svg`).catch(console.error)
+      }
+      this.updateIconControls()
+    })
+    controls.iconOpacitySlider.addEventListener('input', () => {
+      renderer.glassParams.iconOpacity = parseFloat(controls.iconOpacitySlider.value)
+    })
+    controls.iconScaleSlider.addEventListener('input', () => {
+      renderer.glassParams.iconScale = parseFloat(controls.iconScaleSlider.value)
+    })
+    controls.iconColorInput.addEventListener('input', () => {
+      const hex = controls.iconColorInput.value
+      renderer.glassParams.iconColorR = parseInt(hex.slice(1, 3), 16) / 255
+      renderer.glassParams.iconColorG = parseInt(hex.slice(3, 5), 16) / 255
+      renderer.glassParams.iconColorB = parseInt(hex.slice(5, 7), 16) / 255
     })
     controls.switchTrackWidthSlider.addEventListener('input', () => {
       renderer.glassParams.switchTrackWidth = parseFloat(controls.switchTrackWidthSlider.value)
@@ -319,6 +351,20 @@ export class GlassControlPanel {
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
   }
 
+  private updateIconControls(): void {
+    const { controls, renderer, getCurrentPreset } = this.options
+    const definition = getPresetDefinition(getCurrentPreset())
+    const supportsIcon = definition.supportsIcon
+    const hasIcon = renderer.glassParams.iconType > 0
+
+    // Hide icon type selector for presets that don't support icons
+    const iconTypeRow = controls.iconTypeSelect.closest<HTMLElement>('.control-row')
+    iconTypeRow?.classList.toggle('hidden', !supportsIcon)
+
+    // Hide icon settings when no icon is selected or preset doesn't support icons
+    controls.iconOnlyControls.forEach((control) => control.classList.toggle('hidden', !hasIcon || !supportsIcon))
+  }
+
   private updateBackgroundControls(): void {
     const { controls } = this.options
     const isGrid = controls.backgroundTypeSelect.value === 'grid'
@@ -382,8 +428,4 @@ function applyPresetToUserParams(userParams: UserParams, preset: {
   userParams.liquidDragSquash = preset.liquidDragSquash
   userParams.liquidReleaseSquash = preset.liquidReleaseSquash
   userParams.liquidSpeed = preset.liquidSpeed
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
 }

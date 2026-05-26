@@ -28,10 +28,13 @@ export class WebGPURenderer {
   private uniformBuffer!: GPUBuffer
   private bgTexture!: GPUTexture
   private bgSampler!: GPUSampler
+  private iconTexture!: GPUTexture
+  private iconSampler!: GPUSampler
   private bindGroupLayout!: GPUBindGroupLayout
   private textureLoader!: BackgroundTextureLoader
   private startTime = performance.now()
   private backgroundRequestId = 0
+  private iconRequestId = 0
   private glassCenterX = 0.5
   private glassCenterY = 0.5
   private gridOffset = 0
@@ -62,9 +65,16 @@ export class WebGPURenderer {
       minFilter: 'linear',
       mipmapFilter: 'linear',
     })
+    this.iconSampler = this.device.createSampler({
+      magFilter: 'linear',
+      minFilter: 'linear',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
+    })
     this.textureLoader = new BackgroundTextureLoader(this.device)
 
     this.bgTexture = await this.textureLoader.load(backgroundImageUrls.leaves)
+    this.iconTexture = this.createEmptyTexture()
     this.bindGroupLayout = createBindGroupLayout(this.device)
     this.bindGroup = this.createRenderBindGroup()
     this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
@@ -86,6 +96,21 @@ export class WebGPURenderer {
 
     this.bgTexture = texture
     this.glassParams.useImageBg = true
+    this.bindGroup = this.createRenderBindGroup()
+  }
+
+  async setIcon(url: string | null): Promise<void> {
+    const requestId = ++this.iconRequestId
+    if (!url) {
+      this.iconTexture = this.createEmptyTexture()
+      this.bindGroup = this.createRenderBindGroup()
+      return
+    }
+
+    const texture = await this.textureLoader.load(url)
+    if (requestId !== this.iconRequestId) return
+
+    this.iconTexture = texture
     this.bindGroup = this.createRenderBindGroup()
   }
 
@@ -259,8 +284,25 @@ export class WebGPURenderer {
       this.bindGroupLayout,
       this.uniformBuffer,
       this.bgTexture,
-      this.bgSampler
+      this.bgSampler,
+      this.iconTexture,
+      this.iconSampler
     )
+  }
+
+  private createEmptyTexture(): GPUTexture {
+    const texture = this.device.createTexture({
+      size: [1, 1],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    })
+    this.device.queue.writeTexture(
+      { texture },
+      new Uint8Array([0, 0, 0, 0]),
+      { bytesPerRow: 4 },
+      { width: 1, height: 1 }
+    )
+    return texture
   }
 
   private resizeCanvas(): void {

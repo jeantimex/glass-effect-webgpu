@@ -9,6 +9,10 @@ export interface GlassControls {
   refractiveIndexSlider: HTMLInputElement
   magnifyingScaleSlider: HTMLInputElement
   circleSizeSlider: HTMLInputElement
+  iconTypeSelect: HTMLSelectElement
+  iconOpacitySlider: HTMLInputElement
+  iconScaleSlider: HTMLInputElement
+  iconColorInput: HTMLInputElement
   rectWidthSlider: HTMLInputElement
   rectHeightSlider: HTMLInputElement
   rectRadiusSlider: HTMLInputElement
@@ -43,6 +47,7 @@ export interface GlassControls {
   shadowOffsetYSlider: HTMLInputElement
   surfaceButtons: NodeListOf<HTMLButtonElement>
   circleOnlyControls: NodeListOf<HTMLElement>
+  iconOnlyControls: NodeListOf<HTMLElement>
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
   gridOnlyControls: NodeListOf<HTMLElement>
@@ -68,6 +73,10 @@ export function getGlassControls(): GlassControls {
     refractiveIndexSlider: getElement<HTMLInputElement>('refractiveIndex'),
     magnifyingScaleSlider: getElement<HTMLInputElement>('magnifyingScale'),
     circleSizeSlider: getElement<HTMLInputElement>('circleSize'),
+    iconTypeSelect: getElement<HTMLSelectElement>('iconType'),
+    iconOpacitySlider: getElement<HTMLInputElement>('iconOpacity'),
+    iconScaleSlider: getElement<HTMLInputElement>('iconScale'),
+    iconColorInput: getElement<HTMLInputElement>('iconColor'),
     rectWidthSlider: getElement<HTMLInputElement>('rectWidth'),
     rectHeightSlider: getElement<HTMLInputElement>('rectHeight'),
     rectRadiusSlider: getElement<HTMLInputElement>('rectRadius'),
@@ -102,6 +111,7 @@ export function getGlassControls(): GlassControls {
     shadowOffsetYSlider: getElement<HTMLInputElement>('shadowOffsetY'),
     surfaceButtons: document.querySelectorAll<HTMLButtonElement>('.surface-btn'),
     circleOnlyControls: document.querySelectorAll<HTMLElement>('.circle-only-control'),
+    iconOnlyControls: document.querySelectorAll<HTMLElement>('.icon-only-control'),
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),
     gridOnlyControls: document.querySelectorAll<HTMLElement>('.grid-only-control'),

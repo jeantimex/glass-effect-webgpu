@@ -43,6 +43,12 @@ export interface GlassParams {
   splitMenuMode: boolean
   splitMenuProgress: number
   liquidEnabled: boolean
+  iconType: number
+  iconOpacity: number
+  iconScale: number
+  iconColorR: number
+  iconColorG: number
+  iconColorB: number
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner'

@@ -11,18 +11,48 @@ export class BackgroundTextureLoader {
     img.src = url
     await img.decode()
 
-    const mipLevelCount = Math.floor(Math.log2(Math.max(img.width, img.height))) + 1
+    let source: TexImageSource = img
+    let width = img.width
+    let height = img.height
+
+    // If it's an SVG (ends with .svg), render to canvas to ensure transparency and size
+    if (url.toLowerCase().endsWith('.svg')) {
+      const canvas = document.createElement('canvas')
+      const size = 512 // Fixed high resolution for icons
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, size, size)
+        
+        // Use a composite operation to force the icon to be white/visible
+        // This is a backup if the SVG itself has hardcoded colors
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, size, size)
+        ctx.globalCompositeOperation = 'destination-in'
+        ctx.drawImage(img, 0, 0, size, size)
+        
+        // Reset composite for next draw if needed
+        ctx.globalCompositeOperation = 'source-over'
+        
+        source = canvas
+        width = size
+        height = size
+      }
+    }
+
+    const mipLevelCount = Math.floor(Math.log2(Math.max(width, height))) + 1
     const texture = this.device.createTexture({
-      size: [img.width, img.height],
+      size: [width, height],
       format: 'rgba8unorm',
       mipLevelCount,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
     })
 
     this.device.queue.copyExternalImageToTexture(
-      { source: img },
+      { source },
       { texture },
-      [img.width, img.height]
+      [width, height]
     )
 
     await this.generateMipmaps(texture, mipLevelCount)

@@ -52,9 +52,12 @@ struct Uniforms {
   split_menu_mode: f32,
   split_menu_progress: f32,
   liquid_enabled: f32,
-  split_pad_1: f32,
-  split_pad_2: f32,
-  split_pad_3: f32,
+  icon_type: f32,
+  icon_opacity: f32,
+  icon_scale: f32,
+  icon_color_r: f32,
+  icon_color_g: f32,
+  icon_color_b: f32,
 }
 
 struct VertexOutput {
@@ -65,6 +68,8 @@ struct VertexOutput {
 @group(0) @binding(0) var<uniform> uniforms: Uniforms;
 @group(0) @binding(1) var bg_texture: texture_2d<f32>;
 @group(0) @binding(2) var bg_sampler: sampler;
+@group(0) @binding(3) var icon_texture: texture_2d<f32>;
+@group(0) @binding(4) var icon_sampler: sampler;
 
 // Surface height functions (x = 0 at edge, x = 1 at end of bezel)
 fn surface_convex_circle(x: f32) -> f32 {
@@ -360,49 +365,67 @@ fn apply_track_overlay(pixel: vec2f, color: vec3f) -> vec3f {
   return apply_slider_track(pixel, switch_color);
 }
 
+fn apply_icon_overlay(pixel: vec2f, color: vec3f) -> vec3f {
+  if (uniforms.icon_type < 0.5) {
+    return color;
+  }
+
+  let glass_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
+  let to_pixel = pixel - glass_center;
+  
+  // Icon size is relative to glass radius
+  let icon_size = uniforms.glass_radius * uniforms.icon_scale * 2.0;
+  let icon_uv = to_pixel / icon_size + vec2f(0.5);
+
+  if (icon_uv.x < 0.0 || icon_uv.x > 1.0 || icon_uv.y < 0.0 || icon_uv.y > 1.0) {
+    return color;
+  }
+
+  let icon_sample = textureSampleLevel(icon_texture, icon_sampler, icon_uv, 0.0);
+
+  // Use the max of RGB or Alpha as the mask to be robust against icon colors
+  let mask = max(icon_sample.a, max(max(icon_sample.r, icon_sample.g), icon_sample.b));
+
+  // Use uniform icon color
+  let icon_color = vec3f(uniforms.icon_color_r, uniforms.icon_color_g, uniforms.icon_color_b);
+
+  // Simple alpha blending
+  return mix(color, icon_color, mask * uniforms.icon_opacity);
+}
+
 fn shape_signed_distance(p: vec2f) -> f32 {
   let scaled_p = p / vec2f(uniforms.scale_x, uniforms.scale_y);
 
   if (uniforms.split_menu_mode > 0.5) {
     let progress = uniforms.split_menu_progress;
-    // Use the circle radius as the master height for both elements
-    let base_radius = uniforms.glass_radius;
-    let base_height = base_radius * 2.0;
-    
     // The menu splits into a circle on left and rounded rect on right
     // Final separation distance (distance between centers)
     let split_dist = 320.0 * uniforms.device_pixel_ratio * progress;
 
     // Animate width from a circle (base_height) to target width
     let target_width = uniforms.rect_width;
-    let current_width = mix(base_height, target_width, progress);
+    let current_width = mix(uniforms.glass_radius * 2.0, target_width, progress);
 
     // Calculate symmetric offsets to center the whole group
-    // Leftmost edge: C_l - base_radius
-    // Rightmost edge: C_r + current_width/2
-    // We want (C_l - base_radius) = -(C_r + current_width/2)
-    // And C_r - C_l = split_dist
-    let offset_x = (base_radius - current_width * 0.5) * 0.5;
+    let offset_x = (uniforms.glass_radius - current_width * 0.5) * 0.5;
     let split_dist_left = offset_x - split_dist * 0.5;
     let split_dist_right = offset_x + split_dist * 0.5;
 
     // Circle component (left)
     let circle_p = scaled_p - vec2f(split_dist_left, 0.0);
-    let d_circle = length(circle_p) - base_radius;
+    let d_circle = length(circle_p) - uniforms.glass_radius;
 
     // Rect component (right)
     let rect_p = scaled_p - vec2f(split_dist_right, 0.0);
-    // Ensure radius makes it a pill (circle if width == height)
-    let current_radius = base_height * 0.5;
+    let current_radius = uniforms.glass_radius;
     
     let d_rect = rounded_rect_sdf(
       rect_p,
-      vec2f(current_width, base_height) * 0.5,
+      vec2f(current_width, uniforms.glass_radius * 2.0) * 0.5,
       current_radius
     );
 
     if (uniforms.liquid_enabled > 0.5) {
-      // k controls the "gooeyness". We decrease it slightly as it splits to allow separation.
       let k = 80.0 * uniforms.device_pixel_ratio * (1.0 - progress * 0.8);
       return smin(d_circle, d_rect, k);
     } else {
@@ -603,6 +626,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     let center_blur = calculate_progressive_blur(to_pixel, 1.0);
     var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
     center_color = apply_glass_tint(center_color);
+    center_color = apply_icon_overlay(pixel, center_color);
     return vec4f(center_color, 1.0);
   }
 
@@ -639,6 +663,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   // Sample background at displaced position (with optional blur)
   var color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
   color = apply_glass_tint(color);
+
+  // Apply icon overlay
+  color = apply_icon_overlay(pixel, color);
 
   // Calculate and apply specular highlight
   if (uniforms.specular_type > 0.5) {

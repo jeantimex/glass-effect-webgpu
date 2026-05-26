@@ -15,4 +15,8 @@ export abstract class GlassPresetDefinition {
   get isTrackPreset(): boolean {
     return this.isSwitchMode || this.isSliderMode
   }
+
+  get supportsIcon(): boolean {
+    return false
+  }
 }

@@ -51,5 +51,11 @@ export function createDefaultGlassParams(): GlassParams {
     splitMenuMode: false,
     splitMenuProgress: 0,
     liquidEnabled: true,
+    iconType: 0,
+    iconOpacity: 0.8,
+    iconScale: 0.45,
+    iconColorR: 1,
+    iconColorG: 1,
+    iconColorB: 1,
   }
 }
