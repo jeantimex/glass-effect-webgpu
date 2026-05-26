@@ -45,6 +45,7 @@ export const shaderCode = `
     liquid_age: f32,
     liquid_strength: f32,
     switch_mode: f32,
+    slider_mode: f32,
     switch_progress: f32,
     switch_track_width: f32,
     switch_track_height: f32,
@@ -52,6 +53,9 @@ export const shaderCode = `
     switch_center_y: f32,
     switch_track_off_opacity: f32,
     switch_track_on_opacity: f32,
+    slider_pad_0: f32,
+    slider_pad_1: f32,
+    slider_pad_2: f32,
   }
 
   struct VertexOutput {
@@ -242,7 +246,7 @@ export const shaderCode = `
   // Sample background with blur effect
   fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     // Use the internal function that applies blur softening to grid
-    return apply_switch_track(pixel, sample_background_internal(pixel, time, blur));
+    return apply_track_overlay(pixel, sample_background_internal(pixel, time, blur));
   }
 
   // Calculate specular highlight intensity
@@ -302,24 +306,52 @@ export const shaderCode = `
     return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
   }
 
-  fn apply_switch_track(pixel: vec2f, color: vec3f) -> vec3f {
-    if (uniforms.switch_mode < 0.5) {
-      return color;
-    }
-
+  fn track_mask(pixel: vec2f) -> f32 {
     let track_p = pixel - vec2f(uniforms.switch_center_x, uniforms.switch_center_y);
     let track_sdf = rounded_rect_sdf(
       track_p,
       vec2f(uniforms.switch_track_width, uniforms.switch_track_height) * 0.5,
       uniforms.switch_track_height * 0.5
     );
-    let track_mask = 1.0 - smoothstep(-1.0, 1.0, track_sdf);
+    return 1.0 - smoothstep(-1.0, 1.0, track_sdf);
+  }
+
+  fn apply_switch_track(pixel: vec2f, color: vec3f) -> vec3f {
+    if (uniforms.switch_mode < 0.5) {
+      return color;
+    }
+
+    let track_mask_value = track_mask(pixel);
     let off_color = vec3f(0.66, 0.67, 0.71);
     let on_color = vec3f(0.23, 0.75, 0.31);
     let track_color = mix(off_color, on_color, uniforms.switch_progress);
     let track_opacity = mix(uniforms.switch_track_off_opacity, uniforms.switch_track_on_opacity, uniforms.switch_progress);
 
-    return mix(color, track_color, track_mask * track_opacity);
+    return mix(color, track_color, track_mask_value * track_opacity);
+  }
+
+  fn apply_slider_track(pixel: vec2f, color: vec3f) -> vec3f {
+    if (uniforms.slider_mode < 0.5) {
+      return color;
+    }
+
+    let track_p = pixel - vec2f(uniforms.switch_center_x, uniforms.switch_center_y);
+    let track_mask_value = track_mask(pixel);
+    let off_color = vec3f(0.537, 0.537, 0.561);
+    let on_color = vec3f(0.012, 0.467, 0.969);
+    let track_left = -uniforms.switch_track_width * 0.5 + uniforms.switch_track_height * 0.5;
+    let track_right = uniforms.switch_track_width * 0.5 - uniforms.switch_track_height * 0.5;
+    let fill_x = mix(track_left, track_right, uniforms.switch_progress);
+    let fill_mask = (1.0 - smoothstep(fill_x - 1.0, fill_x + 1.0, track_p.x)) * track_mask_value;
+
+    var track_color = mix(color, off_color, track_mask_value * uniforms.switch_track_off_opacity);
+    track_color = mix(track_color, on_color, fill_mask * uniforms.switch_track_on_opacity);
+    return track_color;
+  }
+
+  fn apply_track_overlay(pixel: vec2f, color: vec3f) -> vec3f {
+    let switch_color = apply_switch_track(pixel, color);
+    return apply_slider_track(pixel, switch_color);
   }
 
   fn shape_signed_distance(p: vec2f) -> f32 {
@@ -477,7 +509,7 @@ export const shaderCode = `
   }
 
   fn sample_background(pixel: vec2f, time: f32) -> vec3f {
-    return apply_switch_track(pixel, sample_background_internal(pixel, time, 0.0));
+    return apply_track_overlay(pixel, sample_background_internal(pixel, time, 0.0));
   }
 
   @vertex
@@ -568,6 +600,14 @@ export const shaderCode = `
 
     // Apply displacement (rays bend toward center for convex glass)
     var displaced_pixel = magnified_pixel - direction * displacement;
+    if (uniforms.slider_mode > 0.5) {
+      // Slider thumb in the CSS reference uses a separate filter stack that
+      // pulls the nearby track color into the rim. Bias the rim outward a bit
+      // so the blue fill is refracted at the thumb edge instead of only behind it.
+      let rim = 1.0 - smoothstep(0.0, max(bezel_pixels * 0.9, 1.0), distance_from_edge);
+      let outward_sample = magnified_pixel + direction * displacement * 0.65;
+      displaced_pixel = mix(displaced_pixel, outward_sample, rim * 0.7);
+    }
     displaced_pixel += liquidize_sample_offset(pixel, shape_reference, distance_from_edge);
 
     // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)

@@ -40,6 +40,7 @@ export interface GlassParams {
   useImageBg: boolean        // use image background instead of grid
   liquidStrength: number     // click liquidize strength (0-1+)
   switchMode: boolean         // render and interact as a switch
+  sliderMode: boolean         // render and interact as a slider
   switchProgress: number      // switch thumb position, 0=off, 1=on
   switchTrackWidth: number    // switch track width in CSS pixels
   switchTrackHeight: number   // switch track height in CSS pixels
@@ -113,6 +114,7 @@ export class WebGPURenderer {
     useImageBg: false,
     liquidStrength: 0,
     switchMode: false,
+    sliderMode: false,
     switchProgress: 1,
     switchTrackWidth: 160,
     switchTrackHeight: 67,
@@ -136,9 +138,9 @@ export class WebGPURenderer {
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format })
 
-    // Create uniform buffer (52 floats = 208 bytes, padded to 16-byte alignment)
+    // Create uniform buffer (56 floats = 224 bytes, padded to 16-byte alignment)
     this.uniformBuffer = this.device.createBuffer({
-      size: 208,
+      size: 224,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     })
 
@@ -411,7 +413,7 @@ export class WebGPURenderer {
   }
 
   isPointInsideSwitchTrack(clientX: number, clientY: number): boolean {
-    if (!this.glassParams.switchMode) return false
+    if (!this.glassParams.switchMode && !this.glassParams.sliderMode) return false
 
     const point = this.clientPointToCanvasPoint(clientX, clientY)
     const metrics = this.getSwitchMetrics()
@@ -440,6 +442,17 @@ export class WebGPURenderer {
   setSwitchMode(enabled: boolean): void {
     this.glassParams.switchMode = enabled
     if (enabled) {
+      this.glassParams.sliderMode = false
+      this.switchCenterX = 0.5
+      this.switchCenterY = 0.5
+      this.setSwitchProgress(this.glassParams.switchProgress)
+    }
+  }
+
+  setSliderMode(enabled: boolean): void {
+    this.glassParams.sliderMode = enabled
+    if (enabled) {
+      this.glassParams.switchMode = false
       this.switchCenterX = 0.5
       this.switchCenterY = 0.5
       this.setSwitchProgress(this.glassParams.switchProgress)
@@ -448,7 +461,7 @@ export class WebGPURenderer {
 
   setSwitchProgress(progress: number): void {
     this.glassParams.switchProgress = Math.min(Math.max(progress, 0), 1)
-    if (!this.glassParams.switchMode) return
+    if (!this.glassParams.switchMode && !this.glassParams.sliderMode) return
 
     const metrics = this.getSwitchMetrics()
     const thumbCenterX = metrics.centerX + (this.glassParams.switchProgress - 0.5) * metrics.travel
@@ -504,7 +517,7 @@ export class WebGPURenderer {
 
   render(): void {
     this.resizeCanvas()
-    if (this.glassParams.switchMode) {
+    if (this.glassParams.switchMode || this.glassParams.sliderMode) {
       this.setSwitchProgress(this.glassParams.switchProgress)
     }
 
@@ -561,6 +574,7 @@ export class WebGPURenderer {
       liquidAge,
       this.glassParams.liquidStrength,
       this.glassParams.switchMode ? 1.0 : 0.0,
+      this.glassParams.sliderMode ? 1.0 : 0.0,
       this.glassParams.switchProgress,
       this.glassParams.switchTrackWidth * (window.devicePixelRatio || 1),
       this.glassParams.switchTrackHeight * (window.devicePixelRatio || 1),
@@ -568,6 +582,9 @@ export class WebGPURenderer {
       this.switchCenterY * this.canvas.height,
       this.glassParams.switchTrackOffOpacity,
       this.glassParams.switchTrackOnOpacity,
+      0,
+      0,
+      0,
     ])
     this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData)
 

@@ -14,7 +14,7 @@ const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-type PresetType = 'circle-lens' | 'rectangle' | 'switch'
+type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider'
 type GlassTheme = 'system' | 'light' | 'dark'
 
 interface GlassPreset {
@@ -32,6 +32,7 @@ interface GlassPreset {
   switchTrackHeight: number
   switchTrackOffOpacity: number
   switchTrackOnOpacity: number
+  trackProgress: number
   scaleRatio: number
   blurAmount: number
   blurType: number
@@ -71,6 +72,7 @@ const presets: Record<PresetType, GlassPreset> = {
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
+    trackProgress: 1,
     scaleRatio: 1,
     blurAmount: 0,
     blurType: 1,
@@ -108,6 +110,7 @@ const presets: Record<PresetType, GlassPreset> = {
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
+    trackProgress: 1,
     scaleRatio: 1,
     blurAmount: 0,
     blurType: 1,
@@ -145,6 +148,7 @@ const presets: Record<PresetType, GlassPreset> = {
     switchTrackHeight: 67,
     switchTrackOffOpacity: 0.34,
     switchTrackOnOpacity: 0.86,
+    trackProgress: 1,
     scaleRatio: 0.4,
     blurAmount: 0.2,
     blurType: 0,
@@ -166,6 +170,44 @@ const presets: Record<PresetType, GlassPreset> = {
     liquidDragSquash: 1.1,
     liquidReleaseSquash: 0.9,
     liquidSpeed: 1.2,
+  },
+  slider: {
+    shapeType: 1,
+    surfaceType: 'convex-squircle',
+    bezelWidth: 16,
+    glassThickness: 80,
+    refractiveIndex: 1.45,
+    magnifyingScale: 0,
+    circleSize: 0.6,
+    rectWidth: 90,
+    rectHeight: 60,
+    rectRadiusPercent: 100,
+    switchTrackWidth: 330,
+    switchTrackHeight: 14,
+    switchTrackOffOpacity: 0.4,
+    switchTrackOnOpacity: 0.95,
+    trackProgress: 0.1,
+    scaleRatio: 0.4,
+    blurAmount: 0,
+    blurType: 0,
+    progressiveBlur: 0,
+    progressiveBlurType: 0,
+    glassBgOpacity: 0.92,
+    pressedGlassBgOpacity: 0,
+    specularType: 0,
+    specularOpacity: 0.4,
+    specularAngle: 60,
+    specularSaturation: 7,
+    shadowOpacity: 0.1,
+    shadowBlur: 20,
+    shadowOffsetX: 0,
+    shadowOffsetY: 4,
+    liquidPressScale: 1.67,
+    liquidPressRefraction: 2.25,
+    liquidClickSquash: 0.9,
+    liquidDragSquash: 1,
+    liquidReleaseSquash: 0.9,
+    liquidSpeed: 1.1,
   },
 }
 
@@ -281,7 +323,12 @@ async function main() {
       return
     }
 
-    mainCanvas.style.cursor = renderer.isPointInsideGlass(event.clientX, event.clientY)
+    const isTrackPreset = currentPreset === 'switch' || currentPreset === 'slider'
+    const isInteractive = isTrackPreset
+      ? renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
+      : renderer.isPointInsideGlass(event.clientX, event.clientY)
+
+    mainCanvas.style.cursor = isInteractive
       ? 'grab'
       : 'default'
   }
@@ -331,8 +378,8 @@ async function main() {
   }
 
   mainCanvas.addEventListener('pointerdown', (event) => {
-    const isSwitch = currentPreset === 'switch'
-    if (isSwitch) {
+    const isTrackPreset = currentPreset === 'switch' || currentPreset === 'slider'
+    if (isTrackPreset) {
       if (!renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)) return
     } else if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) {
       return
@@ -348,6 +395,10 @@ async function main() {
     if (userParams.liquidEnabled) {
       springs.liquid.value = Math.max(springs.liquid.value, 0.72 * userParams.liquidClickSquash)
       springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
+    }
+
+    if (currentPreset === 'slider') {
+      renderer.setSwitchProgressFromClientX(event.clientX)
     }
 
     mainCanvas.style.cursor = 'grabbing'
@@ -369,7 +420,7 @@ async function main() {
     lastPointerPos = { x: event.clientX, y: event.clientY }
     lastPointerTime = now
 
-    if (currentPreset === 'switch') {
+    if (currentPreset === 'switch' || currentPreset === 'slider') {
       renderer.setSwitchProgressFromClientX(event.clientX)
     } else {
       renderer.setGlassCenterFromClientPoint(event.clientX, event.clientY, glassDragOffset)
@@ -492,7 +543,7 @@ async function main() {
 
   function updateShapeControls() {
     const isRectangle = renderer.glassParams.shapeType === 1
-    const isSwitch = currentPreset === 'switch'
+    const isTrackPreset = currentPreset === 'switch' || currentPreset === 'slider'
     circleOnlyControls.forEach((control) => {
       control.classList.toggle('hidden', isRectangle)
     })
@@ -500,7 +551,7 @@ async function main() {
       control.classList.toggle('hidden', !isRectangle)
     })
     switchOnlyControls.forEach((control) => {
-      control.classList.toggle('hidden', !isSwitch)
+      control.classList.toggle('hidden', !isTrackPreset)
     })
   }
 
@@ -532,9 +583,7 @@ async function main() {
     currentPreset = type
     renderer.glassParams.shapeType = preset.shapeType
     renderer.setSwitchMode(type === 'switch')
-    if (type === 'switch') {
-      renderer.setSwitchProgress(1)
-    }
+    renderer.setSliderMode(type === 'slider')
     currentSurfaceType = preset.surfaceType
     renderer.glassParams.surfaceType = surfaceTypeMap[preset.surfaceType]
     renderer.glassParams.bezelWidth = preset.bezelWidth
@@ -549,6 +598,7 @@ async function main() {
     renderer.glassParams.switchTrackHeight = preset.switchTrackHeight
     renderer.glassParams.switchTrackOffOpacity = preset.switchTrackOffOpacity
     renderer.glassParams.switchTrackOnOpacity = preset.switchTrackOnOpacity
+    renderer.setSwitchProgress(preset.trackProgress)
     renderer.glassParams.scaleRatio = preset.scaleRatio
     userParams.circleSize = preset.circleSize
     userParams.scaleRatio = preset.scaleRatio
@@ -699,14 +749,14 @@ async function main() {
 
   switchTrackWidthSlider?.addEventListener('input', () => {
     renderer.glassParams.switchTrackWidth = parseFloat(switchTrackWidthSlider.value)
-    if (currentPreset === 'switch') {
+    if (currentPreset === 'switch' || currentPreset === 'slider') {
       renderer.setSwitchProgress(renderer.getSwitchProgress())
     }
   })
 
   switchTrackHeightSlider?.addEventListener('input', () => {
     renderer.glassParams.switchTrackHeight = parseFloat(switchTrackHeightSlider.value)
-    if (currentPreset === 'switch') {
+    if (currentPreset === 'switch' || currentPreset === 'slider') {
       renderer.setSwitchProgress(renderer.getSwitchProgress())
     }
   })
