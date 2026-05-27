@@ -2,7 +2,7 @@ import type { BackgroundType, GlassParams } from './types'
 
 const base = import.meta.env.BASE_URL
 
-export const backgroundImageUrls: Record<Exclude<BackgroundType, 'grid'>, string> = {
+export const backgroundImageUrls: Record<Exclude<BackgroundType, 'grid' | 'article'>, string> = {
   leaves: `${base}assets/leaves.jpg`,
   banner: `${base}assets/banner.jpeg`,
 }
@@ -59,5 +59,8 @@ export function createDefaultGlassParams(): GlassParams {
     iconColorR: 1,
     iconColorG: 1,
     iconColorB: 1,
+    articleMode: false,
+    chromaticAberration: false,
+    chromaticStrength: 1.0,
   }
 }

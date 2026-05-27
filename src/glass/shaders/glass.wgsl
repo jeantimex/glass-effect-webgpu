@@ -58,6 +58,9 @@ struct Uniforms {
   icon_color_r: f32,
   icon_color_g: f32,
   icon_color_b: f32,
+  article_mode: f32,
+  chromatic_aberration: f32,
+  chromatic_strength: f32,
 }
 
 struct VertexOutput {
@@ -661,7 +664,24 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);
 
   // Sample background at displaced position (with optional blur)
-  var color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
+  var color: vec3f;
+
+  if (uniforms.chromatic_aberration > 0.5) {
+    // Chromatic aberration: sample R, G, B at different offsets
+    // Red refracts less, blue refracts more (dispersion)
+    let aberration_amount = displacement * uniforms.chromatic_strength * 0.15;
+    let displaced_r = magnified_pixel - direction * (displacement - aberration_amount);
+    let displaced_g = magnified_pixel - direction * displacement;
+    let displaced_b = magnified_pixel - direction * (displacement + aberration_amount);
+
+    let r = sample_background_blurred(displaced_r, uniforms.time, progressive_blur).r;
+    let g = sample_background_blurred(displaced_g, uniforms.time, progressive_blur).g;
+    let b = sample_background_blurred(displaced_b, uniforms.time, progressive_blur).b;
+    color = vec3f(r, g, b);
+  } else {
+    color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
+  }
+
   color = apply_glass_tint(color);
 
   // Apply icon overlay

@@ -49,9 +49,12 @@ export interface GlassParams {
   iconColorR: number
   iconColorG: number
   iconColorB: number
+  articleMode: boolean
+  chromaticAberration: boolean
+  chromaticStrength: number
 }
 
-export type BackgroundType = 'grid' | 'leaves' | 'banner'
+export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article'
 
 export interface Point {
   x: number

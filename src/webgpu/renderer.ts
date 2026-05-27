@@ -1,3 +1,4 @@
+import html2canvas from 'html2canvas'
 import { backgroundImageUrls, createDefaultGlassParams } from './defaults'
 import {
   clientPointToCanvasPoint,
@@ -54,7 +55,7 @@ export class WebGPURenderer {
     this.device = await adapter.requestDevice()
     this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
     this.format = navigator.gpu.getPreferredCanvasFormat()
-    this.context.configure({ device: this.device, format: this.format })
+    this.context.configure({ device: this.device, format: this.format, alphaMode: 'premultiplied' })
 
     this.uniformBuffer = this.device.createBuffer({
       size: GLASS_UNIFORM_BUFFER_SIZE,
@@ -83,15 +84,59 @@ export class WebGPURenderer {
     this.resizeCanvas()
   }
 
-  async setBackground(type: BackgroundType): Promise<void> {
+  async setBackground(type: BackgroundType, articleElement?: HTMLElement): Promise<void> {
     const requestId = ++this.backgroundRequestId
+    this.glassParams.articleMode = false
+
+    if (type === 'article' && articleElement) {
+      // Position element off-screen but visible for capture
+      const width = this.canvas.clientWidth
+      const height = this.canvas.clientHeight
+
+      articleElement.classList.remove('hidden')
+      articleElement.style.width = `${width}px`
+      articleElement.style.height = `${height}px`
+      articleElement.style.position = 'fixed'
+      articleElement.style.left = '-9999px'
+      articleElement.style.top = '0'
+      articleElement.style.visibility = 'visible'
+
+      // Wait for images to load and layout to settle
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // Capture HTML content as texture
+      const capturedCanvas = await html2canvas(articleElement, {
+        backgroundColor: '#f8f8f8',
+        width,
+        height,
+        scale: window.devicePixelRatio,
+        useCORS: true,
+        logging: false,
+      })
+
+      // Hide element after capture
+      articleElement.classList.add('hidden')
+      articleElement.style.width = ''
+      articleElement.style.height = ''
+      articleElement.style.position = ''
+      articleElement.style.left = ''
+      articleElement.style.top = ''
+      articleElement.style.visibility = ''
+
+      if (requestId !== this.backgroundRequestId) return
+
+      this.bgTexture = this.textureLoader.createTextureFromCanvas(capturedCanvas)
+      this.glassParams.useImageBg = true
+      this.bindGroup = this.createRenderBindGroup()
+      return
+    }
 
     if (type === 'grid') {
       this.glassParams.useImageBg = false
       return
     }
 
-    const texture = await this.textureLoader.load(backgroundImageUrls[type])
+    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article'>])
     if (requestId !== this.backgroundRequestId) return
 
     this.bgTexture = texture
@@ -260,11 +305,14 @@ export class WebGPURenderer {
     }))
 
     const commandEncoder = this.device.createCommandEncoder()
+    const clearColor = this.glassParams.articleMode
+      ? { r: 0, g: 0, b: 0, a: 0 }
+      : { r: 0.1, g: 0.1, b: 0.12, a: 1 }
     const renderPass = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
           view: this.context.getCurrentTexture().createView(),
-          clearValue: { r: 0.1, g: 0.1, b: 0.12, a: 1 },
+          clearValue: clearColor,
           loadOp: 'clear',
           storeOp: 'store',
         },

@@ -28,6 +28,7 @@ export class GlassControlPanel {
     this.updateBackgroundControls()
     this.updateGlassTheme()
     this.updateSpecularControls()
+    this.updateChromaticControls()
     this.bindEvents()
   }
 
@@ -244,7 +245,9 @@ export class GlassControlPanel {
     })
 
     controls.backgroundTypeSelect.addEventListener('change', () => {
-      renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
+      const bgType = controls.backgroundTypeSelect.value as BackgroundType
+      const articleEl = bgType === 'article' ? controls.articleBackground : undefined
+      renderer.setBackground(bgType, articleEl).catch(console.error)
       this.updateBackgroundControls()
     })
     controls.gridCellSizeSlider.addEventListener('input', () => {
@@ -337,6 +340,14 @@ export class GlassControlPanel {
     controls.shadowOffsetYSlider.addEventListener('input', () => {
       userParams.shadowOffsetY = parseFloat(controls.shadowOffsetYSlider.value)
     })
+
+    controls.chromaticAberrationCheckbox.addEventListener('change', () => {
+      renderer.glassParams.chromaticAberration = controls.chromaticAberrationCheckbox.checked
+      this.updateChromaticControls()
+    })
+    controls.chromaticStrengthSlider.addEventListener('input', () => {
+      renderer.glassParams.chromaticStrength = parseFloat(controls.chromaticStrengthSlider.value)
+    })
   }
 
   private syncTrackProgress(): void {
@@ -373,8 +384,11 @@ export class GlassControlPanel {
 
   private updateBackgroundControls(): void {
     const { controls } = this.options
-    const isGrid = controls.backgroundTypeSelect.value === 'grid'
+    const bgType = controls.backgroundTypeSelect.value
+    const isGrid = bgType === 'grid'
     controls.gridOnlyControls.forEach((control) => control.classList.toggle('hidden', !isGrid))
+    // Article background is always hidden - we capture it to texture
+    controls.articleBackground.classList.add('hidden')
   }
 
   private resolveGlassTheme(): Exclude<GlassTheme, 'system'> {
@@ -408,6 +422,12 @@ export class GlassControlPanel {
     const isLayeredSpecular = renderer.glassParams.specularType === 1
     const saturationRow = controls.specularSaturationSlider.closest<HTMLElement>('.control-row')
     saturationRow?.classList.toggle('hidden', isLayeredSpecular)
+  }
+
+  private updateChromaticControls(): void {
+    const { controls, renderer } = this.options
+    const enabled = renderer.glassParams.chromaticAberration
+    controls.chromaticOnlyControls.forEach((control) => control.classList.toggle('hidden', !enabled))
   }
 }
 

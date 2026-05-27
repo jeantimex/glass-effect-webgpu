@@ -31,6 +31,9 @@ export interface GlassControls {
   blurAmountSlider: HTMLInputElement
   progressiveBlurSlider: HTMLInputElement
   progressiveBlurTypeSelect: HTMLSelectElement
+  chromaticAberrationCheckbox: HTMLInputElement
+  chromaticStrengthSlider: HTMLInputElement
+  chromaticOnlyControls: NodeListOf<HTMLElement>
   glassThemeSelect: HTMLSelectElement
   glassBgColorInput: HTMLInputElement
   glassCustomColorControls: NodeListOf<HTMLElement>
@@ -53,6 +56,7 @@ export interface GlassControls {
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
   gridOnlyControls: NodeListOf<HTMLElement>
+  articleBackground: HTMLElement
 }
 
 function getElement<T extends HTMLElement>(id: string): T {
@@ -97,6 +101,9 @@ export function getGlassControls(): GlassControls {
     blurAmountSlider: getElement<HTMLInputElement>('blurAmount'),
     progressiveBlurSlider: getElement<HTMLInputElement>('progressiveBlur'),
     progressiveBlurTypeSelect: getElement<HTMLSelectElement>('progressiveBlurType'),
+    chromaticAberrationCheckbox: getElement<HTMLInputElement>('chromaticAberration'),
+    chromaticStrengthSlider: getElement<HTMLInputElement>('chromaticStrength'),
+    chromaticOnlyControls: document.querySelectorAll<HTMLElement>('.chromatic-only-control'),
     glassThemeSelect: getElement<HTMLSelectElement>('glassTheme'),
     glassBgColorInput: getElement<HTMLInputElement>('glassBgColor'),
     glassCustomColorControls: document.querySelectorAll<HTMLElement>('.glass-custom-color-control'),
@@ -119,6 +126,7 @@ export function getGlassControls(): GlassControls {
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),
     gridOnlyControls: document.querySelectorAll<HTMLElement>('.grid-only-control'),
+    articleBackground: getElement<HTMLElement>('articleBackground'),
   }
 }
 
