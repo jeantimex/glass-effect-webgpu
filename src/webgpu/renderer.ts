@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas'
 import { Circle, type CircleConfig } from './circle'
-import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
+import { createDefaultGlassParams, videoBackgroundUrl } from './defaults'
 import { createBackgroundElement, isTemplateBackground, type BackgroundTemplateOptions } from '../templates'
 import {
   detectHTMLInCanvasSupport,
@@ -94,7 +94,7 @@ export class WebGPURenderer {
     })
     this.textureLoader = new BackgroundTextureLoader(this.device)
 
-    this.bgTexture = await this.textureLoader.load(backgroundImageUrls.banner)
+    this.bgTexture = this.createEmptyTexture()
     this.iconTexture = this.createEmptyTexture()
     this.bindGroupLayout = createBindGroupLayout(this.device)
 
@@ -150,6 +150,8 @@ export class WebGPURenderer {
       let templateOptions = options
       if (type === 'article') {
         templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
+      } else if (type === 'banner') {
+        templateOptions = { banner: { imageUrl: options?.banner?.imageUrl ?? `${import.meta.env.BASE_URL}assets/banner.jpeg` } }
       } else if (type === 'leaves') {
         templateOptions = { leaves: { imageUrl: options?.leaves?.imageUrl ?? `${import.meta.env.BASE_URL}assets/leaves.jpg` } }
       }
@@ -185,12 +187,6 @@ export class WebGPURenderer {
     }
 
     this.stopVideo()
-    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article' | 'video' | 'leaves'>])
-    if (requestId !== this.backgroundRequestId) return
-
-    this.bgTexture = texture
-    this.glassParams.useImageBg = true
-    this.bindGroup = this.createRenderBindGroup()
   }
 
   /**

@@ -1,10 +1,6 @@
-import type { BackgroundType, GlassParams } from './types'
+import type { GlassParams } from './types'
 
 const base = import.meta.env.BASE_URL
-
-export const backgroundImageUrls: Record<Exclude<BackgroundType, 'grid' | 'article' | 'video' | 'leaves'>, string> = {
-  banner: `${base}assets/banner.jpeg`,
-}
 
 export const videoBackgroundUrl = `${base}assets/video.mp4`
 

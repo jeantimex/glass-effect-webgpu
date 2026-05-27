@@ -380,6 +380,28 @@ body {
   pointer-events: none;
 }
 
+/* Banner Background */
+.banner-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.banner-background .banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.banner-background.html-in-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
 .article-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
