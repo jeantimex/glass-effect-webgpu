@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas'
 import { Circle, type CircleConfig } from './circle'
-import { createDefaultGlassParams, videoBackgroundUrl } from './defaults'
+import { createDefaultGlassParams } from './defaults'
 import { createBackgroundElement, isTemplateBackground, type BackgroundTemplateOptions } from '../templates'
 import {
   detectHTMLInCanvasSupport,
@@ -51,15 +51,16 @@ export class WebGPURenderer {
   private gridOffset = 0
   private switchCenterX = 0.5
   private switchCenterY = 0.5
-  private videoElement: HTMLVideoElement | null = null
-
   // Player controls circles (left, center, right)
   private _circles: Circle[] = []
 
-  // HTML-in-Canvas support for article background
+  // Video element for fallback mode (when HTML-in-Canvas not supported)
+  private videoElement: HTMLVideoElement | null = null
+
+  // HTML-in-Canvas support for template backgrounds
   private htmlInCanvasSupport: HTMLInCanvasSupport = { supported: false, copyElementImageToTexture: false }
-  private articleElement: HTMLElement | null = null
-  private articleTexture: GPUTexture | null = null
+  private backgroundElement: HTMLElement | null = null
+  private backgroundTexture: GPUTexture | null = null
   private cleanupPaintHandler: (() => void) | null = null
 
   public glassParams: GlassParams = createDefaultGlassParams()
@@ -138,15 +139,27 @@ export class WebGPURenderer {
     const requestId = ++this.backgroundRequestId
     this.glassParams.articleMode = false
 
-    // Clean up previous HTML-in-Canvas setup
-    this.cleanupArticleMode()
+    // Clean up previous background
+    this.cleanupBackground()
+
+    // Handle video separately (doesn't use HTML-in-Canvas)
+    if (type === 'video') {
+      await this.startVideo()
+      if (requestId !== this.backgroundRequestId) return
+      return
+    }
+
+    if (type === 'grid') {
+      this.glassParams.useImageBg = false
+      return
+    }
 
     if (isTemplateBackground(type)) {
       const width = this.canvas.clientWidth
       const height = this.canvas.clientHeight
       const dpr = window.devicePixelRatio
 
-      // Create element from template with default image URLs
+      // Create element from template with default URLs
       let templateOptions = options
       if (type === 'article') {
         templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
@@ -160,10 +173,10 @@ export class WebGPURenderer {
 
       if (this.htmlInCanvasSupport.supported) {
         // HTML-in-Canvas mode: element stays interactive and visible
-        await this.setupHTMLInCanvasArticle(element, width, height, dpr)
+        await this.setupHTMLInCanvas(element, width, height, dpr, type)
       } else {
         // Fallback: use html2canvas to capture static image
-        await this.setupFallbackArticle(element, width, height, dpr)
+        await this.setupFallbackCapture(element, width, height, dpr)
       }
 
       if (requestId !== this.backgroundRequestId) return
@@ -173,46 +186,72 @@ export class WebGPURenderer {
       this.bindGroup = this.createRenderBindGroup()
       return
     }
-
-    if (type === 'grid') {
-      this.stopVideo()
-      this.glassParams.useImageBg = false
-      return
-    }
-
-    if (type === 'video') {
-      await this.startVideo()
-      if (requestId !== this.backgroundRequestId) return
-      return
-    }
-
-    this.stopVideo()
   }
 
   /**
-   * Set up article using HTML-in-Canvas API (Chrome 147+ with flag)
+   * Set up background using HTML-in-Canvas API (Chrome 147+ with flag)
    * The element becomes a child of the canvas with layoutsubtree.
    * It remains laid out and hit-testable (for text selection) but invisible
    * until we draw it to the texture.
    */
-  private async setupHTMLInCanvasArticle(
-    articleElement: HTMLElement,
+  private async setupHTMLInCanvas(
+    bgElement: HTMLElement,
     width: number,
     height: number,
-    _dpr: number
+    _dpr: number,
+    bgType: string
   ): Promise<void> {
-    this.articleElement = articleElement
+    this.backgroundElement = bgElement
 
     // Set up element for HTML-in-Canvas mode
-    articleElement.classList.add('html-in-canvas')
-    articleElement.style.width = `${width}px`
-    articleElement.style.height = `${height}px`
-    articleElement.style.position = 'absolute'
-    articleElement.style.left = '0'
-    articleElement.style.top = '0'
+    bgElement.classList.add('html-in-canvas')
+    bgElement.style.width = `${width}px`
+    bgElement.style.height = `${height}px`
+    bgElement.style.position = 'absolute'
+    bgElement.style.left = '0'
+    bgElement.style.top = '0'
 
     // IMPORTANT: Element must be a direct child of the canvas for layoutsubtree to work
-    this.canvas.appendChild(articleElement)
+    this.canvas.appendChild(bgElement)
+
+    // Handle video elements - wait for video to be ready and start playing
+    const video = bgElement.querySelector('video')
+    if (video) {
+      // Wait for video to be ready
+      if (video.readyState < 3) {
+        await new Promise<void>((resolve, reject) => {
+          const onReady = () => {
+            video.removeEventListener('canplaythrough', onReady)
+            video.removeEventListener('error', onError)
+            resolve()
+          }
+          const onError = () => {
+            video.removeEventListener('canplaythrough', onReady)
+            video.removeEventListener('error', onError)
+            reject(new Error('Failed to load video'))
+          }
+          video.addEventListener('canplaythrough', onReady)
+          video.addEventListener('error', onError)
+          video.load()
+        })
+      }
+
+      try {
+        await video.play()
+      } catch (e) {
+        console.warn('Video autoplay failed:', e)
+      }
+
+      // Wait for first frame to be decoded
+      await new Promise<void>((resolve) => {
+        if ('requestVideoFrameCallback' in video) {
+          (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void })
+            .requestVideoFrameCallback(() => resolve())
+        } else {
+          requestAnimationFrame(() => resolve())
+        }
+      })
+    }
 
     // Wait for layout to settle
     await new Promise(resolve => setTimeout(resolve, 100))
@@ -221,7 +260,7 @@ export class WebGPURenderer {
     // This avoids size mismatches between element rendering and texture
     const textureWidth = this.canvas.width
     const textureHeight = this.canvas.height
-    this.articleTexture = this.device.createTexture({
+    this.backgroundTexture = this.device.createTexture({
       size: [textureWidth, textureHeight],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
@@ -229,31 +268,31 @@ export class WebGPURenderer {
 
     // Try to use copyElementImageToTexture
     try {
-      this.updateArticleTexture()
-      this.bgTexture = this.articleTexture
+      this.updateBackgroundTexture()
+      this.bgTexture = this.backgroundTexture
 
       // Set up paint handler for live updates
       this.cleanupPaintHandler = setupPaintHandler(this.canvas, () => {
-        this.updateArticleTexture()
+        this.updateBackgroundTexture()
       })
 
-      console.log('Article mode: HTML-in-Canvas active - text is selectable!')
+      console.log(`${bgType} background: HTML-in-Canvas active`)
     } catch (e) {
       console.warn('copyElementImageToTexture failed, falling back to html2canvas:', e)
       // Move element back out of canvas for fallback
       const preview = document.querySelector('.preview')
       if (preview) {
-        preview.appendChild(articleElement)
+        preview.appendChild(bgElement)
       }
-      await this.setupFallbackArticle(articleElement, width, height, _dpr)
+      await this.setupFallbackCapture(bgElement, width, height, _dpr)
     }
   }
 
   /**
-   * Update article texture using copyElementImageToTexture
+   * Update background texture using copyElementImageToTexture
    */
-  private updateArticleTexture(): void {
-    if (!this.articleElement || !this.articleTexture) return
+  private updateBackgroundTexture(): void {
+    if (!this.backgroundElement || !this.backgroundTexture) return
 
     const queue = this.device.queue as GPUQueue & {
       copyElementImageToTexture?: (
@@ -269,49 +308,49 @@ export class WebGPURenderer {
     }
 
     // Specify the destination size to match the texture dimensions exactly
-    const textureWidth = this.articleTexture.width
-    const textureHeight = this.articleTexture.height
+    const textureWidth = this.backgroundTexture.width
+    const textureHeight = this.backgroundTexture.height
 
     queue.copyElementImageToTexture(
-      this.articleElement,
+      this.backgroundElement,
       textureWidth,
       textureHeight,
-      { texture: this.articleTexture }
+      { texture: this.backgroundTexture }
     )
   }
 
   /**
    * Fallback: use html2canvas to capture static image
    */
-  private async setupFallbackArticle(
-    articleElement: HTMLElement,
+  private async setupFallbackCapture(
+    bgElement: HTMLElement,
     width: number,
     height: number,
     dpr: number
   ): Promise<void> {
-    this.articleElement = articleElement
+    this.backgroundElement = bgElement
 
     // Add to DOM for capture (off-screen)
     const preview = this.canvas.closest('.preview')
     if (preview) {
-      preview.appendChild(articleElement)
+      preview.appendChild(bgElement)
     } else {
-      document.body.appendChild(articleElement)
+      document.body.appendChild(bgElement)
     }
 
     // Position element off-screen but visible for capture
-    articleElement.style.width = `${width}px`
-    articleElement.style.height = `${height}px`
-    articleElement.style.position = 'fixed'
-    articleElement.style.left = '-9999px'
-    articleElement.style.top = '0'
-    articleElement.style.visibility = 'visible'
+    bgElement.style.width = `${width}px`
+    bgElement.style.height = `${height}px`
+    bgElement.style.position = 'fixed'
+    bgElement.style.left = '-9999px'
+    bgElement.style.top = '0'
+    bgElement.style.visibility = 'visible'
 
     // Wait for images to load and layout to settle
     await new Promise(resolve => setTimeout(resolve, 300))
 
     // Capture HTML content as texture
-    const capturedCanvas = await html2canvas(articleElement, {
+    const capturedCanvas = await html2canvas(bgElement, {
       backgroundColor: '#f8f8f8',
       width,
       height,
@@ -321,30 +360,81 @@ export class WebGPURenderer {
     })
 
     // Remove element after capture (it's template-created, not needed anymore)
-    articleElement.remove()
-    this.articleElement = null
+    bgElement.remove()
+    this.backgroundElement = null
 
     this.bgTexture = this.textureLoader.createTextureFromCanvas(capturedCanvas)
   }
 
   /**
-   * Clean up HTML-in-Canvas article mode
+   * Start video background
    */
-  private cleanupArticleMode(): void {
+  private async startVideo(): Promise<void> {
+    if (this.videoElement) return
+
+    const videoUrl = `${import.meta.env.BASE_URL}assets/video.mp4`
+    const video = document.createElement('video')
+    video.src = videoUrl
+    video.loop = true
+    video.muted = true
+    video.playsInline = true
+    video.crossOrigin = 'anonymous'
+
+    await new Promise<void>((resolve, reject) => {
+      video.oncanplaythrough = () => resolve()
+      video.onerror = () => reject(new Error('Failed to load video'))
+      video.load()
+    })
+
+    await video.play()
+
+    // Wait for first frame to be decoded
+    await new Promise<void>((resolve) => {
+      if ('requestVideoFrameCallback' in video) {
+        (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void })
+          .requestVideoFrameCallback(() => resolve())
+      } else {
+        requestAnimationFrame(() => resolve())
+      }
+    })
+
+    this.videoElement = video
+    this.bgTexture = this.textureLoader.createTextureFromVideo(video)
+    this.glassParams.useImageBg = true
+    this.bindGroup = this.createRenderBindGroup()
+  }
+
+  /**
+   * Clean up background element and textures
+   */
+  private cleanupBackground(): void {
     if (this.cleanupPaintHandler) {
       this.cleanupPaintHandler()
       this.cleanupPaintHandler = null
     }
 
-    if (this.articleElement) {
+    if (this.backgroundElement) {
+      // Stop any video that might be playing
+      const video = this.backgroundElement.querySelector('video')
+      if (video) {
+        video.pause()
+        video.src = ''
+      }
       // Remove the template-created element entirely
-      this.articleElement.remove()
-      this.articleElement = null
+      this.backgroundElement.remove()
+      this.backgroundElement = null
     }
 
-    if (this.articleTexture) {
-      this.articleTexture.destroy()
-      this.articleTexture = null
+    // Clean up video fallback mode
+    if (this.videoElement) {
+      this.videoElement.pause()
+      this.videoElement.src = ''
+      this.videoElement = null
+    }
+
+    if (this.backgroundTexture) {
+      this.backgroundTexture.destroy()
+      this.backgroundTexture = null
     }
   }
 
@@ -390,47 +480,6 @@ export class WebGPURenderer {
     const currentOffset = elapsedTime * this.glassParams.gridSpeed + this.gridOffset
     this.glassParams.gridSpeed = speed
     this.gridOffset = currentOffset - elapsedTime * speed
-  }
-
-  private async startVideo(): Promise<void> {
-    if (this.videoElement) return
-
-    const video = document.createElement('video')
-    video.src = videoBackgroundUrl
-    video.loop = true
-    video.muted = true
-    video.playsInline = true
-    video.crossOrigin = 'anonymous'
-
-    await new Promise<void>((resolve, reject) => {
-      video.oncanplaythrough = () => resolve()
-      video.onerror = () => reject(new Error('Failed to load video'))
-      video.load()
-    })
-
-    await video.play()
-
-    // Wait for first frame to be decoded
-    await new Promise<void>((resolve) => {
-      if ('requestVideoFrameCallback' in video) {
-        (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void })
-          .requestVideoFrameCallback(() => resolve())
-      } else {
-        requestAnimationFrame(() => resolve())
-      }
-    })
-
-    this.videoElement = video
-    this.bgTexture = this.textureLoader.createTextureFromVideo(video)
-    this.glassParams.useImageBg = true
-    this.bindGroup = this.createRenderBindGroup()
-  }
-
-  private stopVideo(): void {
-    if (!this.videoElement) return
-    this.videoElement.pause()
-    this.videoElement.src = ''
-    this.videoElement = null
   }
 
   isPointInsideGlass(clientX: number, clientY: number): boolean {
@@ -607,17 +656,18 @@ export class WebGPURenderer {
       this.setSwitchProgress(this.glassParams.switchProgress)
     }
 
-    if (this.videoElement) {
-      this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
-    }
-
-    // Update article texture in HTML-in-Canvas mode for live content
-    if (this.articleElement && this.articleTexture && this.htmlInCanvasSupport.copyElementImageToTexture) {
+    // Update texture in HTML-in-Canvas mode for live content (including video)
+    if (this.backgroundElement && this.backgroundTexture && this.htmlInCanvasSupport.copyElementImageToTexture) {
       try {
-        this.updateArticleTexture()
+        this.updateBackgroundTexture()
       } catch {
         // Silently ignore texture update errors in render loop
       }
+    }
+
+    // Update video texture in fallback mode
+    if (this.videoElement) {
+      this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
     }
 
     // Sync circle data to glassParams for uniforms
@@ -702,23 +752,23 @@ export class WebGPURenderer {
     resizeCanvasToDisplaySize(this.canvas)
 
     // Update article element size to match canvas in HTML-in-Canvas mode
-    if (this.articleElement && this.htmlInCanvasSupport.supported) {
+    if (this.backgroundElement && this.htmlInCanvasSupport.supported) {
       const width = this.canvas.clientWidth
       const height = this.canvas.clientHeight
-      this.articleElement.style.width = `${width}px`
-      this.articleElement.style.height = `${height}px`
+      this.backgroundElement.style.width = `${width}px`
+      this.backgroundElement.style.height = `${height}px`
 
       // Recreate texture if canvas size changed
-      if (this.articleTexture &&
-          (this.articleTexture.width !== this.canvas.width ||
-           this.articleTexture.height !== this.canvas.height)) {
-        this.articleTexture.destroy()
-        this.articleTexture = this.device.createTexture({
+      if (this.backgroundTexture &&
+          (this.backgroundTexture.width !== this.canvas.width ||
+           this.backgroundTexture.height !== this.canvas.height)) {
+        this.backgroundTexture.destroy()
+        this.backgroundTexture = this.device.createTexture({
           size: [this.canvas.width, this.canvas.height],
           format: 'rgba8unorm',
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
         })
-        this.bgTexture = this.articleTexture
+        this.bgTexture = this.backgroundTexture
         this.bindGroup = this.createRenderBindGroup()
       }
     }
