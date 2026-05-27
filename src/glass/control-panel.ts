@@ -4,7 +4,7 @@ import type { GlassControls } from './dom'
 import { setSliderValue } from './dom'
 import { getPresetDefinition } from '../presets'
 import type { GlassSprings } from './springs'
-import { resetDeformationSprings, resetGlassSpringsFromPreset } from './springs'
+import { resetDeformationSprings, resetGlassSpringsFromPreset, setSpring } from './springs'
 import type { GlassTheme, PresetType, UserParams } from './types'
 import { surfaceTypeMap } from './types'
 
@@ -302,12 +302,11 @@ export class GlassControlPanel {
 
     controls.liquidEnabledCheckbox.addEventListener('change', () => {
       userParams.liquidEnabled = controls.liquidEnabledCheckbox.checked
-      if (!userParams.liquidEnabled) {
-        springs.liquid.value = 0
-        springs.liquid.target = 0
-        springs.liquid.velocity = 0
-        resetDeformationSprings(springs)
-      }
+      springs.liquid.value = 0
+      springs.liquid.target = 0
+      springs.liquid.velocity = 0
+      resetDeformationSprings(springs)
+      setSpring(springs.scale, userParams.circleSize)
     })
     controls.liquidPressScaleSlider.addEventListener('input', () => {
       userParams.liquidPressScale = parseFloat(controls.liquidPressScaleSlider.value)
