@@ -260,17 +260,19 @@ export class WebGPURenderer {
     const dpr = window.devicePixelRatio || 1
     const centerX = this.glassCenterX * this.canvas.width
     const centerY = this.glassCenterY * this.canvas.height
-    const mainRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.glassParams.circleSize
-    const sideRadius = mainRadius * this.glassParams.sideCircleScale
+    const baseRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35
+    const centerRadius = baseRadius * this.glassParams.centerCircleSize
+    const leftRadius = baseRadius * this.glassParams.leftCircleSize
+    const rightRadius = baseRadius * this.glassParams.rightCircleSize
     const offset = this.glassParams.sideCircleOffset * dpr
 
     const distCenter = Math.hypot(point.x - centerX, point.y - centerY)
     const distLeft = Math.hypot(point.x - (centerX - offset), point.y - centerY)
     const distRight = Math.hypot(point.x - (centerX + offset), point.y - centerY)
 
-    if (distCenter <= mainRadius) return 1
-    if (distLeft <= sideRadius) return 0
-    if (distRight <= sideRadius) return 2
+    if (distCenter <= centerRadius) return 1
+    if (distLeft <= leftRadius) return 0
+    if (distRight <= rightRadius) return 2
     return -1
   }
 

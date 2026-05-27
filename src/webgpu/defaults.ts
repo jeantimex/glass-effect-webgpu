@@ -69,5 +69,8 @@ export function createDefaultGlassParams(): GlassParams {
     sideCircleOffset: 220,
     sideCircleScale: 0.75,
     activeCircleIndex: -1,
+    leftCircleSize: 0.32,
+    centerCircleSize: 0.42,
+    rightCircleSize: 0.32,
   }
 }

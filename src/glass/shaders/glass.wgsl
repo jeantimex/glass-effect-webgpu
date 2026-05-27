@@ -66,6 +66,9 @@ struct Uniforms {
   side_circle_offset: f32,
   side_circle_scale: f32,
   active_circle_index: f32,
+  left_circle_size: f32,
+  center_circle_size: f32,
+  right_circle_size: f32,
 }
 
 struct VertexOutput {
@@ -607,9 +610,26 @@ fn get_scale_for_circle(circle_index: i32) -> vec2f {
   return vec2f(uniforms.scale_x, uniforms.scale_y);
 }
 
+fn get_player_base_radius() -> f32 {
+  return min(uniforms.canvas_width, uniforms.canvas_height) * 0.35;
+}
+
+fn get_player_circle_radius(circle_index: i32) -> f32 {
+  let base = get_player_base_radius();
+  if (circle_index == 0) {
+    return base * uniforms.left_circle_size;
+  } else if (circle_index == 2) {
+    return base * uniforms.right_circle_size;
+  }
+  return base * uniforms.center_circle_size;
+}
+
 // Signed distance to the combined player controls shape (3 circles with smooth blending)
 fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f32 {
-  let side_radius = main_radius * uniforms.side_circle_scale;
+  let left_radius = get_player_circle_radius(0);
+  let center_radius = get_player_circle_radius(1);
+  let right_radius = get_player_circle_radius(2);
+
   let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
   let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
 
@@ -619,9 +639,9 @@ fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f3
   let scale_right = get_scale_for_circle(2);
 
   // Calculate signed distance to each circle
-  let d_left = length((pixel - left_center) / scale_left) - side_radius;
-  let d_center = length((pixel - main_center) / scale_center) - main_radius;
-  let d_right = length((pixel - right_center) / scale_right) - side_radius;
+  let d_left = length((pixel - left_center) / scale_left) - left_radius;
+  let d_center = length((pixel - main_center) / scale_center) - center_radius;
+  let d_right = length((pixel - right_center) / scale_right) - right_radius;
 
   // Smooth blend factor - higher = smoother blend
   let k = 40.0 * uniforms.device_pixel_ratio;
@@ -649,13 +669,15 @@ fn get_active_circle(pixel: vec2f, main_center: vec2f, main_radius: f32) -> Circ
   let inside = sdf <= 0.0;
 
   // Determine which circle is closest (for per-circle effects)
-  let side_radius = main_radius * uniforms.side_circle_scale;
+  let left_radius = get_player_circle_radius(0);
+  let center_radius = get_player_circle_radius(1);
+  let right_radius = get_player_circle_radius(2);
   let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
   let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
 
-  let dist_left = length(pixel - left_center) - side_radius;
-  let dist_center = length(pixel - main_center) - main_radius;
-  let dist_right = length(pixel - right_center) - side_radius;
+  let dist_left = length(pixel - left_center) - left_radius;
+  let dist_center = length(pixel - main_center) - center_radius;
+  let dist_right = length(pixel - right_center) - right_radius;
 
   var closest_index = 1;
   if (dist_left < dist_center && dist_left < dist_right) {

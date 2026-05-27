@@ -65,6 +65,9 @@ export class GlassApp {
       circleSizeSlider: controls.circleSizeSlider,
       rectWidthSlider: controls.rectWidthSlider,
       rectHeightSlider: controls.rectHeightSlider,
+      leftCircleSizeSlider: controls.leftCircleSizeSlider,
+      centerCircleSizeSlider: controls.centerCircleSizeSlider,
+      rightCircleSizeSlider: controls.rightCircleSizeSlider,
     })
 
     setupCollapsibleSections(updateDisplacementMap)

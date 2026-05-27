@@ -63,6 +63,11 @@ export class GlassControlPanel {
     renderer.setSwitchMode(definition.isSwitchMode)
     renderer.setSliderMode(definition.isSliderMode)
     renderer.glassParams.playerControlsMode = definition.isPlayerControlsMode
+    if (definition.isPlayerControlsMode) {
+      renderer.glassParams.leftCircleSize = 0.32
+      renderer.glassParams.centerCircleSize = 0.42
+      renderer.glassParams.rightCircleSize = 0.32
+    }
     if (type === 'panel' || type === 'player-controls') {
       renderer.centerGlass()
     }
@@ -147,6 +152,9 @@ export class GlassControlPanel {
       renderer.glassParams.iconType = 1
       renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/pause.svg`).catch(console.error)
       controls.iconTypeSelect.value = 'pause'
+      setSliderValue(controls.leftCircleSizeSlider, renderer.glassParams.leftCircleSize)
+      setSliderValue(controls.centerCircleSizeSlider, renderer.glassParams.centerCircleSize)
+      setSliderValue(controls.rightCircleSizeSlider, renderer.glassParams.rightCircleSize)
     }
 
     this.updateShapeControls()
@@ -198,6 +206,15 @@ export class GlassControlPanel {
     })
     controls.circleSizeSlider.addEventListener('input', () => {
       this.setCircleSize(parseFloat(controls.circleSizeSlider.value))
+    })
+    controls.leftCircleSizeSlider.addEventListener('input', () => {
+      renderer.glassParams.leftCircleSize = parseFloat(controls.leftCircleSizeSlider.value)
+    })
+    controls.centerCircleSizeSlider.addEventListener('input', () => {
+      renderer.glassParams.centerCircleSize = parseFloat(controls.centerCircleSizeSlider.value)
+    })
+    controls.rightCircleSizeSlider.addEventListener('input', () => {
+      renderer.glassParams.rightCircleSize = parseFloat(controls.rightCircleSizeSlider.value)
     })
     controls.rectWidthSlider.addEventListener('input', () => {
       this.setRectWidth(parseFloat(controls.rectWidthSlider.value))
@@ -370,9 +387,11 @@ export class GlassControlPanel {
     const isRectangle = renderer.glassParams.shapeType === 1
     const preset = getCurrentPreset()
     const isTrackPreset = preset === 'switch' || preset === 'slider'
-    controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', isRectangle))
+    const isPlayerControls = preset === 'player-controls'
+    controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', isRectangle || isPlayerControls))
     controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !isRectangle))
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
+    controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))
   }
 
   private updateIconControls(): void {

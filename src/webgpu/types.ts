@@ -57,6 +57,9 @@ export interface GlassParams {
   sideCircleOffset: number
   sideCircleScale: number
   activeCircleIndex: number
+  leftCircleSize: number
+  centerCircleSize: number
+  rightCircleSize: number
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article' | 'video'

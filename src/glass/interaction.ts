@@ -1,4 +1,5 @@
 import type { WebGPURenderer } from '../webgpu/renderer'
+import { setSliderValue } from './dom'
 import type { GlassSprings } from './springs'
 import type { PresetType, UserParams } from './types'
 
@@ -14,6 +15,9 @@ interface GlassInteractionOptions {
   circleSizeSlider: HTMLInputElement
   rectWidthSlider: HTMLInputElement
   rectHeightSlider: HTMLInputElement
+  leftCircleSizeSlider: HTMLInputElement
+  centerCircleSizeSlider: HTMLInputElement
+  rightCircleSizeSlider: HTMLInputElement
 }
 
 export class GlassInteraction {
@@ -193,6 +197,25 @@ export class GlassInteraction {
 
       setRectWidth(currentWidth * scale)
       setRectHeight(currentHeight * scale)
+    } else if (renderer.glassParams.playerControlsMode) {
+      const { leftCircleSizeSlider, centerCircleSizeSlider, rightCircleSizeSlider } = this.options
+      const circleIndex = renderer.getClickedCircleIndex(event.clientX, event.clientY)
+      const step = direction * 0.02
+      const min = 0.15
+      const max = 0.6
+      if (circleIndex === 0) {
+        const newSize = Math.min(Math.max(renderer.glassParams.leftCircleSize + step, min), max)
+        renderer.glassParams.leftCircleSize = newSize
+        setSliderValue(leftCircleSizeSlider, newSize)
+      } else if (circleIndex === 1) {
+        const newSize = Math.min(Math.max(renderer.glassParams.centerCircleSize + step, min), max)
+        renderer.glassParams.centerCircleSize = newSize
+        setSliderValue(centerCircleSizeSlider, newSize)
+      } else if (circleIndex === 2) {
+        const newSize = Math.min(Math.max(renderer.glassParams.rightCircleSize + step, min), max)
+        renderer.glassParams.rightCircleSize = newSize
+        setSliderValue(rightCircleSizeSlider, newSize)
+      }
     } else {
       const step = direction * 0.04
       const min = parseFloat(circleSizeSlider.min)
