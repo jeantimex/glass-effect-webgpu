@@ -62,6 +62,9 @@ export interface GlassControls {
   leftCircleSizeSlider: HTMLInputElement
   centerCircleSizeSlider: HTMLInputElement
   rightCircleSizeSlider: HTMLInputElement
+  leftIconTypeSelect: HTMLSelectElement
+  centerIconTypeSelect: HTMLSelectElement
+  rightIconTypeSelect: HTMLSelectElement
 }
 
 function getElement<T extends HTMLElement>(id: string): T {
@@ -137,6 +140,9 @@ export function getGlassControls(): GlassControls {
     leftCircleSizeSlider: getElement<HTMLInputElement>('leftCircleSize'),
     centerCircleSizeSlider: getElement<HTMLInputElement>('centerCircleSize'),
     rightCircleSizeSlider: getElement<HTMLInputElement>('rightCircleSize'),
+    leftIconTypeSelect: getElement<HTMLSelectElement>('leftIconType'),
+    centerIconTypeSelect: getElement<HTMLSelectElement>('centerIconType'),
+    rightIconTypeSelect: getElement<HTMLSelectElement>('rightIconType'),
   }
 }
 

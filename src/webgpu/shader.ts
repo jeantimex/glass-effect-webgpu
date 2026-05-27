@@ -56,6 +56,16 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
         visibility: GPUShaderStage.FRAGMENT,
         sampler: { type: 'filtering' },
       },
+      {
+        binding: 5,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: 'float' },
+      },
+      {
+        binding: 6,
+        visibility: GPUShaderStage.FRAGMENT,
+        texture: { sampleType: 'float' },
+      },
     ],
   })
 }
@@ -67,7 +77,9 @@ export function createBindGroup(
   texture: GPUTexture,
   sampler: GPUSampler,
   iconTexture: GPUTexture,
-  iconSampler: GPUSampler
+  iconSampler: GPUSampler,
+  iconLeftTexture: GPUTexture,
+  iconRightTexture: GPUTexture
 ): GPUBindGroup {
   return device.createBindGroup({
     layout,
@@ -77,6 +89,8 @@ export function createBindGroup(
       { binding: 2, resource: sampler },
       { binding: 3, resource: iconTexture.createView() },
       { binding: 4, resource: iconSampler },
+      { binding: 5, resource: iconLeftTexture.createView() },
+      { binding: 6, resource: iconRightTexture.createView() },
     ],
   })
 }

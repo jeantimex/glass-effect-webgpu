@@ -147,14 +147,31 @@ export class GlassControlPanel {
     if (!definition.supportsIcon) {
       renderer.glassParams.iconType = 0
       renderer.setIcon(null).catch(console.error)
+      renderer.setIconLeft(null).catch(console.error)
+      renderer.setIconRight(null).catch(console.error)
       controls.iconTypeSelect.value = 'none'
     } else if (definition.isPlayerControlsMode) {
       renderer.glassParams.iconType = 1
-      renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/pause.svg`).catch(console.error)
-      controls.iconTypeSelect.value = 'pause'
-      setSliderValue(controls.leftCircleSizeSlider, renderer.glassParams.leftCircleSize)
-      setSliderValue(controls.centerCircleSizeSlider, renderer.glassParams.centerCircleSize)
-      setSliderValue(controls.rightCircleSizeSlider, renderer.glassParams.rightCircleSize)
+      // Load icons based on dropdown selections using Circle class
+      const leftIcon = controls.leftIconTypeSelect.value
+      const centerIcon = controls.centerIconTypeSelect.value
+      const rightIcon = controls.rightIconTypeSelect.value
+
+      const leftCircle = renderer.getCircle(0)
+      const centerCircle = renderer.getCircle(1)
+      const rightCircle = renderer.getCircle(2)
+
+      leftCircle.setIcon(leftIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${leftIcon}.svg`).catch(console.error)
+      renderer.setIcon(centerIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${centerIcon}.svg`).catch(console.error)
+      rightCircle.setIcon(rightIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${rightIcon}.svg`).catch(console.error)
+
+      setSliderValue(controls.leftCircleSizeSlider, leftCircle.size)
+      setSliderValue(controls.centerCircleSizeSlider, centerCircle.size)
+      setSliderValue(controls.rightCircleSizeSlider, rightCircle.size)
+    } else {
+      // Clear left/right icons when switching to non-player-controls preset
+      renderer.setIconLeft(null).catch(console.error)
+      renderer.setIconRight(null).catch(console.error)
     }
 
     this.updateShapeControls()
@@ -208,13 +225,31 @@ export class GlassControlPanel {
       this.setCircleSize(parseFloat(controls.circleSizeSlider.value))
     })
     controls.leftCircleSizeSlider.addEventListener('input', () => {
-      renderer.glassParams.leftCircleSize = parseFloat(controls.leftCircleSizeSlider.value)
+      renderer.getCircle(0).size = parseFloat(controls.leftCircleSizeSlider.value)
     })
     controls.centerCircleSizeSlider.addEventListener('input', () => {
-      renderer.glassParams.centerCircleSize = parseFloat(controls.centerCircleSizeSlider.value)
+      renderer.getCircle(1).size = parseFloat(controls.centerCircleSizeSlider.value)
     })
     controls.rightCircleSizeSlider.addEventListener('input', () => {
-      renderer.glassParams.rightCircleSize = parseFloat(controls.rightCircleSizeSlider.value)
+      renderer.getCircle(2).size = parseFloat(controls.rightCircleSizeSlider.value)
+    })
+    controls.leftIconTypeSelect.addEventListener('change', () => {
+      const icon = controls.leftIconTypeSelect.value
+      renderer.getCircle(0).setIcon(icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
+    })
+    controls.centerIconTypeSelect.addEventListener('change', () => {
+      const icon = controls.centerIconTypeSelect.value
+      if (icon === 'none') {
+        renderer.glassParams.iconType = 0
+        renderer.setIcon(null).catch(console.error)
+      } else {
+        renderer.glassParams.iconType = 1
+        renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
+      }
+    })
+    controls.rightIconTypeSelect.addEventListener('change', () => {
+      const icon = controls.rightIconTypeSelect.value
+      renderer.getCircle(2).setIcon(icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
     })
     controls.rectWidthSlider.addEventListener('input', () => {
       this.setRectWidth(parseFloat(controls.rectWidthSlider.value))

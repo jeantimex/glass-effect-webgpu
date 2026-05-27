@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas'
+import { Circle, type CircleConfig } from './circle'
 import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
 import {
   clientPointToCanvasPoint,
@@ -19,6 +20,7 @@ import type { BackgroundType, GlassParams } from './types'
 import { createGlassUniformData, GLASS_UNIFORM_BUFFER_SIZE } from './uniforms'
 
 export type { BackgroundType, GlassParams } from './types'
+export { Circle, type CircleConfig } from './circle'
 
 export class WebGPURenderer {
   private device!: GPUDevice
@@ -42,6 +44,9 @@ export class WebGPURenderer {
   private switchCenterX = 0.5
   private switchCenterY = 0.5
   private videoElement: HTMLVideoElement | null = null
+
+  // Player controls circles (left, center, right)
+  private _circles: Circle[] = []
 
   public glassParams: GlassParams = createDefaultGlassParams()
 
@@ -78,6 +83,25 @@ export class WebGPURenderer {
     this.bgTexture = await this.textureLoader.load(backgroundImageUrls.leaves)
     this.iconTexture = this.createEmptyTexture()
     this.bindGroupLayout = createBindGroupLayout(this.device)
+
+    // Initialize player control circles (left, center, right)
+    const defaultCircleConfig: CircleConfig = {
+      size: 0.32,
+      iconUrl: null,
+      shadowOpacity: this.glassParams.shadowOpacity,
+      shadowBlur: this.glassParams.shadowBlur,
+      shadowOffsetX: this.glassParams.shadowOffsetX,
+      shadowOffsetY: this.glassParams.shadowOffsetY,
+    }
+    this._circles = [
+      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
+        { ...defaultCircleConfig, size: 0.32 }, () => this.rebuildBindGroup()),
+      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
+        { ...defaultCircleConfig, size: 0.42 }, () => this.rebuildBindGroup()),
+      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
+        { ...defaultCircleConfig, size: 0.32 }, () => this.rebuildBindGroup()),
+    ]
+
     this.bindGroup = this.createRenderBindGroup()
     this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
 
@@ -165,6 +189,28 @@ export class WebGPURenderer {
     if (requestId !== this.iconRequestId) return
 
     this.iconTexture = texture
+    this.bindGroup = this.createRenderBindGroup()
+  }
+
+  // Access circles for player controls mode
+  get circles(): Circle[] {
+    return this._circles
+  }
+
+  getCircle(index: number): Circle {
+    return this._circles[index]
+  }
+
+  // Convenience methods that delegate to circles
+  async setIconLeft(url: string | null): Promise<void> {
+    await this._circles[0].setIcon(url)
+  }
+
+  async setIconRight(url: string | null): Promise<void> {
+    await this._circles[2].setIcon(url)
+  }
+
+  private rebuildBindGroup(): void {
     this.bindGroup = this.createRenderBindGroup()
   }
 
@@ -378,9 +424,17 @@ export class WebGPURenderer {
       this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
     }
 
+    // Sync circle data to glassParams for uniforms
+    if (this.glassParams.playerControlsMode && this._circles.length === 3) {
+      this.glassParams.leftCircleSize = this._circles[0].size
+      this.glassParams.centerCircleSize = this._circles[1].size
+      this.glassParams.rightCircleSize = this._circles[2].size
+    }
+
     this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
       canvas: this.canvas,
       params: this.glassParams,
+      circles: this._circles,
       startTime: this.startTime,
       glassCenterX: this.glassCenterX,
       glassCenterY: this.glassCenterY,
@@ -419,7 +473,9 @@ export class WebGPURenderer {
       this.bgTexture,
       this.bgSampler,
       this.iconTexture,
-      this.iconSampler
+      this.iconSampler,
+      this._circles[0]?.iconTexture ?? this.createEmptyTexture(),
+      this._circles[2]?.iconTexture ?? this.createEmptyTexture()
     )
   }
 

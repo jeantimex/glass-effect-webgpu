@@ -69,6 +69,21 @@ struct Uniforms {
   left_circle_size: f32,
   center_circle_size: f32,
   right_circle_size: f32,
+  // Per-circle shadow params (left)
+  left_shadow_opacity: f32,
+  left_shadow_blur: f32,
+  left_shadow_offset_x: f32,
+  left_shadow_offset_y: f32,
+  // Per-circle shadow params (center)
+  center_shadow_opacity: f32,
+  center_shadow_blur: f32,
+  center_shadow_offset_x: f32,
+  center_shadow_offset_y: f32,
+  // Per-circle shadow params (right)
+  right_shadow_opacity: f32,
+  right_shadow_blur: f32,
+  right_shadow_offset_x: f32,
+  right_shadow_offset_y: f32,
 }
 
 struct VertexOutput {
@@ -81,6 +96,8 @@ struct VertexOutput {
 @group(0) @binding(2) var bg_sampler: sampler;
 @group(0) @binding(3) var icon_texture: texture_2d<f32>;
 @group(0) @binding(4) var icon_sampler: sampler;
+@group(0) @binding(5) var icon_left_texture: texture_2d<f32>;
+@group(0) @binding(6) var icon_right_texture: texture_2d<f32>;
 
 // Surface height functions (x = 0 at edge, x = 1 at end of bezel)
 fn surface_convex_circle(x: f32) -> f32 {
@@ -376,14 +393,71 @@ fn apply_track_overlay(pixel: vec2f, color: vec3f) -> vec3f {
   return apply_slider_track(pixel, switch_color);
 }
 
+fn sample_icon_for_circle(icon_uv: vec2f, circle_index: i32) -> vec4f {
+  if (circle_index == 0) {
+    return textureSampleLevel(icon_left_texture, icon_sampler, icon_uv, 0.0);
+  } else if (circle_index == 2) {
+    return textureSampleLevel(icon_right_texture, icon_sampler, icon_uv, 0.0);
+  }
+  return textureSampleLevel(icon_texture, icon_sampler, icon_uv, 0.0);
+}
+
+fn apply_player_controls_icons(pixel: vec2f, color: vec3f) -> vec3f {
+  let main_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
+  let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
+  let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
+
+  let left_radius = get_player_circle_radius(0);
+  let center_radius = get_player_circle_radius(1);
+  let right_radius = get_player_circle_radius(2);
+
+  let icon_color = vec3f(uniforms.icon_color_r, uniforms.icon_color_g, uniforms.icon_color_b);
+  var result = color;
+
+  // Check each circle and apply its icon
+  // Left circle
+  let left_icon_size = left_radius * uniforms.icon_scale * 2.0;
+  let left_uv = (pixel - left_center) / left_icon_size + vec2f(0.5);
+  if (left_uv.x >= 0.0 && left_uv.x <= 1.0 && left_uv.y >= 0.0 && left_uv.y <= 1.0) {
+    let sample = sample_icon_for_circle(left_uv, 0);
+    let mask = max(sample.a, max(max(sample.r, sample.g), sample.b));
+    result = mix(result, icon_color, mask * uniforms.icon_opacity);
+  }
+
+  // Center circle
+  let center_icon_size = center_radius * uniforms.icon_scale * 2.0;
+  let center_uv = (pixel - main_center) / center_icon_size + vec2f(0.5);
+  if (center_uv.x >= 0.0 && center_uv.x <= 1.0 && center_uv.y >= 0.0 && center_uv.y <= 1.0) {
+    let sample = sample_icon_for_circle(center_uv, 1);
+    let mask = max(sample.a, max(max(sample.r, sample.g), sample.b));
+    result = mix(result, icon_color, mask * uniforms.icon_opacity);
+  }
+
+  // Right circle
+  let right_icon_size = right_radius * uniforms.icon_scale * 2.0;
+  let right_uv = (pixel - right_center) / right_icon_size + vec2f(0.5);
+  if (right_uv.x >= 0.0 && right_uv.x <= 1.0 && right_uv.y >= 0.0 && right_uv.y <= 1.0) {
+    let sample = sample_icon_for_circle(right_uv, 2);
+    let mask = max(sample.a, max(max(sample.r, sample.g), sample.b));
+    result = mix(result, icon_color, mask * uniforms.icon_opacity);
+  }
+
+  return result;
+}
+
 fn apply_icon_overlay(pixel: vec2f, color: vec3f) -> vec3f {
   if (uniforms.icon_type < 0.5) {
     return color;
   }
 
+  // Use per-circle icons for player controls mode
+  if (uniforms.player_controls_mode > 0.5) {
+    return apply_player_controls_icons(pixel, color);
+  }
+
   let glass_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
   let to_pixel = pixel - glass_center;
-  
+
   // Icon size is relative to glass radius
   let icon_size = uniforms.glass_radius * uniforms.icon_scale * 2.0;
   let icon_uv = to_pixel / icon_size + vec2f(0.5);
@@ -650,6 +724,50 @@ fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f3
   return smin(smin(d_left, d_center, k), d_right, k);
 }
 
+// Calculate independent shadow alpha for player controls (each circle has its own shadow config)
+// Each shadow is only visible where pixel is outside that specific circle
+fn player_controls_shadow_alpha(pixel: vec2f, main_center: vec2f) -> f32 {
+  let left_radius = get_player_circle_radius(0);
+  let center_radius = get_player_circle_radius(1);
+  let right_radius = get_player_circle_radius(2);
+
+  // Per-circle shadow offsets
+  let left_shadow_offset = vec2f(uniforms.left_shadow_offset_x, uniforms.left_shadow_offset_y);
+  let center_shadow_offset = vec2f(uniforms.center_shadow_offset_x, uniforms.center_shadow_offset_y);
+  let right_shadow_offset = vec2f(uniforms.right_shadow_offset_x, uniforms.right_shadow_offset_y);
+
+  let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
+  let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
+
+  // Apply per-circle deformation (only active circle deforms)
+  let scale_left = get_scale_for_circle(0);
+  let scale_center = get_scale_for_circle(1);
+  let scale_right = get_scale_for_circle(2);
+
+  // Check if pixel is outside each individual circle (for masking its shadow)
+  let inside_left = length((pixel - left_center) / scale_left) - left_radius;
+  let inside_center = length((pixel - main_center) / scale_center) - center_radius;
+  let inside_right = length((pixel - right_center) / scale_right) - right_radius;
+
+  // Per-circle shadow blur
+  let left_blur = max(uniforms.left_shadow_blur, 1.0);
+  let center_blur = max(uniforms.center_shadow_blur, 1.0);
+  let right_blur = max(uniforms.right_shadow_blur, 1.0);
+
+  // Calculate shadow SDF for each circle with its own offset
+  let d_left = length((pixel - left_shadow_offset - left_center) / scale_left) - left_radius;
+  let d_center = length((pixel - center_shadow_offset - main_center) / scale_center) - center_radius;
+  let d_right = length((pixel - right_shadow_offset - right_center) / scale_right) - right_radius;
+
+  // Convert each SDF to shadow alpha with per-circle blur and opacity
+  let alpha_left = select(0.0, smoothstep(left_blur, -left_blur * 0.5, d_left) * uniforms.left_shadow_opacity, inside_left > 0.0);
+  let alpha_center = select(0.0, smoothstep(center_blur, -center_blur * 0.5, d_center) * uniforms.center_shadow_opacity, inside_center > 0.0);
+  let alpha_right = select(0.0, smoothstep(right_blur, -right_blur * 0.5, d_right) * uniforms.right_shadow_opacity, inside_right > 0.0);
+
+  // Combine shadows with max (independent, non-merged)
+  return max(max(alpha_left, alpha_center), alpha_right);
+}
+
 // Get the direction/normal for player controls (for refraction)
 fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) -> vec2f {
   let eps = 1.0;
@@ -705,40 +823,44 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   let to_pixel = pixel - glass_center;
 
-  // For player controls, use combined SDF; otherwise use shape_signed_distance
+  // Calculate distance from edge
   var distance_from_edge: f32;
   if (uniforms.player_controls_mode > 0.5) {
-    // Use smooth-blended SDF for metaball effect
+    // Use smooth-blended SDF for metaball visual effect
     distance_from_edge = -player_controls_sdf(pixel, main_center, main_radius);
   } else {
     distance_from_edge = -shape_signed_distance(to_pixel);
   }
 
-  // Outside glass - render background with shadow
-  if (distance_from_edge < 0.0) {
+  // Player controls mode: handle shadows independently per circle
+  if (uniforms.player_controls_mode > 0.5) {
     var bg = sample_background(pixel, uniforms.time);
 
-    // Calculate shadow
-    if (uniforms.shadow_opacity > 0.0) {
-      let shadow_blur = max(uniforms.shadow_blur, 1.0);
-      var shadow_alpha = 0.0;
+    // Always calculate independent shadows for each circle (each has its own config)
+    let shadow_alpha = player_controls_shadow_alpha(pixel, main_center);
+    bg = mix(bg, vec3f(0.0), shadow_alpha);
 
-      if (uniforms.player_controls_mode > 0.5) {
-        // Use combined SDF for smooth merged shadow
-        let shadow_offset = vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
-        let shadow_sdf = player_controls_sdf(pixel - shadow_offset, main_center, main_radius);
-        shadow_alpha = smoothstep(shadow_blur, -shadow_blur * 0.5, shadow_sdf) * uniforms.shadow_opacity;
-      } else {
+    // If outside combined glass shape, return shadowed background
+    if (distance_from_edge < 0.0) {
+      return vec4f(bg, 1.0);
+    }
+    // Otherwise continue to glass rendering below
+  } else {
+    // Original behavior for non-player-controls modes
+    if (distance_from_edge < 0.0) {
+      var bg = sample_background(pixel, uniforms.time);
+
+      // Calculate shadow
+      if (uniforms.shadow_opacity > 0.0) {
+        let shadow_blur = max(uniforms.shadow_blur, 1.0);
         let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
         let shadow_edge = -shape_signed_distance(pixel - shadow_center);
-        shadow_alpha = smoothstep(-shadow_blur, shadow_blur * 0.5, shadow_edge) * uniforms.shadow_opacity;
+        let shadow_alpha = smoothstep(-shadow_blur, shadow_blur * 0.5, shadow_edge) * uniforms.shadow_opacity;
+        bg = mix(bg, vec3f(0.0), shadow_alpha);
       }
 
-      // Darken background where shadow is
-      bg = mix(bg, vec3f(0.0), shadow_alpha);
+      return vec4f(bg, 1.0);
     }
-
-    return vec4f(bg, 1.0);
   }
 
   // Circular demos use the old 110px reference radius. Rounded-rect filters
