@@ -3,9 +3,17 @@ import type { GlassParams } from './types'
 
 export const GLASS_UNIFORM_BUFFER_SIZE = 352
 
+interface BaseShadowParams {
+  opacity: number
+  blur: number
+  offsetX: number
+  offsetY: number
+}
+
 interface GlassUniformInput {
   canvas: HTMLCanvasElement
   params: GlassParams
+  baseShadow: BaseShadowParams
   startTime: number
   glassCenterX: number
   glassCenterY: number
@@ -15,11 +23,24 @@ interface GlassUniformInput {
 }
 
 export function createGlassUniformData(input: GlassUniformInput): Float32Array {
-  const { canvas, params } = input
+  const { canvas, params, baseShadow } = input
   const glassRadius = getGlassRadius(canvas, params)
   const rect = getRectSize(params)
   const uniformTime = (performance.now() - input.startTime) / 1000
   const dpr = window.devicePixelRatio || 1
+
+  // Determine which circle gets animated shadow (active circle)
+  // Non-active circles use base shadow values
+  const activeIdx = params.activeCircleIndex
+  const leftShadow = activeIdx === 0
+    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
+  const centerShadow = activeIdx === 1
+    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
+  const rightShadow = activeIdx === 2
+    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
 
   return new Float32Array([
     canvas.width,
@@ -92,19 +113,18 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.leftCircleSize,
     params.centerCircleSize,
     params.rightCircleSize,
-    // Per-circle shadow params - use animated glassParams values (same as single circle)
-    // All circles share the same shadow behavior, animated by springs
-    params.shadowOpacity,
-    params.shadowBlur,
-    params.shadowOffsetX,
-    params.shadowOffsetY,
-    params.shadowOpacity,
-    params.shadowBlur,
-    params.shadowOffsetX,
-    params.shadowOffsetY,
-    params.shadowOpacity,
-    params.shadowBlur,
-    params.shadowOffsetX,
-    params.shadowOffsetY,
+    // Per-circle shadow params - only active circle uses animated values
+    leftShadow.opacity,
+    leftShadow.blur,
+    leftShadow.offsetX,
+    leftShadow.offsetY,
+    centerShadow.opacity,
+    centerShadow.blur,
+    centerShadow.offsetX,
+    centerShadow.offsetY,
+    rightShadow.opacity,
+    rightShadow.blur,
+    rightShadow.offsetX,
+    rightShadow.offsetY,
   ])
 }

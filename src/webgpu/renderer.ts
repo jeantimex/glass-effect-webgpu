@@ -414,7 +414,7 @@ export class WebGPURenderer {
     this.glassCenterY = Math.min(Math.max(point.y - dragOffset.y, minY), maxY) / this.canvas.height
   }
 
-  render(): void {
+  render(baseShadow?: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
     this.resizeCanvas()
     if (this.glassParams.switchMode || this.glassParams.sliderMode) {
       this.setSwitchProgress(this.glassParams.switchProgress)
@@ -431,9 +431,18 @@ export class WebGPURenderer {
       this.glassParams.rightCircleSize = this._circles[2].size
     }
 
+    // Default base shadow to current params if not provided
+    const shadowBase = baseShadow ?? {
+      opacity: this.glassParams.shadowOpacity,
+      blur: this.glassParams.shadowBlur,
+      offsetX: this.glassParams.shadowOffsetX,
+      offsetY: this.glassParams.shadowOffsetY,
+    }
+
     this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
       canvas: this.canvas,
       params: this.glassParams,
+      baseShadow: shadowBase,
       startTime: this.startTime,
       glassCenterX: this.glassCenterX,
       glassCenterY: this.glassCenterY,
