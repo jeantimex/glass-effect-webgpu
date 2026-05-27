@@ -61,6 +61,7 @@ export function createDefaultGlassParams(): GlassParams {
     iconColorB: 1,
     articleMode: false,
     chromaticAberration: false,
-    chromaticStrength: 1.0,
+    chromaticStrength: 1.5,
+    chromaticBase: 0.4,
   }
 }

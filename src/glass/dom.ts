@@ -33,6 +33,7 @@ export interface GlassControls {
   progressiveBlurTypeSelect: HTMLSelectElement
   chromaticAberrationCheckbox: HTMLInputElement
   chromaticStrengthSlider: HTMLInputElement
+  chromaticBaseSlider: HTMLInputElement
   chromaticOnlyControls: NodeListOf<HTMLElement>
   glassThemeSelect: HTMLSelectElement
   glassBgColorInput: HTMLInputElement
@@ -103,6 +104,7 @@ export function getGlassControls(): GlassControls {
     progressiveBlurTypeSelect: getElement<HTMLSelectElement>('progressiveBlurType'),
     chromaticAberrationCheckbox: getElement<HTMLInputElement>('chromaticAberration'),
     chromaticStrengthSlider: getElement<HTMLInputElement>('chromaticStrength'),
+    chromaticBaseSlider: getElement<HTMLInputElement>('chromaticBase'),
     chromaticOnlyControls: document.querySelectorAll<HTMLElement>('.chromatic-only-control'),
     glassThemeSelect: getElement<HTMLSelectElement>('glassTheme'),
     glassBgColorInput: getElement<HTMLInputElement>('glassBgColor'),

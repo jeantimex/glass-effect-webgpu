@@ -52,6 +52,7 @@ export interface GlassParams {
   articleMode: boolean
   chromaticAberration: boolean
   chromaticStrength: number
+  chromaticBase: number
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article'

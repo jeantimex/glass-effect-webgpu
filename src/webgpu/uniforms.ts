@@ -84,5 +84,6 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.articleMode ? 1.0 : 0.0,
     params.chromaticAberration ? 1.0 : 0.0,
     params.chromaticStrength,
+    params.chromaticBase,
   ])
 }

@@ -348,6 +348,9 @@ export class GlassControlPanel {
     controls.chromaticStrengthSlider.addEventListener('input', () => {
       renderer.glassParams.chromaticStrength = parseFloat(controls.chromaticStrengthSlider.value)
     })
+    controls.chromaticBaseSlider.addEventListener('input', () => {
+      renderer.glassParams.chromaticBase = parseFloat(controls.chromaticBaseSlider.value)
+    })
   }
 
   private syncTrackProgress(): void {
@@ -400,21 +403,19 @@ export class GlassControlPanel {
   private updateGlassTheme(): void {
     const { controls, renderer } = this.options
     const resolvedTheme = this.resolveGlassTheme()
-    const isCustom = resolvedTheme === 'custom'
 
-    controls.glassCustomColorControls.forEach((control) => control.classList.toggle('hidden', !isCustom))
-
-    if (isCustom) {
-      const hex = controls.glassBgColorInput.value
-      renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
-      renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
-      renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
+    if (resolvedTheme === 'custom') {
+      // Custom: use current color picker value
+    } else if (resolvedTheme === 'dark') {
+      controls.glassBgColorInput.value = '#222222'
     } else {
-      const darkTint = 0x22 / 255
-      renderer.glassParams.glassTintR = resolvedTheme === 'dark' ? darkTint : 1
-      renderer.glassParams.glassTintG = resolvedTheme === 'dark' ? darkTint : 1
-      renderer.glassParams.glassTintB = resolvedTheme === 'dark' ? darkTint : 1
+      controls.glassBgColorInput.value = '#ffffff'
     }
+
+    const hex = controls.glassBgColorInput.value
+    renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
+    renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
+    renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
   }
 
   private updateSpecularControls(): void {

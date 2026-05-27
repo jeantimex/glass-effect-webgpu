@@ -61,6 +61,7 @@ struct Uniforms {
   article_mode: f32,
   chromatic_aberration: f32,
   chromatic_strength: f32,
+  chromatic_base: f32,
 }
 
 struct VertexOutput {
@@ -669,7 +670,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   if (uniforms.chromatic_aberration > 0.5) {
     // Chromatic aberration: sample R, G, B at different offsets
     // Red refracts less, blue refracts more (dispersion)
-    let aberration_amount = displacement * uniforms.chromatic_strength * 0.15;
+    let aberration_amount = displacement * uniforms.chromatic_strength * uniforms.chromatic_base;
     let displaced_r = magnified_pixel - direction * (displacement - aberration_amount);
     let displaced_g = magnified_pixel - direction * displacement;
     let displaced_b = magnified_pixel - direction * (displacement + aberration_amount);
