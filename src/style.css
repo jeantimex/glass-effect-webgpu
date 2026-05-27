@@ -335,6 +335,16 @@ body {
   visibility: visible;
 }
 
+/* HTML-in-Canvas mode: article is interactive and visible over canvas */
+.article-background.html-in-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .article-content {
   display: grid;
   grid-template-columns: 1fr 1fr;

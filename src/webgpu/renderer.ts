@@ -2,6 +2,12 @@ import html2canvas from 'html2canvas'
 import { Circle, type CircleConfig } from './circle'
 import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
 import {
+  detectHTMLInCanvasSupport,
+  enableLayoutSubtree,
+  setupPaintHandler,
+  type HTMLInCanvasSupport,
+} from './html-in-canvas'
+import {
   clientPointToCanvasPoint,
   getClickedSplitMenuIndex,
   getShapeBounds,
@@ -48,6 +54,12 @@ export class WebGPURenderer {
 
   // Player controls circles (left, center, right)
   private _circles: Circle[] = []
+
+  // HTML-in-Canvas support for article background
+  private htmlInCanvasSupport: HTMLInCanvasSupport = { supported: false, copyElementImageToTexture: false }
+  private articleElement: HTMLElement | null = null
+  private articleTexture: GPUTexture | null = null
+  private cleanupPaintHandler: (() => void) | null = null
 
   public glassParams: GlassParams = createDefaultGlassParams()
 
@@ -106,53 +118,45 @@ export class WebGPURenderer {
     this.bindGroup = this.createRenderBindGroup()
     this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
 
+    // Detect HTML-in-Canvas support
+    this.htmlInCanvasSupport = detectHTMLInCanvasSupport()
+    if (this.htmlInCanvasSupport.supported) {
+      console.log('HTML-in-Canvas API supported - text selection will work in article mode')
+      enableLayoutSubtree(this.canvas)
+    }
+
     window.addEventListener('resize', () => this.resizeCanvas())
     this.resizeCanvas()
+  }
+
+  get isHTMLInCanvasSupported(): boolean {
+    return this.htmlInCanvasSupport.supported
   }
 
   async setBackground(type: BackgroundType, articleElement?: HTMLElement): Promise<void> {
     const requestId = ++this.backgroundRequestId
     this.glassParams.articleMode = false
 
+    // Clean up previous HTML-in-Canvas setup
+    this.cleanupArticleMode()
+
     if (type === 'article' && articleElement) {
-      // Position element off-screen but visible for capture
       const width = this.canvas.clientWidth
       const height = this.canvas.clientHeight
+      const dpr = window.devicePixelRatio
 
-      articleElement.classList.remove('hidden')
-      articleElement.style.width = `${width}px`
-      articleElement.style.height = `${height}px`
-      articleElement.style.position = 'fixed'
-      articleElement.style.left = '-9999px'
-      articleElement.style.top = '0'
-      articleElement.style.visibility = 'visible'
-
-      // Wait for images to load and layout to settle
-      await new Promise(resolve => setTimeout(resolve, 300))
-
-      // Capture HTML content as texture
-      const capturedCanvas = await html2canvas(articleElement, {
-        backgroundColor: '#f8f8f8',
-        width,
-        height,
-        scale: window.devicePixelRatio,
-        useCORS: true,
-        logging: false,
-      })
-
-      // Hide element after capture
-      articleElement.classList.add('hidden')
-      articleElement.style.width = ''
-      articleElement.style.height = ''
-      articleElement.style.position = ''
-      articleElement.style.left = ''
-      articleElement.style.top = ''
-      articleElement.style.visibility = ''
+      if (this.htmlInCanvasSupport.supported) {
+        // HTML-in-Canvas mode: element stays interactive and visible
+        await this.setupHTMLInCanvasArticle(articleElement, width, height, dpr)
+      } else {
+        // Fallback: use html2canvas to capture static image
+        await this.setupFallbackArticle(articleElement, width, height, dpr)
+      }
 
       if (requestId !== this.backgroundRequestId) return
 
-      this.bgTexture = this.textureLoader.createTextureFromCanvas(capturedCanvas)
       this.glassParams.useImageBg = true
+      this.glassParams.articleMode = true
       this.bindGroup = this.createRenderBindGroup()
       return
     }
@@ -176,6 +180,145 @@ export class WebGPURenderer {
     this.bgTexture = texture
     this.glassParams.useImageBg = true
     this.bindGroup = this.createRenderBindGroup()
+  }
+
+  /**
+   * Set up article using HTML-in-Canvas API (Chrome 147+ with flag)
+   * This keeps the element interactive - text can be selected!
+   */
+  private async setupHTMLInCanvasArticle(
+    articleElement: HTMLElement,
+    width: number,
+    height: number,
+    dpr: number
+  ): Promise<void> {
+    this.articleElement = articleElement
+
+    // Set up element for HTML-in-Canvas mode
+    articleElement.classList.remove('hidden')
+    articleElement.classList.add('html-in-canvas')
+    articleElement.style.width = `${width}px`
+    articleElement.style.height = `${height}px`
+
+    // Move to canvas parent (so it overlays the canvas)
+    const canvasParent = this.canvas.parentElement
+    if (canvasParent && articleElement.parentElement !== canvasParent) {
+      canvasParent.style.position = 'relative'
+      canvasParent.appendChild(articleElement)
+    }
+
+    // Wait for layout
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Create texture for article content
+    const textureWidth = Math.ceil(width * dpr)
+    const textureHeight = Math.ceil(height * dpr)
+    this.articleTexture = this.device.createTexture({
+      size: [textureWidth, textureHeight],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+
+    // Try to use copyElementImageToTexture
+    try {
+      await this.updateArticleTexture()
+    } catch {
+      console.warn('copyElementImageToTexture failed, falling back to html2canvas')
+      await this.setupFallbackArticle(articleElement, width, height, dpr)
+      return
+    }
+
+    this.bgTexture = this.articleTexture
+
+    // Set up paint handler for live updates
+    this.cleanupPaintHandler = setupPaintHandler(this.canvas, () => {
+      this.updateArticleTexture().catch(console.error)
+    })
+
+    console.log('Article mode: HTML-in-Canvas active - text is selectable!')
+  }
+
+  /**
+   * Update article texture using copyElementImageToTexture
+   */
+  private async updateArticleTexture(): Promise<void> {
+    if (!this.articleElement || !this.articleTexture) return
+
+    const queue = this.device.queue as GPUQueue & {
+      copyElementImageToTexture?: (element: HTMLElement, dest: { texture: GPUTexture }) => void
+    }
+
+    if (queue.copyElementImageToTexture) {
+      queue.copyElementImageToTexture(this.articleElement, { texture: this.articleTexture })
+    } else {
+      throw new Error('copyElementImageToTexture not available')
+    }
+  }
+
+  /**
+   * Fallback: use html2canvas to capture static image
+   */
+  private async setupFallbackArticle(
+    articleElement: HTMLElement,
+    width: number,
+    height: number,
+    dpr: number
+  ): Promise<void> {
+    // Position element off-screen but visible for capture
+    articleElement.classList.remove('hidden')
+    articleElement.style.width = `${width}px`
+    articleElement.style.height = `${height}px`
+    articleElement.style.position = 'fixed'
+    articleElement.style.left = '-9999px'
+    articleElement.style.top = '0'
+    articleElement.style.visibility = 'visible'
+
+    // Wait for images to load and layout to settle
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    // Capture HTML content as texture
+    const capturedCanvas = await html2canvas(articleElement, {
+      backgroundColor: '#f8f8f8',
+      width,
+      height,
+      scale: dpr,
+      useCORS: true,
+      logging: false,
+    })
+
+    // Hide element after capture
+    articleElement.classList.add('hidden')
+    articleElement.style.width = ''
+    articleElement.style.height = ''
+    articleElement.style.position = ''
+    articleElement.style.left = ''
+    articleElement.style.top = ''
+    articleElement.style.visibility = ''
+
+    this.bgTexture = this.textureLoader.createTextureFromCanvas(capturedCanvas)
+  }
+
+  /**
+   * Clean up HTML-in-Canvas article mode
+   */
+  private cleanupArticleMode(): void {
+    if (this.cleanupPaintHandler) {
+      this.cleanupPaintHandler()
+      this.cleanupPaintHandler = null
+    }
+
+    if (this.articleElement) {
+      this.articleElement.classList.add('hidden')
+      this.articleElement.classList.remove('html-in-canvas')
+      this.articleElement.style.width = ''
+      this.articleElement.style.height = ''
+      this.articleElement = null
+    }
+
+    if (this.articleTexture) {
+      this.articleTexture.destroy()
+      this.articleTexture = null
+    }
   }
 
   async setIcon(url: string | null): Promise<void> {
@@ -439,6 +582,11 @@ export class WebGPURenderer {
 
     if (this.videoElement) {
       this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
+    }
+
+    // Update article texture in HTML-in-Canvas mode for live content
+    if (this.articleElement && this.articleTexture && this.htmlInCanvasSupport.supported) {
+      this.updateArticleTexture().catch(() => {})
     }
 
     // Sync circle data to glassParams for uniforms
