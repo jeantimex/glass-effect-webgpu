@@ -57,7 +57,6 @@ export interface GlassControls {
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
   gridOnlyControls: NodeListOf<HTMLElement>
-  articleBackground: HTMLElement
   playerControlsOnlyControls: NodeListOf<HTMLElement>
   leftCircleSizeSlider: HTMLInputElement
   centerCircleSizeSlider: HTMLInputElement
@@ -139,7 +138,6 @@ export function getGlassControls(): GlassControls {
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),
     gridOnlyControls: document.querySelectorAll<HTMLElement>('.grid-only-control'),
-    articleBackground: getElement<HTMLElement>('articleBackground'),
     playerControlsOnlyControls: document.querySelectorAll<HTMLElement>('.player-controls-only'),
     leftCircleSizeSlider: getElement<HTMLInputElement>('leftCircleSize'),
     centerCircleSizeSlider: getElement<HTMLInputElement>('centerCircleSize'),

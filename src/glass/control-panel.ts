@@ -312,8 +312,7 @@ export class GlassControlPanel {
 
     controls.backgroundTypeSelect.addEventListener('change', () => {
       const bgType = controls.backgroundTypeSelect.value as BackgroundType
-      const articleEl = bgType === 'article' ? controls.articleBackground : undefined
-      renderer.setBackground(bgType, articleEl).catch(console.error)
+      renderer.setBackground(bgType).catch(console.error)
       this.updateBackgroundControls()
     })
     controls.gridCellSizeSlider.addEventListener('input', () => {
@@ -459,8 +458,6 @@ export class GlassControlPanel {
     const bgType = controls.backgroundTypeSelect.value
     const isGrid = bgType === 'grid'
     controls.gridOnlyControls.forEach((control) => control.classList.toggle('hidden', !isGrid))
-    // Article background is always hidden - we capture it to texture
-    controls.articleBackground.classList.add('hidden')
   }
 
   private resolveGlassTheme(): Exclude<GlassTheme, 'system'> {

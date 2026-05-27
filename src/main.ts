@@ -9,12 +9,6 @@ async function main() {
     throw new Error('Canvas elements not found')
   }
 
-  // Set article image src with correct base URL
-  const articleImage = document.getElementById('articleImage') as HTMLImageElement | null
-  if (articleImage) {
-    articleImage.src = `${import.meta.env.BASE_URL}assets/frog.jpg`
-  }
-
   await new GlassApp(mainCanvas, displacementCanvas).start()
 }
 

@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas'
 import { Circle, type CircleConfig } from './circle'
 import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
+import { createBackgroundElement, isTemplateBackground, type BackgroundTemplateOptions } from '../templates'
 import {
   detectHTMLInCanvasSupport,
   enableLayoutSubtree,
@@ -133,24 +134,31 @@ export class WebGPURenderer {
     return this.htmlInCanvasSupport.supported
   }
 
-  async setBackground(type: BackgroundType, articleElement?: HTMLElement): Promise<void> {
+  async setBackground(type: BackgroundType, options?: BackgroundTemplateOptions): Promise<void> {
     const requestId = ++this.backgroundRequestId
     this.glassParams.articleMode = false
 
     // Clean up previous HTML-in-Canvas setup
     this.cleanupArticleMode()
 
-    if (type === 'article' && articleElement) {
+    if (isTemplateBackground(type)) {
       const width = this.canvas.clientWidth
       const height = this.canvas.clientHeight
       const dpr = window.devicePixelRatio
 
+      // Create element from template
+      const templateOptions = type === 'article'
+        ? { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
+        : options
+      const element = createBackgroundElement(type, templateOptions)
+      if (!element) return
+
       if (this.htmlInCanvasSupport.supported) {
         // HTML-in-Canvas mode: element stays interactive and visible
-        await this.setupHTMLInCanvasArticle(articleElement, width, height, dpr)
+        await this.setupHTMLInCanvasArticle(element, width, height, dpr)
       } else {
         // Fallback: use html2canvas to capture static image
-        await this.setupFallbackArticle(articleElement, width, height, dpr)
+        await this.setupFallbackArticle(element, width, height, dpr)
       }
 
       if (requestId !== this.backgroundRequestId) return
@@ -197,7 +205,6 @@ export class WebGPURenderer {
     this.articleElement = articleElement
 
     // Set up element for HTML-in-Canvas mode
-    articleElement.classList.remove('hidden')
     articleElement.classList.add('html-in-canvas')
     articleElement.style.width = `${width}px`
     articleElement.style.height = `${height}px`
@@ -206,9 +213,7 @@ export class WebGPURenderer {
     articleElement.style.top = '0'
 
     // IMPORTANT: Element must be a direct child of the canvas for layoutsubtree to work
-    if (articleElement.parentElement !== this.canvas) {
-      this.canvas.appendChild(articleElement)
-    }
+    this.canvas.appendChild(articleElement)
 
     // Wait for layout to settle
     await new Promise(resolve => setTimeout(resolve, 100))
@@ -285,8 +290,17 @@ export class WebGPURenderer {
     height: number,
     dpr: number
   ): Promise<void> {
+    this.articleElement = articleElement
+
+    // Add to DOM for capture (off-screen)
+    const preview = this.canvas.closest('.preview')
+    if (preview) {
+      preview.appendChild(articleElement)
+    } else {
+      document.body.appendChild(articleElement)
+    }
+
     // Position element off-screen but visible for capture
-    articleElement.classList.remove('hidden')
     articleElement.style.width = `${width}px`
     articleElement.style.height = `${height}px`
     articleElement.style.position = 'fixed'
@@ -307,14 +321,9 @@ export class WebGPURenderer {
       logging: false,
     })
 
-    // Hide element after capture
-    articleElement.classList.add('hidden')
-    articleElement.style.width = ''
-    articleElement.style.height = ''
-    articleElement.style.position = ''
-    articleElement.style.left = ''
-    articleElement.style.top = ''
-    articleElement.style.visibility = ''
+    // Remove element after capture (it's template-created, not needed anymore)
+    articleElement.remove()
+    this.articleElement = null
 
     this.bgTexture = this.textureLoader.createTextureFromCanvas(capturedCanvas)
   }
@@ -329,20 +338,8 @@ export class WebGPURenderer {
     }
 
     if (this.articleElement) {
-      // Move element back to preview container if it was inside canvas
-      if (this.articleElement.parentElement === this.canvas) {
-        const preview = document.querySelector('.preview')
-        if (preview) {
-          preview.appendChild(this.articleElement)
-        }
-      }
-      this.articleElement.classList.add('hidden')
-      this.articleElement.classList.remove('html-in-canvas')
-      this.articleElement.style.width = ''
-      this.articleElement.style.height = ''
-      this.articleElement.style.position = ''
-      this.articleElement.style.left = ''
-      this.articleElement.style.top = ''
+      // Remove the template-created element entirely
+      this.articleElement.remove()
       this.articleElement = null
     }
 
