@@ -7,7 +7,7 @@ export const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-export type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider' | 'panel' | 'split-menu'
+export type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider' | 'panel' | 'split-menu' | 'player-controls'
 export type GlassTheme = 'system' | 'light' | 'dark' | 'custom'
 
 export interface GlassPreset {

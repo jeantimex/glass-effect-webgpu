@@ -85,7 +85,9 @@ export class GlassRenderLoop {
     const interactionScale = this.springs.scale.value
     const isRectangle = this.renderer.glassParams.shapeType === 1
     const preset = this.getCurrentPreset()
-    this.renderer.glassParams.circleSize = isRectangle ? this.userParams.circleSize : this.springs.scale.value
+    const isPlayerControls = preset === 'player-controls'
+    // Player controls uses fixed circle size - scale is handled per-circle
+    this.renderer.glassParams.circleSize = (isRectangle || isPlayerControls) ? this.userParams.circleSize : this.springs.scale.value
     this.renderer.glassParams.scaleRatio = this.springs.refraction.value
     this.renderer.glassParams.magnifyingScale = this.springs.magnification.value
     this.renderer.glassParams.scaleX = this.springs.deformationX.value * (isRectangle ? interactionScale : 1)

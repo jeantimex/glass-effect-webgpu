@@ -65,5 +65,9 @@ export function createDefaultGlassParams(): GlassParams {
     chromaticAberration: false,
     chromaticStrength: 1.5,
     chromaticBase: 0.4,
+    playerControlsMode: false,
+    sideCircleOffset: 220,
+    sideCircleScale: 0.75,
+    activeCircleIndex: -1,
   }
 }

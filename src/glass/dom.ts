@@ -134,6 +134,10 @@ export function getGlassControls(): GlassControls {
 
 export function setSliderValue(slider: HTMLInputElement, value: number): void {
   slider.value = String(value)
+  const valueSpan = slider.nextElementSibling
+  if (valueSpan?.classList.contains('slider-value')) {
+    valueSpan.textContent = formatSliderValue(value, slider.step)
+  }
 }
 
 export function setupCollapsibleSections(onDisplacementOpen: () => void): void {
@@ -148,6 +152,26 @@ export function setupCollapsibleSections(onDisplacementOpen: () => void): void {
       if (!collapsed && section.classList.contains('displacement-section')) {
         onDisplacementOpen()
       }
+    })
+  })
+}
+
+function formatSliderValue(value: number, step: string): string {
+  const stepNum = parseFloat(step)
+  if (stepNum >= 1) return Math.round(value).toString()
+  const decimals = step.includes('.') ? step.split('.')[1].length : 0
+  return value.toFixed(decimals)
+}
+
+export function setupSliderValueDisplays(): void {
+  document.querySelectorAll<HTMLInputElement>('.control-row input[type="range"]').forEach((slider) => {
+    const valueSpan = document.createElement('span')
+    valueSpan.className = 'slider-value'
+    valueSpan.textContent = formatSliderValue(parseFloat(slider.value), slider.step)
+    slider.after(valueSpan)
+
+    slider.addEventListener('input', () => {
+      valueSpan.textContent = formatSliderValue(parseFloat(slider.value), slider.step)
     })
   })
 }

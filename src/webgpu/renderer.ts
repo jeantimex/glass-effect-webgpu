@@ -228,6 +228,10 @@ export class WebGPURenderer {
       )
     }
 
+    if (this.glassParams.playerControlsMode) {
+      return this.getClickedCircleIndex(clientX, clientY) >= 0
+    }
+
     return isPointInsideGlass(
       this.canvas,
       this.glassParams,
@@ -247,6 +251,31 @@ export class WebGPURenderer {
       clientX,
       clientY
     )
+  }
+
+  getClickedCircleIndex(clientX: number, clientY: number): number {
+    if (!this.glassParams.playerControlsMode) return 1
+
+    const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
+    const dpr = window.devicePixelRatio || 1
+    const centerX = this.glassCenterX * this.canvas.width
+    const centerY = this.glassCenterY * this.canvas.height
+    const mainRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35 * this.glassParams.circleSize
+    const sideRadius = mainRadius * this.glassParams.sideCircleScale
+    const offset = this.glassParams.sideCircleOffset * dpr
+
+    const distCenter = Math.hypot(point.x - centerX, point.y - centerY)
+    const distLeft = Math.hypot(point.x - (centerX - offset), point.y - centerY)
+    const distRight = Math.hypot(point.x - (centerX + offset), point.y - centerY)
+
+    if (distCenter <= mainRadius) return 1
+    if (distLeft <= sideRadius) return 0
+    if (distRight <= sideRadius) return 2
+    return -1
+  }
+
+  setActiveCircleIndex(index: number): void {
+    this.glassParams.activeCircleIndex = index
   }
 
   setSwitchMode(enabled: boolean): void {

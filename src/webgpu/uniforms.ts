@@ -1,7 +1,7 @@
 import { getGlassRadius, getRectSize } from './geometry'
 import type { GlassParams } from './types'
 
-export const GLASS_UNIFORM_BUFFER_SIZE = 256
+export const GLASS_UNIFORM_BUFFER_SIZE = 288
 
 interface GlassUniformInput {
   canvas: HTMLCanvasElement
@@ -85,5 +85,9 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.chromaticAberration ? 1.0 : 0.0,
     params.chromaticStrength,
     params.chromaticBase,
+    params.playerControlsMode ? 1.0 : 0.0,
+    params.sideCircleOffset * dpr,
+    params.sideCircleScale,
+    params.activeCircleIndex,
   ])
 }

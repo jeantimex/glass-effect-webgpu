@@ -2,7 +2,7 @@ import type { SurfaceType } from './displacement-map'
 import { WebGPURenderer } from '../webgpu/renderer'
 import { GlassControlPanel } from './control-panel'
 import { DisplacementMapView } from './displacement-view'
-import { getGlassControls, setupCollapsibleSections } from './dom'
+import { getGlassControls, setupCollapsibleSections, setupSliderValueDisplays } from './dom'
 import { GlassInteraction } from './interaction'
 import { PanelControlsOverlay } from './panel-controls'
 import { GlassRenderLoop } from './render-loop'
@@ -68,6 +68,7 @@ export class GlassApp {
     })
 
     setupCollapsibleSections(updateDisplacementMap)
+    setupSliderValueDisplays()
     controlPanel.setup()
     interaction.setup()
     updateDisplacementMap()

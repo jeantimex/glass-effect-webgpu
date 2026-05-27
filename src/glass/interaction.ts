@@ -64,6 +64,12 @@ export class GlassInteraction {
       return
     }
 
+    // Track which circle is clicked for player controls mode
+    if (renderer.glassParams.playerControlsMode) {
+      const clickedIndex = renderer.getClickedCircleIndex(event.clientX, event.clientY)
+      renderer.setActiveCircleIndex(clickedIndex)
+    }
+
     this.draggingGlass = true
     this.glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
     this.lastPointerPos = { x: event.clientX, y: event.clientY }
@@ -117,13 +123,18 @@ export class GlassInteraction {
     this.draggingGlass = false
     this.currentVelocity = { x: 0, y: 0 }
     const dragDistance = Math.hypot(event.clientX - this.pointerStartPos.x, event.clientY - this.pointerStartPos.y)
-    
+
     const preset = this.options.getCurrentPreset()
     if (preset === 'switch' && dragDistance < 4) {
       renderer.setSwitchProgress(renderer.getSwitchProgress() > 0.5 ? 0 : 1)
     } else if (preset === 'split-menu' && dragDistance < 4) {
       userParams.splitMenuOpen = !userParams.splitMenuOpen
       springs.splitMenuProgress.target = userParams.splitMenuOpen ? 1 : 0
+    }
+
+    // Reset active circle on pointer up
+    if (renderer.glassParams.playerControlsMode) {
+      renderer.setActiveCircleIndex(-1)
     }
 
     if (userParams.liquidEnabled) {

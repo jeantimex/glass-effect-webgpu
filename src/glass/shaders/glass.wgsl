@@ -62,6 +62,10 @@ struct Uniforms {
   chromatic_aberration: f32,
   chromatic_strength: f32,
   chromatic_base: f32,
+  player_controls_mode: f32,
+  side_circle_offset: f32,
+  side_circle_scale: f32,
+  active_circle_index: f32,
 }
 
 struct VertexOutput {
@@ -588,15 +592,105 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
   return output;
 }
 
+struct CircleInfo {
+  center: vec2f,
+  radius: f32,
+  inside: bool,
+  index: i32,
+}
+
+fn get_scale_for_circle(circle_index: i32) -> vec2f {
+  // Only apply deformation to the active circle
+  if (uniforms.player_controls_mode > 0.5 && circle_index != i32(uniforms.active_circle_index)) {
+    return vec2f(1.0, 1.0);
+  }
+  return vec2f(uniforms.scale_x, uniforms.scale_y);
+}
+
+// Signed distance to the combined player controls shape (3 circles with smooth blending)
+fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f32 {
+  let side_radius = main_radius * uniforms.side_circle_scale;
+  let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
+  let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
+
+  // Get scale for each circle (only active circle gets deformation)
+  let scale_left = get_scale_for_circle(0);
+  let scale_center = get_scale_for_circle(1);
+  let scale_right = get_scale_for_circle(2);
+
+  // Calculate signed distance to each circle
+  let d_left = length((pixel - left_center) / scale_left) - side_radius;
+  let d_center = length((pixel - main_center) / scale_center) - main_radius;
+  let d_right = length((pixel - right_center) / scale_right) - side_radius;
+
+  // Smooth blend factor - higher = smoother blend
+  let k = 40.0 * uniforms.device_pixel_ratio;
+
+  // Combine all three circles with smooth minimum
+  return smin(smin(d_left, d_center, k), d_right, k);
+}
+
+// Get the direction/normal for player controls (for refraction)
+fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) -> vec2f {
+  let eps = 1.0;
+  let d = player_controls_sdf(pixel, main_center, main_radius);
+  let dx = player_controls_sdf(pixel + vec2f(eps, 0.0), main_center, main_radius) - d;
+  let dy = player_controls_sdf(pixel + vec2f(0.0, eps), main_center, main_radius) - d;
+  return normalize(vec2f(dx, dy));
+}
+
+fn get_active_circle(pixel: vec2f, main_center: vec2f, main_radius: f32) -> CircleInfo {
+  if (uniforms.player_controls_mode < 0.5) {
+    return CircleInfo(main_center, main_radius, true, 1);
+  }
+
+  // Use combined SDF for player controls
+  let sdf = player_controls_sdf(pixel, main_center, main_radius);
+  let inside = sdf <= 0.0;
+
+  // Determine which circle is closest (for per-circle effects)
+  let side_radius = main_radius * uniforms.side_circle_scale;
+  let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
+  let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
+
+  let dist_left = length(pixel - left_center) - side_radius;
+  let dist_center = length(pixel - main_center) - main_radius;
+  let dist_right = length(pixel - right_center) - side_radius;
+
+  var closest_index = 1;
+  if (dist_left < dist_center && dist_left < dist_right) {
+    closest_index = 0;
+  } else if (dist_right < dist_center && dist_right < dist_left) {
+    closest_index = 2;
+  }
+
+  return CircleInfo(main_center, main_radius, inside, closest_index);
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let pixel = input.position.xy;
-  let glass_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
-  let shape_reference = select(uniforms.glass_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
+  let main_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
+  let main_radius = uniforms.glass_radius;
+
+  // Get which circle this pixel belongs to
+  let circle = get_active_circle(pixel, main_center, main_radius);
+  let glass_center = circle.center;
+  let effective_radius = circle.radius;
+
+  let shape_reference = select(effective_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
   let magnified_pixel = apply_magnifying_displacement(pixel, glass_center, shape_reference);
 
   let to_pixel = pixel - glass_center;
-  let distance_from_edge = -shape_signed_distance(to_pixel);
+
+  // For player controls, use combined SDF; otherwise use shape_signed_distance
+  var distance_from_edge: f32;
+  if (uniforms.player_controls_mode > 0.5) {
+    // Use smooth-blended SDF for metaball effect
+    distance_from_edge = -player_controls_sdf(pixel, main_center, main_radius);
+  } else {
+    distance_from_edge = -shape_signed_distance(to_pixel);
+  }
 
   // Outside glass - render background with shadow
   if (distance_from_edge < 0.0) {
@@ -604,12 +698,19 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
     // Calculate shadow
     if (uniforms.shadow_opacity > 0.0) {
-      let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
-      let shadow_edge = -shape_signed_distance(pixel - shadow_center);
-
-      // Soft shadow falloff
       let shadow_blur = max(uniforms.shadow_blur, 1.0);
-      let shadow_alpha = smoothstep(-shadow_blur, shadow_blur * 0.5, shadow_edge) * uniforms.shadow_opacity;
+      var shadow_alpha = 0.0;
+
+      if (uniforms.player_controls_mode > 0.5) {
+        // Use combined SDF for smooth merged shadow
+        let shadow_offset = vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
+        let shadow_sdf = player_controls_sdf(pixel - shadow_offset, main_center, main_radius);
+        shadow_alpha = smoothstep(shadow_blur, -shadow_blur * 0.5, shadow_sdf) * uniforms.shadow_opacity;
+      } else {
+        let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
+        let shadow_edge = -shape_signed_distance(pixel - shadow_center);
+        shadow_alpha = smoothstep(-shadow_blur, shadow_blur * 0.5, shadow_edge) * uniforms.shadow_opacity;
+      }
 
       // Darken background where shadow is
       bg = mix(bg, vec3f(0.0), shadow_alpha);
@@ -656,7 +757,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let displacement = min(raw_displacement, max_displacement);
 
   // Direction from the nearest shape edge toward this pixel.
-  let direction = shape_normal(to_pixel);
+  var direction: vec2f;
+  if (uniforms.player_controls_mode > 0.5) {
+    direction = player_controls_normal(pixel, main_center, main_radius);
+  } else {
+    direction = shape_normal(to_pixel);
+  }
 
   // Apply displacement (rays bend toward center for convex glass)
   var displaced_pixel = magnified_pixel - direction * displacement;

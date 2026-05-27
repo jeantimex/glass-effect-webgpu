@@ -19,4 +19,8 @@ export abstract class GlassPresetDefinition {
   get supportsIcon(): boolean {
     return false
   }
+
+  get isPlayerControlsMode(): boolean {
+    return this.id === 'player-controls'
+  }
 }

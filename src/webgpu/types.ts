@@ -53,6 +53,10 @@ export interface GlassParams {
   chromaticAberration: boolean
   chromaticStrength: number
   chromaticBase: number
+  playerControlsMode: boolean
+  sideCircleOffset: number
+  sideCircleScale: number
+  activeCircleIndex: number
 }
 
 export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article' | 'video'

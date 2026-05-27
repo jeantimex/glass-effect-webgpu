@@ -3,6 +3,7 @@ import { GlassPresetDefinition } from './base'
 import { CircleLensPreset } from './circle-lens'
 import { RectanglePreset } from './rectangle'
 import { PanelPreset } from './panel'
+import { PlayerControlsPreset } from './player-controls'
 import { SliderPreset } from './slider'
 import { SwitchPreset } from './switch'
 import { SplitMenuPreset } from './split-menu'
@@ -16,6 +17,7 @@ export const presetDefinitions = {
   slider: new SliderPreset(),
   panel: new PanelPreset(),
   'split-menu': new SplitMenuPreset(),
+  'player-controls': new PlayerControlsPreset(),
 } satisfies Record<PresetType, GlassPresetDefinition>
 
 export function getPresetDefinition(type: PresetType): GlassPresetDefinition {

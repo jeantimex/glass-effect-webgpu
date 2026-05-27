@@ -62,7 +62,8 @@ export class GlassControlPanel {
     renderer.glassParams.shapeType = preset.shapeType
     renderer.setSwitchMode(definition.isSwitchMode)
     renderer.setSliderMode(definition.isSliderMode)
-    if (type === 'panel') {
+    renderer.glassParams.playerControlsMode = definition.isPlayerControlsMode
+    if (type === 'panel' || type === 'player-controls') {
       renderer.centerGlass()
     }
     setCurrentSurfaceType(preset.surfaceType)
@@ -142,6 +143,10 @@ export class GlassControlPanel {
       renderer.glassParams.iconType = 0
       renderer.setIcon(null).catch(console.error)
       controls.iconTypeSelect.value = 'none'
+    } else if (definition.isPlayerControlsMode) {
+      renderer.glassParams.iconType = 1
+      renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/pause.svg`).catch(console.error)
+      controls.iconTypeSelect.value = 'pause'
     }
 
     this.updateShapeControls()
