@@ -184,7 +184,9 @@ export class WebGPURenderer {
 
   /**
    * Set up article using HTML-in-Canvas API (Chrome 147+ with flag)
-   * This keeps the element interactive - text can be selected!
+   * The element becomes a child of the canvas with layoutsubtree.
+   * It remains laid out and hit-testable (for text selection) but invisible
+   * until we draw it to the texture.
    */
   private async setupHTMLInCanvasArticle(
     articleElement: HTMLElement,
@@ -199,15 +201,16 @@ export class WebGPURenderer {
     articleElement.classList.add('html-in-canvas')
     articleElement.style.width = `${width}px`
     articleElement.style.height = `${height}px`
+    articleElement.style.position = 'absolute'
+    articleElement.style.left = '0'
+    articleElement.style.top = '0'
 
-    // Move to canvas parent (so it overlays the canvas)
-    const canvasParent = this.canvas.parentElement
-    if (canvasParent && articleElement.parentElement !== canvasParent) {
-      canvasParent.style.position = 'relative'
-      canvasParent.appendChild(articleElement)
+    // IMPORTANT: Element must be a direct child of the canvas for layoutsubtree to work
+    if (articleElement.parentElement !== this.canvas) {
+      this.canvas.appendChild(articleElement)
     }
 
-    // Wait for layout
+    // Wait for layout to settle
     await new Promise(resolve => setTimeout(resolve, 100))
 
     // Create texture for article content
@@ -221,38 +224,46 @@ export class WebGPURenderer {
 
     // Try to use copyElementImageToTexture
     try {
-      await this.updateArticleTexture()
-    } catch {
-      console.warn('copyElementImageToTexture failed, falling back to html2canvas')
+      this.updateArticleTexture()
+      this.bgTexture = this.articleTexture
+
+      // Set up paint handler for live updates
+      this.cleanupPaintHandler = setupPaintHandler(this.canvas, () => {
+        this.updateArticleTexture()
+      })
+
+      console.log('Article mode: HTML-in-Canvas active - text is selectable!')
+    } catch (e) {
+      console.warn('copyElementImageToTexture failed, falling back to html2canvas:', e)
+      // Move element back out of canvas for fallback
+      const preview = document.querySelector('.preview')
+      if (preview) {
+        preview.appendChild(articleElement)
+      }
       await this.setupFallbackArticle(articleElement, width, height, dpr)
-      return
     }
-
-    this.bgTexture = this.articleTexture
-
-    // Set up paint handler for live updates
-    this.cleanupPaintHandler = setupPaintHandler(this.canvas, () => {
-      this.updateArticleTexture().catch(console.error)
-    })
-
-    console.log('Article mode: HTML-in-Canvas active - text is selectable!')
   }
 
   /**
    * Update article texture using copyElementImageToTexture
    */
-  private async updateArticleTexture(): Promise<void> {
+  private updateArticleTexture(): void {
     if (!this.articleElement || !this.articleTexture) return
 
     const queue = this.device.queue as GPUQueue & {
-      copyElementImageToTexture?: (element: HTMLElement, dest: { texture: GPUTexture }) => void
+      copyElementImageToTexture?: (
+        source: HTMLElement,
+        destination: GPUImageCopyTextureTagged
+      ) => void
     }
 
-    if (queue.copyElementImageToTexture) {
-      queue.copyElementImageToTexture(this.articleElement, { texture: this.articleTexture })
-    } else {
+    if (!queue.copyElementImageToTexture) {
       throw new Error('copyElementImageToTexture not available')
     }
+
+    queue.copyElementImageToTexture(this.articleElement, {
+      texture: this.articleTexture,
+    })
   }
 
   /**
@@ -308,10 +319,20 @@ export class WebGPURenderer {
     }
 
     if (this.articleElement) {
+      // Move element back to preview container if it was inside canvas
+      if (this.articleElement.parentElement === this.canvas) {
+        const preview = document.querySelector('.preview')
+        if (preview) {
+          preview.appendChild(this.articleElement)
+        }
+      }
       this.articleElement.classList.add('hidden')
       this.articleElement.classList.remove('html-in-canvas')
       this.articleElement.style.width = ''
       this.articleElement.style.height = ''
+      this.articleElement.style.position = ''
+      this.articleElement.style.left = ''
+      this.articleElement.style.top = ''
       this.articleElement = null
     }
 
@@ -585,8 +606,12 @@ export class WebGPURenderer {
     }
 
     // Update article texture in HTML-in-Canvas mode for live content
-    if (this.articleElement && this.articleTexture && this.htmlInCanvasSupport.supported) {
-      this.updateArticleTexture().catch(() => {})
+    if (this.articleElement && this.articleTexture && this.htmlInCanvasSupport.copyElementImageToTexture) {
+      try {
+        this.updateArticleTexture()
+      } catch {
+        // Silently ignore texture update errors in render loop
+      }
     }
 
     // Sync circle data to glassParams for uniforms

@@ -15,16 +15,19 @@ export interface HTMLInCanvasSupport {
  * Check if the HTML-in-Canvas API is supported
  */
 export function detectHTMLInCanvasSupport(): HTMLInCanvasSupport {
-  // Check if layoutsubtree attribute is recognized
-  const canvas = document.createElement('canvas')
-  const supportsLayoutSubtree = 'layoutsubtree' in canvas || canvas.hasAttribute !== undefined
-
   // Check if GPUQueue has copyElementImageToTexture
+  // This is the key API for WebGPU HTML-in-Canvas
   const hasCopyElementImageToTexture = typeof GPUQueue !== 'undefined' &&
     'copyElementImageToTexture' in GPUQueue.prototype
 
+  // Also check for the 2D canvas version as a secondary indicator
+  const hasDrawElementImage = typeof CanvasRenderingContext2D !== 'undefined' &&
+    'drawElementImage' in CanvasRenderingContext2D.prototype
+
+  const supported = hasCopyElementImageToTexture || hasDrawElementImage
+
   return {
-    supported: supportsLayoutSubtree && hasCopyElementImageToTexture,
+    supported,
     copyElementImageToTexture: hasCopyElementImageToTexture
   }
 }
