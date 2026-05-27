@@ -636,12 +636,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Inside flat center - no refraction, but apply blur and magnification
   if (distance_from_edge >= bezel_pixels) {
-    // In article mode, render semi-transparent glass tint
+    // In article mode, render nearly transparent so HTML shows through
     if (uniforms.article_mode > 0.5) {
-      let tint = glass_tint_color();
-      var center_color = mix(vec3f(0.9), tint, uniforms.glass_bg_opacity);
-      center_color = apply_icon_overlay(pixel, center_color);
-      return vec4f(center_color, 0.85);
+      var center_color = apply_icon_overlay(pixel, vec3f(1.0));
+      // Very subtle tint, mostly transparent
+      return vec4f(center_color, 0.08);
     }
 
     // Progressive blur: minimal blur in center
@@ -684,10 +683,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Sample background at displaced position (with optional blur)
   var color: vec3f;
+  var base_alpha: f32 = 1.0;
   if (uniforms.article_mode > 0.5) {
-    // In article mode, use tinted transparent glass
-    let tint = glass_tint_color();
-    color = mix(vec3f(0.9), tint, uniforms.glass_bg_opacity);
+    // In article mode, mostly transparent - fade in toward edge for rim effect
+    color = vec3f(1.0);
+    base_alpha = 0.1 + (1.0 - bezel_t) * 0.15;  // More opaque at edge
   } else {
     color = sample_background_blurred(displaced_pixel, uniforms.time, progressive_blur);
     color = apply_glass_tint(color);
@@ -722,7 +722,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
   }
 
-  let alpha = select(1.0, 0.85, uniforms.article_mode > 0.5);
+  let alpha = select(1.0, base_alpha, uniforms.article_mode > 0.5);
   return vec4f(color, alpha);
 }
 `;function ie(i,e,t){const s=i.createShaderModule({code:se}),r=i.createPipelineLayout({bindGroupLayouts:[t]});return i.createRenderPipeline({layout:r,vertex:{module:s,entryPoint:"vs_main"},fragment:{module:s,entryPoint:"fs_main",targets:[{format:e}]},primitive:{topology:"triangle-strip"}})}function re(i){return i.createBindGroupLayout({entries:[{binding:0,visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,buffer:{type:"uniform"}},{binding:1,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:"float"}},{binding:2,visibility:GPUShaderStage.FRAGMENT,sampler:{type:"filtering"}},{binding:3,visibility:GPUShaderStage.FRAGMENT,texture:{sampleType:"float"}},{binding:4,visibility:GPUShaderStage.FRAGMENT,sampler:{type:"filtering"}}]})}function ae(i,e,t,s,r,a,n){return i.createBindGroup({layout:e,entries:[{binding:0,resource:{buffer:t}},{binding:1,resource:s.createView()},{binding:2,resource:r},{binding:3,resource:a.createView()},{binding:4,resource:n}]})}class ne{constructor(e){d(this,"textureCache",new Map);this.device=e}async load(e){const t=this.textureCache.get(e);if(t)return t;const s=new Image;s.src=e,await s.decode();let r=s,a=s.width,n=s.height;if(e.toLowerCase().endsWith(".svg")){const p=document.createElement("canvas"),o=512;p.width=o,p.height=o;const h=p.getContext("2d");h&&(h.clearRect(0,0,o,o),h.fillStyle="white",h.fillRect(0,0,o,o),h.globalCompositeOperation="destination-in",h.drawImage(s,0,0,o,o),h.globalCompositeOperation="source-over",r=p,a=o,n=o)}const c=Math.floor(Math.log2(Math.max(a,n)))+1,l=this.device.createTexture({size:[a,n],format:"rgba8unorm",mipLevelCount:c,usage:GPUTextureUsage.TEXTURE_BINDING|GPUTextureUsage.COPY_DST|GPUTextureUsage.RENDER_ATTACHMENT});return this.device.queue.copyExternalImageToTexture({source:r},{texture:l},[a,n]),await this.generateMipmaps(l,c),this.textureCache.set(e,l),l}async generateMipmaps(e,t){const s=this.device.createShaderModule({code:`
