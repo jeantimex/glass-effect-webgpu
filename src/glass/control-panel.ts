@@ -209,7 +209,7 @@ export class GlassControlPanel {
         renderer.setIcon(null).catch(console.error)
       } else {
         renderer.glassParams.iconType = 1
-        renderer.setIcon(`/assets/icons/${icon}.svg`).catch(console.error)
+        renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
       }
       this.updateIconControls()
     })
