@@ -192,7 +192,7 @@ export class WebGPURenderer {
     articleElement: HTMLElement,
     width: number,
     height: number,
-    dpr: number
+    _dpr: number
   ): Promise<void> {
     this.articleElement = articleElement
 
@@ -213,9 +213,10 @@ export class WebGPURenderer {
     // Wait for layout to settle
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // Create texture for article content
-    const textureWidth = Math.ceil(width * dpr)
-    const textureHeight = Math.ceil(height * dpr)
+    // Create texture matching the canvas pixel dimensions exactly
+    // This avoids size mismatches between element rendering and texture
+    const textureWidth = this.canvas.width
+    const textureHeight = this.canvas.height
     this.articleTexture = this.device.createTexture({
       size: [textureWidth, textureHeight],
       format: 'rgba8unorm',
@@ -240,7 +241,7 @@ export class WebGPURenderer {
       if (preview) {
         preview.appendChild(articleElement)
       }
-      await this.setupFallbackArticle(articleElement, width, height, dpr)
+      await this.setupFallbackArticle(articleElement, width, height, _dpr)
     }
   }
 
@@ -253,6 +254,8 @@ export class WebGPURenderer {
     const queue = this.device.queue as GPUQueue & {
       copyElementImageToTexture?: (
         source: HTMLElement,
+        width: number,
+        height: number,
         destination: GPUImageCopyTextureTagged
       ) => void
     }
@@ -261,9 +264,16 @@ export class WebGPURenderer {
       throw new Error('copyElementImageToTexture not available')
     }
 
-    queue.copyElementImageToTexture(this.articleElement, {
-      texture: this.articleTexture,
-    })
+    // Specify the destination size to match the texture dimensions exactly
+    const textureWidth = this.articleTexture.width
+    const textureHeight = this.articleTexture.height
+
+    queue.copyElementImageToTexture(
+      this.articleElement,
+      textureWidth,
+      textureHeight,
+      { texture: this.articleTexture }
+    )
   }
 
   /**
@@ -694,5 +704,27 @@ export class WebGPURenderer {
 
   private resizeCanvas(): void {
     resizeCanvasToDisplaySize(this.canvas)
+
+    // Update article element size to match canvas in HTML-in-Canvas mode
+    if (this.articleElement && this.htmlInCanvasSupport.supported) {
+      const width = this.canvas.clientWidth
+      const height = this.canvas.clientHeight
+      this.articleElement.style.width = `${width}px`
+      this.articleElement.style.height = `${height}px`
+
+      // Recreate texture if canvas size changed
+      if (this.articleTexture &&
+          (this.articleTexture.width !== this.canvas.width ||
+           this.articleTexture.height !== this.canvas.height)) {
+        this.articleTexture.destroy()
+        this.articleTexture = this.device.createTexture({
+          size: [this.canvas.width, this.canvas.height],
+          format: 'rgba8unorm',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+        })
+        this.bgTexture = this.articleTexture
+        this.bindGroup = this.createRenderBindGroup()
+      }
+    }
   }
 }
