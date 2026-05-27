@@ -94,7 +94,7 @@ export class WebGPURenderer {
     })
     this.textureLoader = new BackgroundTextureLoader(this.device)
 
-    this.bgTexture = await this.textureLoader.load(backgroundImageUrls.leaves)
+    this.bgTexture = await this.textureLoader.load(backgroundImageUrls.banner)
     this.iconTexture = this.createEmptyTexture()
     this.bindGroupLayout = createBindGroupLayout(this.device)
 
@@ -146,10 +146,13 @@ export class WebGPURenderer {
       const height = this.canvas.clientHeight
       const dpr = window.devicePixelRatio
 
-      // Create element from template
-      const templateOptions = type === 'article'
-        ? { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
-        : options
+      // Create element from template with default image URLs
+      let templateOptions = options
+      if (type === 'article') {
+        templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
+      } else if (type === 'leaves') {
+        templateOptions = { leaves: { imageUrl: options?.leaves?.imageUrl ?? `${import.meta.env.BASE_URL}assets/leaves.jpg` } }
+      }
       const element = createBackgroundElement(type, templateOptions)
       if (!element) return
 
@@ -182,7 +185,7 @@ export class WebGPURenderer {
     }
 
     this.stopVideo()
-    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article' | 'video'>])
+    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article' | 'video' | 'leaves'>])
     if (requestId !== this.backgroundRequestId) return
 
     this.bgTexture = texture
