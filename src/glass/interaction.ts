@@ -74,6 +74,12 @@ export class GlassInteraction {
       renderer.setActiveCircleIndex(clickedIndex)
     }
 
+    // Track which item is clicked for split menu mode
+    if (renderer.glassParams.splitMenuMode) {
+      const clickedIndex = renderer.getClickedSplitMenuIndex(event.clientX, event.clientY)
+      renderer.setActiveSplitMenuIndex(clickedIndex)
+    }
+
     this.draggingGlass = true
     this.glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
     this.lastPointerPos = { x: event.clientX, y: event.clientY }

@@ -1,7 +1,7 @@
 import { getGlassRadius, getRectSize } from './geometry'
 import type { GlassParams } from './types'
 
-export const GLASS_UNIFORM_BUFFER_SIZE = 352
+export const GLASS_UNIFORM_BUFFER_SIZE = 400
 
 interface BaseShadowParams {
   opacity: number
@@ -39,6 +39,15 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
     : baseShadow
   const rightShadow = activeIdx === 2
+    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
+
+  // Determine which split menu item gets animated shadow
+  const activeSplitIdx = params.activeSplitMenuIndex
+  const splitCircleShadow = activeSplitIdx === 0
+    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
+  const splitRectShadow = activeSplitIdx === 1
     ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
     : baseShadow
 
@@ -126,5 +135,19 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     rightShadow.blur,
     rightShadow.offsetX,
     rightShadow.offsetY,
+    // Split menu per-item shadows
+    params.activeSplitMenuIndex,
+    splitCircleShadow.opacity,
+    splitCircleShadow.blur,
+    splitCircleShadow.offsetX,
+    splitCircleShadow.offsetY,
+    splitRectShadow.opacity,
+    splitRectShadow.blur,
+    splitRectShadow.offsetX,
+    splitRectShadow.offsetY,
+    // Split menu pill settings
+    params.splitMenuPillWidth * dpr,
+    params.splitMenuPillHeight * dpr,
+    params.splitMenuPillRadius * dpr,
   ])
 }

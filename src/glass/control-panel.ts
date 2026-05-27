@@ -260,6 +260,15 @@ export class GlassControlPanel {
     controls.rectRadiusSlider.addEventListener('input', () => {
       renderer.glassParams.rectRadiusPercent = parseFloat(controls.rectRadiusSlider.value)
     })
+    controls.splitMenuPillWidthSlider.addEventListener('input', () => {
+      renderer.glassParams.splitMenuPillWidth = parseFloat(controls.splitMenuPillWidthSlider.value)
+    })
+    controls.splitMenuPillHeightSlider.addEventListener('input', () => {
+      renderer.glassParams.splitMenuPillHeight = parseFloat(controls.splitMenuPillHeightSlider.value)
+    })
+    controls.splitMenuPillRadiusSlider.addEventListener('input', () => {
+      renderer.glassParams.splitMenuPillRadius = parseFloat(controls.splitMenuPillRadiusSlider.value)
+    })
     controls.iconTypeSelect.addEventListener('change', () => {
       const icon = controls.iconTypeSelect.value
       if (icon === 'none') {
@@ -423,10 +432,12 @@ export class GlassControlPanel {
     const preset = getCurrentPreset()
     const isTrackPreset = preset === 'switch' || preset === 'slider'
     const isPlayerControls = preset === 'player-controls'
-    controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', isRectangle || isPlayerControls))
+    const isSplitMenu = preset === 'split-menu'
+    controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', isRectangle || isPlayerControls || isSplitMenu))
     controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !isRectangle))
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
     controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))
+    controls.splitMenuOnlyControls.forEach((control) => control.classList.toggle('hidden', !isSplitMenu))
   }
 
   private updateIconControls(): void {

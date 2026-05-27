@@ -84,6 +84,20 @@ struct Uniforms {
   right_shadow_blur: f32,
   right_shadow_offset_x: f32,
   right_shadow_offset_y: f32,
+  // Split menu per-item shadow params
+  active_split_menu_index: f32,
+  split_circle_shadow_opacity: f32,
+  split_circle_shadow_blur: f32,
+  split_circle_shadow_offset_x: f32,
+  split_circle_shadow_offset_y: f32,
+  split_rect_shadow_opacity: f32,
+  split_rect_shadow_blur: f32,
+  split_rect_shadow_offset_x: f32,
+  split_rect_shadow_offset_y: f32,
+  // Split menu pill settings
+  split_menu_pill_width: f32,
+  split_menu_pill_height: f32,
+  split_menu_pill_radius: f32,
 }
 
 struct VertexOutput {
@@ -483,30 +497,35 @@ fn shape_signed_distance(p: vec2f) -> f32 {
 
   if (uniforms.split_menu_mode > 0.5) {
     let progress = uniforms.split_menu_progress;
-    // The menu splits into a circle on left and rounded rect on right
+    // The menu splits into a circle on left and rounded rect (pill) on right
     // Final separation distance (distance between centers)
     let split_dist = 320.0 * uniforms.device_pixel_ratio * progress;
 
-    // Animate width from a circle (base_height) to target width
-    let target_width = uniforms.rect_width;
-    let current_width = mix(uniforms.glass_radius * 2.0, target_width, progress);
+    // Pill dimensions from settings
+    let pill_width = uniforms.split_menu_pill_width;
+    let pill_height = uniforms.split_menu_pill_height;
+    let pill_radius = min(uniforms.split_menu_pill_radius, min(pill_width, pill_height) * 0.5);
+
+    // Animate width from circle diameter to target pill width
+    let current_width = mix(uniforms.glass_radius * 2.0, pill_width, progress);
+    let current_height = mix(uniforms.glass_radius * 2.0, pill_height, progress);
+    let current_radius = mix(uniforms.glass_radius, pill_radius, progress);
 
     // Calculate symmetric offsets to center the whole group
     let offset_x = (uniforms.glass_radius - current_width * 0.5) * 0.5;
     let split_dist_left = offset_x - split_dist * 0.5;
     let split_dist_right = offset_x + split_dist * 0.5;
 
-    // Circle component (left)
-    let circle_p = scaled_p - vec2f(split_dist_left, 0.0);
+    // Circle component (left) - no deformation to keep shapes independent
+    let circle_p = p - vec2f(split_dist_left, 0.0);
     let d_circle = length(circle_p) - uniforms.glass_radius;
 
-    // Rect component (right)
-    let rect_p = scaled_p - vec2f(split_dist_right, 0.0);
-    let current_radius = uniforms.glass_radius;
-    
+    // Pill component (right) - no deformation to keep shapes independent
+    let rect_p = p - vec2f(split_dist_right, 0.0);
+
     let d_rect = rounded_rect_sdf(
       rect_p,
-      vec2f(current_width, uniforms.glass_radius * 2.0) * 0.5,
+      vec2f(current_width, current_height) * 0.5,
       current_radius
     );
 
@@ -768,6 +787,72 @@ fn player_controls_shadow_alpha(pixel: vec2f, main_center: vec2f) -> f32 {
   return max(max(alpha_left, alpha_center), alpha_right);
 }
 
+// Get scale for split menu item (only active item gets deformation)
+fn get_scale_for_split_item(item_index: i32) -> vec2f {
+  if (uniforms.split_menu_mode > 0.5 && item_index != i32(uniforms.active_split_menu_index)) {
+    return vec2f(1.0, 1.0);
+  }
+  return vec2f(uniforms.scale_x, uniforms.scale_y);
+}
+
+// Calculate independent shadow alpha for each split menu item
+fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
+  let dpr = uniforms.device_pixel_ratio;
+  let progress = uniforms.split_menu_progress;
+  let base_radius = uniforms.glass_radius;
+
+  // Pill dimensions from settings
+  let pill_width = uniforms.split_menu_pill_width;
+  let pill_height = uniforms.split_menu_pill_height;
+  let pill_radius = min(uniforms.split_menu_pill_radius, min(pill_width, pill_height) * 0.5);
+
+  let split_dist = 320.0 * dpr * progress;
+  let current_width = mix(base_radius * 2.0, pill_width, progress);
+  let current_height = mix(base_radius * 2.0, pill_height, progress);
+  let current_radius = mix(base_radius, pill_radius, progress);
+
+  let offset_x = (base_radius - current_width * 0.5) * 0.5;
+  let split_dist_left = offset_x - split_dist * 0.5;
+  let split_dist_right = offset_x + split_dist * 0.5;
+
+  // Circle center (left)
+  let circle_center = glass_center + vec2f(split_dist_left, 0.0);
+  // Pill center (right)
+  let rect_center = glass_center + vec2f(split_dist_right, 0.0);
+
+  // Per-item shadow offsets
+  let circle_shadow_offset = vec2f(uniforms.split_circle_shadow_offset_x, uniforms.split_circle_shadow_offset_y);
+  let rect_shadow_offset = vec2f(uniforms.split_rect_shadow_offset_x, uniforms.split_rect_shadow_offset_y);
+
+  // Apply per-item deformation
+  let scale_circle = get_scale_for_split_item(0);
+  let scale_rect = get_scale_for_split_item(1);
+
+  // Check if pixel is outside each item (for masking its shadow)
+  let circle_p = (pixel - circle_center) / scale_circle;
+  let inside_circle = length(circle_p) - base_radius;
+
+  let rect_p = (pixel - rect_center) / scale_rect;
+  let inside_rect = rounded_rect_sdf(rect_p, vec2f(current_width, current_height) * 0.5, current_radius);
+
+  // Per-item shadow blur
+  let circle_blur = max(uniforms.split_circle_shadow_blur, 1.0);
+  let rect_blur = max(uniforms.split_rect_shadow_blur, 1.0);
+
+  // Calculate shadow SDF for each item with its own offset
+  let shadow_circle_p = (pixel - circle_shadow_offset - circle_center) / scale_circle;
+  let d_circle = length(shadow_circle_p) - base_radius;
+
+  let shadow_rect_p = (pixel - rect_shadow_offset - rect_center) / scale_rect;
+  let d_rect = rounded_rect_sdf(shadow_rect_p, vec2f(current_width, current_height) * 0.5, current_radius);
+
+  // Convert each SDF to shadow alpha with per-item blur and opacity
+  let alpha_circle = select(0.0, smoothstep(circle_blur, -circle_blur * 0.5, d_circle) * uniforms.split_circle_shadow_opacity, inside_circle > 0.0);
+  let alpha_rect = select(0.0, smoothstep(rect_blur, -rect_blur * 0.5, d_rect) * uniforms.split_rect_shadow_opacity, inside_rect > 0.0);
+
+  return max(alpha_circle, alpha_rect);
+}
+
 // Get the direction/normal for player controls (for refraction)
 fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) -> vec2f {
   let eps = 1.0;
@@ -845,6 +930,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
       return vec4f(bg, 1.0);
     }
     // Otherwise continue to glass rendering below
+  } else if (uniforms.split_menu_mode > 0.5) {
+    // Split menu mode: handle shadows independently per item
+    var bg = sample_background(pixel, uniforms.time);
+
+    let shadow_alpha = split_menu_shadow_alpha(pixel, glass_center);
+    bg = mix(bg, vec3f(0.0), shadow_alpha);
+
+    if (distance_from_edge < 0.0) {
+      return vec4f(bg, 1.0);
+    }
   } else {
     // Original behavior for non-player-controls modes
     if (distance_from_edge < 0.0) {

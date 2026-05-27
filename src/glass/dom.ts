@@ -65,6 +65,10 @@ export interface GlassControls {
   leftIconTypeSelect: HTMLSelectElement
   centerIconTypeSelect: HTMLSelectElement
   rightIconTypeSelect: HTMLSelectElement
+  splitMenuOnlyControls: NodeListOf<HTMLElement>
+  splitMenuPillWidthSlider: HTMLInputElement
+  splitMenuPillHeightSlider: HTMLInputElement
+  splitMenuPillRadiusSlider: HTMLInputElement
 }
 
 function getElement<T extends HTMLElement>(id: string): T {
@@ -143,6 +147,10 @@ export function getGlassControls(): GlassControls {
     leftIconTypeSelect: getElement<HTMLSelectElement>('leftIconType'),
     centerIconTypeSelect: getElement<HTMLSelectElement>('centerIconType'),
     rightIconTypeSelect: getElement<HTMLSelectElement>('rightIconType'),
+    splitMenuOnlyControls: document.querySelectorAll<HTMLElement>('.split-menu-only'),
+    splitMenuPillWidthSlider: getElement<HTMLInputElement>('splitMenuPillWidth'),
+    splitMenuPillHeightSlider: getElement<HTMLInputElement>('splitMenuPillHeight'),
+    splitMenuPillRadiusSlider: getElement<HTMLInputElement>('splitMenuPillRadius'),
   }
 }
 

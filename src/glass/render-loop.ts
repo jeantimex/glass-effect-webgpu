@@ -92,10 +92,12 @@ export class GlassRenderLoop {
     const isRectangle = this.renderer.glassParams.shapeType === 1
     const preset = this.getCurrentPreset()
     const isPlayerControls = preset === 'player-controls'
-    // Player controls uses fixed circle size - scale is handled per-circle
+    const isSplitMenu = preset === 'split-menu'
+    const isMultiItem = isPlayerControls || isSplitMenu
+    // Player controls and split menu use fixed settings - effects are per-item
     this.renderer.glassParams.circleSize = (isRectangle || isPlayerControls) ? this.userParams.circleSize : this.springs.scale.value
-    // Player controls keeps shared glass properties constant - only deformation and shadow animate per-circle
-    this.renderer.glassParams.scaleRatio = isPlayerControls ? this.userParams.scaleRatio : this.springs.refraction.value
+    // Multi-item modes keep shared glass properties constant - only deformation and shadow animate per-item
+    this.renderer.glassParams.scaleRatio = isMultiItem ? this.userParams.scaleRatio : this.springs.refraction.value
     this.renderer.glassParams.magnifyingScale = this.springs.magnification.value
     this.renderer.glassParams.scaleX = this.springs.deformationX.value * (isRectangle ? interactionScale : 1)
     this.renderer.glassParams.scaleY = this.springs.deformationY.value * (isRectangle ? interactionScale : 1)
@@ -103,8 +105,8 @@ export class GlassRenderLoop {
     this.renderer.glassParams.shadowBlur = this.springs.shadowBlur.value
     this.renderer.glassParams.shadowOffsetX = this.userParams.shadowOffsetX
     this.renderer.glassParams.shadowOffsetY = this.springs.shadowOffsetY.value
-    this.renderer.glassParams.specularOpacity = isPlayerControls ? this.userParams.specularOpacity : this.springs.specularOpacity.value
-    this.renderer.glassParams.glassBgOpacity = isPlayerControls ? this.userParams.glassBgOpacity : this.springs.glassBgOpacity.value
+    this.renderer.glassParams.specularOpacity = isMultiItem ? this.userParams.specularOpacity : this.springs.specularOpacity.value
+    this.renderer.glassParams.glassBgOpacity = isMultiItem ? this.userParams.glassBgOpacity : this.springs.glassBgOpacity.value
     this.renderer.glassParams.splitMenuProgress = this.springs.splitMenuProgress.value
     this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled
     this.renderer.glassParams.splitMenuMode = preset === 'split-menu'

@@ -115,32 +115,80 @@ export function isPointInsideSplitMenu(
   const centerX = glassCenterX * canvas.width
   const centerY = glassCenterY * canvas.height
   const dpr = window.devicePixelRatio || 1
-  
+
   // Use scaled coordinates relative to center
   const dx = (point.x - centerX) / params.scaleX
   const dy = (point.y - centerY) / params.scaleY
 
   const baseRadius = getGlassRadius(canvas, params)
-  const baseHeight = baseRadius * 2.0
   const progress = params.splitMenuProgress
   const splitDist = 320.0 * dpr * progress
-  
-  const targetWidth = params.rectWidth * dpr
-  const currentWidth = baseHeight + (targetWidth - baseHeight) * progress
-  
+
+  // Pill dimensions
+  const pillWidth = params.splitMenuPillWidth * dpr
+  const pillHeight = params.splitMenuPillHeight * dpr
+  const pillRadius = Math.min(params.splitMenuPillRadius * dpr, Math.min(pillWidth, pillHeight) * 0.5)
+
+  const currentWidth = baseRadius * 2 + (pillWidth - baseRadius * 2) * progress
+  const currentHeight = baseRadius * 2 + (pillHeight - baseRadius * 2) * progress
+  const currentRadius = baseRadius + (pillRadius - baseRadius) * progress
+
   const offsetX = (baseRadius - currentWidth * 0.5) * 0.5
   const splitDistLeft = offsetX - splitDist * 0.5
   const splitDistRight = offsetX + splitDist * 0.5
-  
+
   // Check circle (left)
   const distCircle = Math.sqrt((dx - splitDistLeft) ** 2 + dy ** 2)
   if (distCircle <= baseRadius) return true
-  
-  // Check rect (right)
-  const currentRadius = baseHeight * 0.5
-  const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, baseHeight, currentRadius)
-  
+
+  // Check pill (right)
+  const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, currentHeight, currentRadius)
+
   return distRect <= 0
+}
+
+export function getClickedSplitMenuIndex(
+  canvas: HTMLCanvasElement,
+  params: GlassParams,
+  glassCenterX: number,
+  glassCenterY: number,
+  clientX: number,
+  clientY: number
+): number {
+  const point = clientPointToCanvasPoint(canvas, clientX, clientY)
+  const centerX = glassCenterX * canvas.width
+  const centerY = glassCenterY * canvas.height
+  const dpr = window.devicePixelRatio || 1
+
+  const dx = (point.x - centerX) / params.scaleX
+  const dy = (point.y - centerY) / params.scaleY
+
+  const baseRadius = getGlassRadius(canvas, params)
+  const progress = params.splitMenuProgress
+  const splitDist = 320.0 * dpr * progress
+
+  // Pill dimensions
+  const pillWidth = params.splitMenuPillWidth * dpr
+  const pillHeight = params.splitMenuPillHeight * dpr
+  const pillRadius = Math.min(params.splitMenuPillRadius * dpr, Math.min(pillWidth, pillHeight) * 0.5)
+
+  const currentWidth = baseRadius * 2 + (pillWidth - baseRadius * 2) * progress
+  const currentHeight = baseRadius * 2 + (pillHeight - baseRadius * 2) * progress
+  const currentRadius = baseRadius + (pillRadius - baseRadius) * progress
+
+  const offsetX = (baseRadius - currentWidth * 0.5) * 0.5
+  const splitDistLeft = offsetX - splitDist * 0.5
+  const splitDistRight = offsetX + splitDist * 0.5
+
+  // Check circle (left) - index 0
+  const distCircle = Math.sqrt((dx - splitDistLeft) ** 2 + dy ** 2)
+  if (distCircle <= baseRadius) return 0
+
+  // Check pill (right) - index 1
+  const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, currentHeight, currentRadius)
+  if (distRect <= 0) return 1
+
+  return -1
 }
 
 export function isPointInsideSwitchTrack(

@@ -42,6 +42,10 @@ export interface GlassParams {
   maxDisplacementScale: number
   splitMenuMode: boolean
   splitMenuProgress: number
+  activeSplitMenuIndex: number
+  splitMenuPillWidth: number
+  splitMenuPillHeight: number
+  splitMenuPillRadius: number
   liquidEnabled: boolean
   iconType: number
   iconOpacity: number

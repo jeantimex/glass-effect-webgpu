@@ -3,6 +3,7 @@ import { Circle, type CircleConfig } from './circle'
 import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
 import {
   clientPointToCanvasPoint,
+  getClickedSplitMenuIndex,
   getShapeBounds,
   getSwitchMetrics,
   isPointInsideGlass,
@@ -324,6 +325,22 @@ export class WebGPURenderer {
 
   setActiveCircleIndex(index: number): void {
     this.glassParams.activeCircleIndex = index
+  }
+
+  getClickedSplitMenuIndex(clientX: number, clientY: number): number {
+    if (!this.glassParams.splitMenuMode) return -1
+    return getClickedSplitMenuIndex(
+      this.canvas,
+      this.glassParams,
+      this.glassCenterX,
+      this.glassCenterY,
+      clientX,
+      clientY
+    )
+  }
+
+  setActiveSplitMenuIndex(index: number): void {
+    this.glassParams.activeSplitMenuIndex = index
   }
 
   setSwitchMode(enabled: boolean): void {
