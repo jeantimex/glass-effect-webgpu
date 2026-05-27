@@ -434,7 +434,6 @@ export class WebGPURenderer {
     this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
       canvas: this.canvas,
       params: this.glassParams,
-      circles: this._circles,
       startTime: this.startTime,
       glassCenterX: this.glassCenterX,
       glassCenterY: this.glassCenterY,

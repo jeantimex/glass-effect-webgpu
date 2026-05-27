@@ -136,10 +136,8 @@ export class GlassInteraction {
       springs.splitMenuProgress.target = userParams.splitMenuOpen ? 1 : 0
     }
 
-    // Reset active circle on pointer up
-    if (renderer.glassParams.playerControlsMode) {
-      renderer.setActiveCircleIndex(-1)
-    }
+    // Don't reset active circle here - let it persist so the shadow follows the liquid animation
+    // The next click will set a new active circle
 
     if (userParams.liquidEnabled) {
       springs.liquid.value = Math.max(springs.liquid.value, 0.58 * userParams.liquidReleaseSquash)

@@ -1,4 +1,3 @@
-import type { Circle } from './circle'
 import { getGlassRadius, getRectSize } from './geometry'
 import type { GlassParams } from './types'
 
@@ -7,7 +6,6 @@ export const GLASS_UNIFORM_BUFFER_SIZE = 352
 interface GlassUniformInput {
   canvas: HTMLCanvasElement
   params: GlassParams
-  circles?: Circle[]
   startTime: number
   glassCenterX: number
   glassCenterY: number
@@ -17,16 +15,11 @@ interface GlassUniformInput {
 }
 
 export function createGlassUniformData(input: GlassUniformInput): Float32Array {
-  const { canvas, params, circles } = input
+  const { canvas, params } = input
   const glassRadius = getGlassRadius(canvas, params)
   const rect = getRectSize(params)
   const uniformTime = (performance.now() - input.startTime) / 1000
   const dpr = window.devicePixelRatio || 1
-
-  // Get per-circle shadow params (default to global params if no circles)
-  const leftCircle = circles?.[0]
-  const centerCircle = circles?.[1]
-  const rightCircle = circles?.[2]
 
   return new Float32Array([
     canvas.width,
@@ -99,20 +92,19 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.leftCircleSize,
     params.centerCircleSize,
     params.rightCircleSize,
-    // Per-circle shadow params (left)
-    leftCircle?.shadowOpacity ?? params.shadowOpacity,
-    leftCircle?.shadowBlur ?? params.shadowBlur,
-    leftCircle?.shadowOffsetX ?? params.shadowOffsetX,
-    leftCircle?.shadowOffsetY ?? params.shadowOffsetY,
-    // Per-circle shadow params (center)
-    centerCircle?.shadowOpacity ?? params.shadowOpacity,
-    centerCircle?.shadowBlur ?? params.shadowBlur,
-    centerCircle?.shadowOffsetX ?? params.shadowOffsetX,
-    centerCircle?.shadowOffsetY ?? params.shadowOffsetY,
-    // Per-circle shadow params (right)
-    rightCircle?.shadowOpacity ?? params.shadowOpacity,
-    rightCircle?.shadowBlur ?? params.shadowBlur,
-    rightCircle?.shadowOffsetX ?? params.shadowOffsetX,
-    rightCircle?.shadowOffsetY ?? params.shadowOffsetY,
+    // Per-circle shadow params - use animated glassParams values (same as single circle)
+    // All circles share the same shadow behavior, animated by springs
+    params.shadowOpacity,
+    params.shadowBlur,
+    params.shadowOffsetX,
+    params.shadowOffsetY,
+    params.shadowOpacity,
+    params.shadowBlur,
+    params.shadowOffsetX,
+    params.shadowOffsetY,
+    params.shadowOpacity,
+    params.shadowBlur,
+    params.shadowOffsetX,
+    params.shadowOffsetY,
   ])
 }
