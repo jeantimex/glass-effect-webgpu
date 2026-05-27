@@ -55,7 +55,7 @@ export interface GlassParams {
   chromaticBase: number
 }
 
-export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article'
+export type BackgroundType = 'grid' | 'leaves' | 'banner' | 'article' | 'video'
 
 export interface Point {
   x: number

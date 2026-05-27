@@ -1,5 +1,5 @@
 import html2canvas from 'html2canvas'
-import { backgroundImageUrls, createDefaultGlassParams } from './defaults'
+import { backgroundImageUrls, createDefaultGlassParams, videoBackgroundUrl } from './defaults'
 import {
   clientPointToCanvasPoint,
   getShapeBounds,
@@ -41,6 +41,7 @@ export class WebGPURenderer {
   private gridOffset = 0
   private switchCenterX = 0.5
   private switchCenterY = 0.5
+  private videoElement: HTMLVideoElement | null = null
 
   public glassParams: GlassParams = createDefaultGlassParams()
 
@@ -132,11 +133,19 @@ export class WebGPURenderer {
     }
 
     if (type === 'grid') {
+      this.stopVideo()
       this.glassParams.useImageBg = false
       return
     }
 
-    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article'>])
+    if (type === 'video') {
+      await this.startVideo()
+      if (requestId !== this.backgroundRequestId) return
+      return
+    }
+
+    this.stopVideo()
+    const texture = await this.textureLoader.load(backgroundImageUrls[type as Exclude<BackgroundType, 'grid' | 'article' | 'video'>])
     if (requestId !== this.backgroundRequestId) return
 
     this.bgTexture = texture
@@ -164,6 +173,47 @@ export class WebGPURenderer {
     const currentOffset = elapsedTime * this.glassParams.gridSpeed + this.gridOffset
     this.glassParams.gridSpeed = speed
     this.gridOffset = currentOffset - elapsedTime * speed
+  }
+
+  private async startVideo(): Promise<void> {
+    if (this.videoElement) return
+
+    const video = document.createElement('video')
+    video.src = videoBackgroundUrl
+    video.loop = true
+    video.muted = true
+    video.playsInline = true
+    video.crossOrigin = 'anonymous'
+
+    await new Promise<void>((resolve, reject) => {
+      video.oncanplaythrough = () => resolve()
+      video.onerror = () => reject(new Error('Failed to load video'))
+      video.load()
+    })
+
+    await video.play()
+
+    // Wait for first frame to be decoded
+    await new Promise<void>((resolve) => {
+      if ('requestVideoFrameCallback' in video) {
+        (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void })
+          .requestVideoFrameCallback(() => resolve())
+      } else {
+        requestAnimationFrame(() => resolve())
+      }
+    })
+
+    this.videoElement = video
+    this.bgTexture = this.textureLoader.createTextureFromVideo(video)
+    this.glassParams.useImageBg = true
+    this.bindGroup = this.createRenderBindGroup()
+  }
+
+  private stopVideo(): void {
+    if (!this.videoElement) return
+    this.videoElement.pause()
+    this.videoElement.src = ''
+    this.videoElement = null
   }
 
   isPointInsideGlass(clientX: number, clientY: number): boolean {
@@ -291,6 +341,10 @@ export class WebGPURenderer {
     this.resizeCanvas()
     if (this.glassParams.switchMode || this.glassParams.sliderMode) {
       this.setSwitchProgress(this.glassParams.switchProgress)
+    }
+
+    if (this.videoElement) {
+      this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
     }
 
     this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
