@@ -10,6 +10,7 @@ https://github.com/user-attachments/assets/781efc76-c91e-4f8a-b9f6-da7a2773e194
 
 - **Liquid Glass Effect**: Realistic glass refraction with customizable thickness and bezel
 - **Multiple Presets**: Circle, Rectangle, Switch, Slider, Split Menu, Player Controls
+- **Circle Preset Strategies**: Add multiple circles and choose between stacked composition or same-layer merging
 - **Interactive Animations**: Spring-based liquid deformation on press/drag
 - **Per-element Independence**: Each element in multi-item presets (Player Controls, Split Menu) animates independently
 - **Background Options**: Grid pattern, images, video, or live HTML content
@@ -22,6 +23,14 @@ https://github.com/user-attachments/assets/781efc76-c91e-4f8a-b9f6-da7a2773e194
 - **Template backgrounds**: Article, banner, CSS animation, and video backgrounds are all routed through the same renderer so they can be sampled consistently by the glass shader.
 - **HTML-in-Canvas path**: Live DOM backgrounds are copied into a texture with `copyElementImageToTexture()` when supported, with `html2canvas` used as a fallback.
 - **Preset-driven UI**: Each control preset updates the same glass parameters, which keeps the preview, sliders, and displacement map in sync.
+
+## Circle Preset Strategies
+
+Circle Lens supports adding multiple circles and choosing how they are composed.
+
+- **Stack**: each new circle is rendered after the previous one, so later circles can use the earlier composed result as their background.
+- **Merge**: all circles share the same layer and are blended together with a smooth union.
+- **Per-circle interaction**: each circle can be dragged independently, and the active circle drives the liquid deformation while the others stay rigid.
 
 ## HTML-in-Canvas Integration
 
