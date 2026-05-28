@@ -9,6 +9,7 @@ export const surfaceTypeMap: Record<SurfaceType, number> = {
 
 export type PresetType = 'circle-lens' | 'rectangle' | 'switch' | 'slider' | 'panel' | 'split-menu' | 'player-controls'
 export type GlassTheme = 'system' | 'light' | 'dark' | 'custom'
+export type CirclePresetStrategy = 'stack' | 'merge'
 
 export interface GlassPreset {
   shapeType: number

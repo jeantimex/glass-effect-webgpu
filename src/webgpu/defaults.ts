@@ -72,5 +72,9 @@ export function createDefaultGlassParams(): GlassParams {
     centerCircleSize: 0.42,
     rightCircleSize: 0.32,
     playerControlsGroupLiquid: false,
+    circlePresetMode: false,
+    circlePresetStrategy: 0,
+    circlePresetCount: 1,
+    circlePresetActiveIndex: 0,
   }
 }

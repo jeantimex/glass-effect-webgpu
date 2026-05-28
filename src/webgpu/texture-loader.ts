@@ -117,6 +117,7 @@ export class BackgroundTextureLoader {
   }
 
   generateMipmapsSync(texture: GPUTexture, mipLevelCount: number): void {
+    const textureFormat = texture.format
     const mipmapShaderModule = this.device.createShaderModule({
       code: `
         var<private> pos: array<vec2f, 4> = array(
@@ -155,7 +156,7 @@ export class BackgroundTextureLoader {
       fragment: {
         module: mipmapShaderModule,
         entryPoint: 'fs',
-        targets: [{ format: 'rgba8unorm' }]
+        targets: [{ format: textureFormat }]
       },
       primitive: { topology: 'triangle-strip' }
     })
@@ -190,6 +191,7 @@ export class BackgroundTextureLoader {
   }
 
   private async generateMipmaps(texture: GPUTexture, mipLevelCount: number): Promise<void> {
+    const textureFormat = texture.format
     const mipmapShaderModule = this.device.createShaderModule({
       code: `
         var<private> pos: array<vec2f, 4> = array(
@@ -228,7 +230,7 @@ export class BackgroundTextureLoader {
       fragment: {
         module: mipmapShaderModule,
         entryPoint: 'fs',
-        targets: [{ format: 'rgba8unorm' }]
+        targets: [{ format: textureFormat }]
       },
       primitive: { topology: 'triangle-strip' }
     })

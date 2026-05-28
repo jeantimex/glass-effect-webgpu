@@ -70,6 +70,10 @@ struct Uniforms {
   center_circle_size: f32,
   right_circle_size: f32,
   player_controls_group_liquid: f32,
+  circle_preset_mode: f32,
+  circle_preset_strategy: f32,
+  circle_preset_count: f32,
+  circle_preset_active_index: f32,
   // Per-circle shadow params (left)
   left_shadow_opacity: f32,
   left_shadow_blur: f32,
@@ -85,6 +89,10 @@ struct Uniforms {
   right_shadow_blur: f32,
   right_shadow_offset_x: f32,
   right_shadow_offset_y: f32,
+  circle_preset_shadow_opacity: f32,
+  circle_preset_shadow_blur: f32,
+  circle_preset_shadow_offset_x: f32,
+  circle_preset_shadow_offset_y: f32,
   // Split menu per-item shadow params
   active_split_menu_index: f32,
   split_circle_shadow_opacity: f32,
@@ -113,6 +121,7 @@ struct VertexOutput {
 @group(0) @binding(4) var icon_sampler: sampler;
 @group(0) @binding(5) var icon_left_texture: texture_2d<f32>;
 @group(0) @binding(6) var icon_right_texture: texture_2d<f32>;
+@group(0) @binding(7) var<storage, read> circle_preset_circles: array<vec4f, 8>;
 
 // Surface height functions (x = 0 at edge, x = 1 at end of bezel)
 fn surface_convex_circle(x: f32) -> f32 {
@@ -700,9 +709,15 @@ struct CircleInfo {
 
 fn get_scale_for_circle(circle_index: i32) -> vec2f {
   if (
-    uniforms.player_controls_mode > 0.5 &&
+    (
+      uniforms.player_controls_mode > 0.5 ||
+      uniforms.circle_preset_mode > 0.5
+    ) &&
     uniforms.player_controls_group_liquid < 0.5 &&
-    circle_index != i32(uniforms.active_circle_index)
+    (
+      (uniforms.player_controls_mode > 0.5 && circle_index != i32(uniforms.active_circle_index)) ||
+      (uniforms.circle_preset_mode > 0.5 && circle_index != i32(uniforms.circle_preset_active_index))
+    )
   ) {
     return vec2f(1.0, 1.0);
   }
@@ -721,6 +736,97 @@ fn get_player_circle_radius(circle_index: i32) -> f32 {
     return base * uniforms.right_circle_size;
   }
   return base * uniforms.center_circle_size;
+}
+
+fn get_circle_preset_base_radius() -> f32 {
+  return min(uniforms.canvas_width, uniforms.canvas_height) * 0.35;
+}
+
+fn get_circle_preset_radius(circle_index: i32) -> f32 {
+  let circle = circle_preset_circles[circle_index];
+  return get_circle_preset_base_radius() * circle.z;
+}
+
+fn get_circle_preset_center(circle_index: i32) -> vec2f {
+  let circle = circle_preset_circles[circle_index];
+  return circle.xy;
+}
+
+fn circle_preset_sdf(pixel: vec2f) -> f32 {
+  let count = i32(min(uniforms.circle_preset_count, 8.0));
+  if (count <= 0) { return 1e9; }
+
+  var result = 1e9;
+  let k = 40.0 * uniforms.device_pixel_ratio;
+
+  for (var i = 0; i < 8; i = i + 1) {
+    if (i >= count) { break; }
+    let center = get_circle_preset_center(i);
+    let radius = get_circle_preset_radius(i);
+    let d = length((pixel - center) / get_scale_for_circle(i)) - radius;
+    if (uniforms.circle_preset_strategy < 0.5) {
+      result = min(result, d);
+    } else {
+      if (i == 0) {
+        result = d;
+      } else {
+        result = smin(result, d, k);
+      }
+    }
+  }
+  return result;
+}
+
+fn circle_preset_shadow_alpha(pixel: vec2f) -> f32 {
+  let count = i32(min(uniforms.circle_preset_count, 8.0));
+  var alpha = 0.0;
+  for (var i = 0; i < 8; i = i + 1) {
+    if (i >= count) { break; }
+    let center = get_circle_preset_center(i);
+    let radius = get_circle_preset_radius(i);
+    let scale = get_scale_for_circle(i);
+    let shadow_offset = vec2f(uniforms.circle_preset_shadow_offset_x, uniforms.circle_preset_shadow_offset_y);
+    let inside = length((pixel - center) / scale) - radius;
+    let shadow_d = length((pixel - shadow_offset - center) / scale) - radius;
+    let shadow_blur = max(uniforms.circle_preset_shadow_blur, 1.0);
+    let shadow_alpha = select(0.0, smoothstep(shadow_blur, -shadow_blur * 0.5, shadow_d) * uniforms.circle_preset_shadow_opacity, inside > 0.0);
+    alpha = max(alpha, shadow_alpha);
+  }
+  return alpha;
+}
+
+fn circle_preset_normal(pixel: vec2f) -> vec2f {
+  let eps = 1.0;
+  let d = circle_preset_sdf(pixel);
+  let dx = circle_preset_sdf(pixel + vec2f(eps, 0.0)) - d;
+  let dy = circle_preset_sdf(pixel + vec2f(0.0, eps)) - d;
+  return normalize(vec2f(dx, dy));
+}
+
+fn get_circle_preset_active_circle(pixel: vec2f) -> CircleInfo {
+  let count = i32(min(uniforms.circle_preset_count, 8.0));
+  let sdf = circle_preset_sdf(pixel);
+  let inside = sdf <= 0.0;
+
+  var closest_index = 0;
+  var closest_distance = 1e9;
+  var closest_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
+  var closest_radius = uniforms.glass_radius;
+
+  for (var i = 0; i < 8; i = i + 1) {
+    if (i >= count) { break; }
+    let center = get_circle_preset_center(i);
+    let radius = get_circle_preset_radius(i);
+    let dist = length(pixel - center) - radius;
+    if (dist < closest_distance) {
+      closest_distance = dist;
+      closest_index = i;
+      closest_center = center;
+      closest_radius = radius;
+    }
+  }
+
+  return CircleInfo(closest_center, closest_radius, inside, closest_index);
 }
 
 // Signed distance to the combined player controls shape (3 circles with smooth blending)
@@ -870,6 +976,10 @@ fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) ->
 }
 
 fn get_active_circle(pixel: vec2f, main_center: vec2f, main_radius: f32) -> CircleInfo {
+  if (uniforms.circle_preset_mode > 0.5) {
+    return get_circle_preset_active_circle(pixel);
+  }
+
   if (uniforms.player_controls_mode < 0.5) {
     return CircleInfo(main_center, main_radius, true, 1);
   }
@@ -917,15 +1027,26 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Calculate distance from edge
   var distance_from_edge: f32;
-  if (uniforms.player_controls_mode > 0.5) {
+  if (uniforms.circle_preset_mode > 0.5) {
+    distance_from_edge = -circle_preset_sdf(pixel);
+  } else if (uniforms.player_controls_mode > 0.5) {
     // Use smooth-blended SDF for metaball visual effect
     distance_from_edge = -player_controls_sdf(pixel, main_center, main_radius);
   } else {
     distance_from_edge = -shape_signed_distance(to_pixel);
   }
 
-  // Player controls mode: handle shadows independently per circle
-  if (uniforms.player_controls_mode > 0.5) {
+  // Circle preset mode: handle shadows independently per circle
+  if (uniforms.circle_preset_mode > 0.5) {
+    var bg = sample_background(pixel, uniforms.time);
+
+    let shadow_alpha = circle_preset_shadow_alpha(pixel);
+    bg = mix(bg, vec3f(0.0), shadow_alpha);
+
+    if (distance_from_edge < 0.0) {
+      return vec4f(bg, 1.0);
+    }
+  } else if (uniforms.player_controls_mode > 0.5) {
     var bg = sample_background(pixel, uniforms.time);
 
     // Always calculate independent shadows for each circle (each has its own config)
@@ -1004,7 +1125,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
   // Direction from the nearest shape edge toward this pixel.
   var direction: vec2f;
-  if (uniforms.player_controls_mode > 0.5) {
+  if (uniforms.circle_preset_mode > 0.5) {
+    direction = circle_preset_normal(pixel);
+  } else if (uniforms.player_controls_mode > 0.5) {
     direction = player_controls_normal(pixel, main_center, main_radius);
   } else {
     direction = shape_normal(to_pixel);

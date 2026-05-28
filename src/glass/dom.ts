@@ -57,6 +57,9 @@ export interface GlassControls {
   shadowOffsetYSlider: HTMLInputElement
   surfaceButtons: NodeListOf<HTMLButtonElement>
   circleOnlyControls: NodeListOf<HTMLElement>
+  circlePresetOnlyControls: NodeListOf<HTMLElement>
+  circlePresetAddButton: HTMLButtonElement
+  circlePresetStrategySelect: HTMLSelectElement
   iconOnlyControls: NodeListOf<HTMLElement>
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
@@ -142,6 +145,9 @@ export function getGlassControls(): GlassControls {
     shadowOffsetYSlider: getElement<HTMLInputElement>('shadowOffsetY'),
     surfaceButtons: document.querySelectorAll<HTMLButtonElement>('.surface-btn'),
     circleOnlyControls: document.querySelectorAll<HTMLElement>('.circle-only-control'),
+    circlePresetOnlyControls: document.querySelectorAll<HTMLElement>('.circle-preset-only'),
+    circlePresetAddButton: getElement<HTMLButtonElement>('circlePresetAdd'),
+    circlePresetStrategySelect: getElement<HTMLSelectElement>('circlePresetStrategy'),
     iconOnlyControls: document.querySelectorAll<HTMLElement>('.icon-only-control'),
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),

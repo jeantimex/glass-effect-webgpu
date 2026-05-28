@@ -31,6 +31,7 @@ export type { BackgroundType, GlassParams } from './types'
 export { Circle, type CircleConfig } from './circle'
 
 export class WebGPURenderer {
+  private static readonly maxCirclePresetCircles = 8
   private device!: GPUDevice
   private context!: GPUCanvasContext
   private format!: GPUTextureFormat
@@ -41,6 +42,7 @@ export class WebGPURenderer {
   private bgSampler!: GPUSampler
   private iconTexture!: GPUTexture
   private iconSampler!: GPUSampler
+  private circlePresetBuffer!: GPUBuffer
   private bindGroupLayout!: GPUBindGroupLayout
   private textureLoader!: BackgroundTextureLoader
   private startTime = performance.now()
@@ -53,6 +55,8 @@ export class WebGPURenderer {
   private switchCenterY = 0.5
   // Player controls circles (left, center, right)
   private _circles: Circle[] = []
+  private circlePresetCircles: Circle[] = []
+  private circlePresetActiveIndex = 0
 
   // Video element for fallback mode (when HTML-in-Canvas not supported)
   private videoElement: HTMLVideoElement | null = null
@@ -64,6 +68,7 @@ export class WebGPURenderer {
   private backgroundTexture: GPUTexture | null = null
   private backgroundTextureMipLevelCount = 1
   private cleanupPaintHandler: (() => void) | null = null
+  private circlePresetStackTextures: GPUTexture[] = []
   private pendingTextureDestroys: GPUTexture[] = []
   private textureDestroyFlushScheduled = false
 
@@ -81,6 +86,7 @@ export class WebGPURenderer {
     this.context = this.canvas.getContext('webgpu') as GPUCanvasContext
     this.format = navigator.gpu.getPreferredCanvasFormat()
     this.context.configure({ device: this.device, format: this.format, alphaMode: 'premultiplied' })
+    this.format = this.context.getCurrentTexture().format
 
     this.uniformBuffer = this.device.createBuffer({
       size: GLASS_UNIFORM_BUFFER_SIZE,
@@ -98,6 +104,10 @@ export class WebGPURenderer {
       addressModeV: 'clamp-to-edge',
     })
     this.textureLoader = new BackgroundTextureLoader(this.device)
+    this.circlePresetBuffer = this.device.createBuffer({
+      size: 8 * 4 * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    })
 
     this.bgTexture = this.createEmptyTexture()
     this.iconTexture = this.createEmptyTexture()
@@ -120,8 +130,9 @@ export class WebGPURenderer {
       new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
         { ...defaultCircleConfig, size: 0.32 }, () => this.rebuildBindGroup()),
     ]
+    this.resetCirclePresetCircles()
 
-    this.bindGroup = this.createRenderBindGroup()
+    this.bindGroup = this.createRenderBindGroup(this.bgTexture)
     this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
 
     // Detect HTML-in-Canvas support
@@ -180,7 +191,7 @@ export class WebGPURenderer {
 
       this.glassParams.useImageBg = true
       this.glassParams.articleMode = true
-      this.bindGroup = this.createRenderBindGroup()
+      this.bindGroup = this.createRenderBindGroup(this.bgTexture)
       return
     }
   }
@@ -411,7 +422,7 @@ export class WebGPURenderer {
     this.videoElement = video
     this.bgTexture = this.textureLoader.createTextureFromVideo(video)
     this.glassParams.useImageBg = true
-    this.bindGroup = this.createRenderBindGroup()
+    this.bindGroup = this.createRenderBindGroup(this.bgTexture)
   }
 
   /**
@@ -453,7 +464,7 @@ export class WebGPURenderer {
     const requestId = ++this.iconRequestId
     if (!url) {
       this.iconTexture = this.createEmptyTexture()
-      this.bindGroup = this.createRenderBindGroup()
+      this.bindGroup = this.createRenderBindGroup(this.bgTexture)
       return
     }
 
@@ -461,7 +472,7 @@ export class WebGPURenderer {
     if (requestId !== this.iconRequestId) return
 
     this.iconTexture = texture
-    this.bindGroup = this.createRenderBindGroup()
+    this.bindGroup = this.createRenderBindGroup(this.bgTexture)
   }
 
   // Access circles for player controls mode
@@ -471,6 +482,131 @@ export class WebGPURenderer {
 
   getCircle(index: number): Circle {
     return this._circles[index]
+  }
+
+  get circlePresetCirclesCount(): number {
+    return this.circlePresetCircles.length
+  }
+
+  getCirclePresetCircle(index: number): Circle {
+    const circle = this.circlePresetCircles[index]
+    if (!circle) {
+      throw new Error(`Missing circle preset circle at index ${index}`)
+    }
+    return circle
+  }
+
+  getCirclePresetActiveIndex(): number {
+    return this.circlePresetActiveIndex
+  }
+
+  resetCirclePresetCircles(): void {
+    const size = this.glassParams.circleSize
+    this.circlePresetCircles = [
+      this.createCirclePresetCircle(size, 0.5, 0.5),
+    ]
+    this.circlePresetActiveIndex = 0
+    this.glassParams.circlePresetCount = this.circlePresetCircles.length
+    this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
+  }
+
+  addCirclePresetCircle(): number {
+    if (this.circlePresetCircles.length >= WebGPURenderer.maxCirclePresetCircles) {
+      return this.circlePresetCircles.length - 1
+    }
+
+    const nextIndex = this.circlePresetCircles.length
+    const base = this.getCirclePresetBaseRadius()
+    const size = this.glassParams.circleSize
+    const previous = this.circlePresetCircles[nextIndex - 1] ?? this.circlePresetCircles[0]
+    let centerX = previous?.centerX ?? 0.5
+    let centerY = previous?.centerY ?? 0.5
+
+    if (this.glassParams.circlePresetStrategy === 0) {
+      const verticalStep = Math.max((base * size * 2.0) / this.canvas.height * 1.08, 0.06)
+      centerY = Math.min(centerY + verticalStep, 0.9)
+    } else {
+      const pair = Math.max(1, Math.floor(nextIndex / 2) + 1)
+      const direction = nextIndex % 2 === 0 ? -1 : 1
+      const horizontalStep = (base * size * 2.0 / this.canvas.width) * (0.5 + pair * 0.12)
+      const verticalStep = (base * size * 2.0 / this.canvas.height) * (0.12 * pair)
+      centerX = Math.min(Math.max(0.5 + direction * horizontalStep, 0.1), 0.9)
+      centerY = Math.min(Math.max(0.5 + verticalStep * (nextIndex % 4 === 0 ? -1 : 1), 0.1), 0.9)
+    }
+
+    this.circlePresetCircles.push(this.createCirclePresetCircle(size, centerX, centerY))
+    this.circlePresetActiveIndex = nextIndex
+    this.glassParams.circlePresetCount = this.circlePresetCircles.length
+    this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
+    return nextIndex
+  }
+
+  setCirclePresetActiveIndex(index: number): void {
+    this.circlePresetActiveIndex = Math.min(Math.max(index, 0), this.circlePresetCircles.length - 1)
+    this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
+  }
+
+  setCirclePresetStrategy(strategy: number): void {
+    this.glassParams.circlePresetStrategy = strategy
+  }
+
+  setCirclePresetCircleSize(index: number, size: number): void {
+    const circle = this.circlePresetCircles[index]
+    if (!circle) return
+    circle.size = size
+    this.glassParams.circleSize = size
+  }
+
+  getClickedCirclePresetIndex(clientX: number, clientY: number): number {
+    if (!this.glassParams.circlePresetMode) return -1
+
+    const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
+    const baseRadius = this.getCirclePresetBaseRadius()
+    let closestIndex = -1
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    for (let index = 0; index < this.circlePresetCircles.length; index++) {
+      const circle = this.circlePresetCircles[index]
+      const radius = baseRadius * circle.size
+      const hitRadius = this.glassParams.circlePresetStrategy === 1 ? radius * 1.18 : radius
+      const distance = Math.hypot(point.x - circle.centerX * this.canvas.width, point.y - circle.centerY * this.canvas.height)
+      if (distance <= hitRadius && distance < closestDistance) {
+        closestIndex = index
+        closestDistance = distance
+      }
+    }
+
+    return closestIndex
+  }
+
+  getCirclePresetDragOffset(index: number, clientX: number, clientY: number): { x: number; y: number } {
+    const circle = this.circlePresetCircles[index]
+    if (!circle) return { x: 0, y: 0 }
+    const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
+    return {
+      x: point.x - circle.centerX * this.canvas.width,
+      y: point.y - circle.centerY * this.canvas.height,
+    }
+  }
+
+  setCirclePresetCircleFromClientPoint(
+    index: number,
+    clientX: number,
+    clientY: number,
+    dragOffset: { x: number; y: number } = { x: 0, y: 0 }
+  ): void {
+    const circle = this.circlePresetCircles[index]
+    if (!circle) return
+
+    const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
+    const radius = this.getCirclePresetBaseRadius() * circle.size
+    const minX = radius
+    const maxX = this.canvas.width - radius
+    const minY = radius
+    const maxY = this.canvas.height - radius
+
+    circle.centerX = Math.min(Math.max(point.x - dragOffset.x, minX), maxX) / this.canvas.width
+    circle.centerY = Math.min(Math.max(point.y - dragOffset.y, minY), maxY) / this.canvas.height
   }
 
   // Convenience methods that delegate to circles
@@ -483,7 +619,67 @@ export class WebGPURenderer {
   }
 
   private rebuildBindGroup(): void {
-    this.bindGroup = this.createRenderBindGroup()
+    this.bindGroup = this.createRenderBindGroup(this.bgTexture)
+  }
+
+  private updateCirclePresetBuffer(circles: Circle[] = this.circlePresetCircles): void {
+    const circleData = new Float32Array(8 * 4)
+    for (let index = 0; index < Math.min(circles.length, 8); index++) {
+      const circle = circles[index]
+      circleData[index * 4 + 0] = circle.centerX * this.canvas.width
+      circleData[index * 4 + 1] = circle.centerY * this.canvas.height
+      circleData[index * 4 + 2] = circle.size
+      circleData[index * 4 + 3] = 0
+    }
+    this.device.queue.writeBuffer(this.circlePresetBuffer, 0, circleData)
+  }
+
+  private getCirclePresetStackTexture(index: number, format: GPUTextureFormat): GPUTexture {
+    const width = this.canvas.width
+    const height = this.canvas.height
+    const mipLevelCount = Math.floor(Math.log2(Math.max(width, height))) + 1
+    const existing = this.circlePresetStackTextures[index]
+    if (existing && existing.width === width && existing.height === height) {
+      return existing
+    }
+
+    if (existing) {
+      this.deferTextureDestroy(existing)
+    }
+
+    const texture = this.device.createTexture({
+      size: [width, height],
+      format,
+      mipLevelCount,
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+    })
+    this.circlePresetStackTextures[index] = texture
+    return texture
+  }
+
+  private getCirclePresetBaseRadius(): number {
+    return Math.min(this.canvas.width, this.canvas.height) * 0.35
+  }
+
+  private createCirclePresetCircle(size: number, centerX: number, centerY: number): Circle {
+    const defaultCircleConfig: CircleConfig = {
+      size,
+      iconUrl: null,
+      shadowOpacity: this.glassParams.shadowOpacity,
+      shadowBlur: this.glassParams.shadowBlur,
+      shadowOffsetX: this.glassParams.shadowOffsetX,
+      shadowOffsetY: this.glassParams.shadowOffsetY,
+    }
+    const circle = new Circle(
+      this.device,
+      this.textureLoader,
+      this.createEmptyTexture(),
+      defaultCircleConfig,
+      () => this.rebuildBindGroup()
+    )
+    circle.centerX = centerX
+    circle.centerY = centerY
+    return circle
   }
 
   setGridSpeed(speed: number): void {
@@ -508,6 +704,10 @@ export class WebGPURenderer {
 
     if (this.glassParams.playerControlsMode) {
       return this.getClickedCircleIndex(clientX, clientY) >= 0
+    }
+
+    if (this.glassParams.circlePresetMode) {
+      return this.getClickedCirclePresetIndex(clientX, clientY) >= 0
     }
 
     return isPointInsideGlass(
@@ -696,6 +896,15 @@ export class WebGPURenderer {
       this.glassParams.centerCircleSize = this._circles[1].size
       this.glassParams.rightCircleSize = this._circles[2].size
     }
+    if (this.glassParams.circlePresetMode) {
+      this.glassParams.circlePresetCount = this.circlePresetCircles.length
+      this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
+      const activeCircle = this.circlePresetCircles[this.circlePresetActiveIndex] ?? this.circlePresetCircles[0]
+      if (activeCircle) {
+        this.glassParams.circleSize = activeCircle.size
+      }
+    }
+    this.updateCirclePresetBuffer()
 
     // Default base shadow to current params if not provided
     const shadowBase = baseShadow ?? {
@@ -703,6 +912,11 @@ export class WebGPURenderer {
       blur: this.glassParams.shadowBlur,
       offsetX: this.glassParams.shadowOffsetX,
       offsetY: this.glassParams.shadowOffsetY,
+    }
+
+    if (this.glassParams.circlePresetMode && this.glassParams.circlePresetStrategy === 0) {
+      this.renderCirclePresetStack(shadowBase)
+      return
     }
 
     this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
@@ -739,17 +953,100 @@ export class WebGPURenderer {
     this.device.queue.submit([commandEncoder.finish()])
   }
 
-  private createRenderBindGroup(): GPUBindGroup {
+  private renderCirclePresetStack(baseShadow: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
+    const circles = this.circlePresetCircles.slice(0, 8)
+    if (circles.length === 0) return
+
+    const originalActiveIndex = this.circlePresetActiveIndex
+    const originalScaleX = this.glassParams.scaleX
+    const originalScaleY = this.glassParams.scaleY
+    const originalLiquidEnabled = this.glassParams.liquidEnabled
+    const orderedCircles = circles
+      .map((circle, index) => ({ circle, index }))
+      .sort((a, b) => {
+        if (a.index === originalActiveIndex) return 1
+        if (b.index === originalActiveIndex) return -1
+        return a.index - b.index
+      })
+
+    let sourceTexture = this.bgTexture
+    const lastIndex = orderedCircles.length - 1
+    const renderFormat = this.format
+
+    for (let orderIndex = 0; orderIndex < orderedCircles.length; orderIndex++) {
+      const { circle, index } = orderedCircles[orderIndex]
+      const isActivePass = index === originalActiveIndex
+      this.updateCirclePresetBuffer([circle])
+
+      this.glassParams.circlePresetMode = true
+      this.glassParams.circlePresetStrategy = 0
+      this.glassParams.circlePresetCount = 1
+      this.glassParams.circlePresetActiveIndex = isActivePass ? 0 : 1
+      this.glassParams.circleSize = circle.size
+      this.glassParams.scaleX = isActivePass ? originalScaleX : 1.0
+      this.glassParams.scaleY = isActivePass ? originalScaleY : 1.0
+      this.glassParams.liquidEnabled = isActivePass ? originalLiquidEnabled : false
+
+      this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
+        canvas: this.canvas,
+        params: this.glassParams,
+        baseShadow,
+        startTime: this.startTime,
+        glassCenterX: this.glassCenterX,
+        glassCenterY: this.glassCenterY,
+        switchCenterX: this.switchCenterX,
+        switchCenterY: this.switchCenterY,
+        gridOffset: this.gridOffset,
+      }))
+
+      const renderToCanvas = orderIndex === lastIndex
+      const targetTexture = renderToCanvas ? this.context.getCurrentTexture() : this.getCirclePresetStackTexture(index, renderFormat)
+      const commandEncoder = this.device.createCommandEncoder()
+      const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: targetTexture.createView({ baseMipLevel: 0, mipLevelCount: 1 }),
+            clearValue: this.glassParams.articleMode
+              ? { r: 0, g: 0, b: 0, a: 0 }
+              : { r: 0.1, g: 0.1, b: 0.12, a: 1 },
+            loadOp: 'clear',
+            storeOp: 'store',
+          },
+        ],
+      })
+
+      const bindGroup = this.createRenderBindGroup(sourceTexture)
+      renderPass.setPipeline(this.pipeline)
+      renderPass.setBindGroup(0, bindGroup)
+      renderPass.draw(4)
+      renderPass.end()
+      this.device.queue.submit([commandEncoder.finish()])
+
+      if (!renderToCanvas) {
+        const mipLevelCount = Math.floor(Math.log2(Math.max(targetTexture.width, targetTexture.height))) + 1
+        this.textureLoader.generateMipmapsSync(targetTexture, mipLevelCount)
+        sourceTexture = targetTexture
+      }
+    }
+
+    this.glassParams.circlePresetActiveIndex = originalActiveIndex
+    this.glassParams.scaleX = originalScaleX
+    this.glassParams.scaleY = originalScaleY
+    this.glassParams.liquidEnabled = originalLiquidEnabled
+  }
+
+  private createRenderBindGroup(texture: GPUTexture): GPUBindGroup {
     return createBindGroup(
       this.device,
       this.bindGroupLayout,
       this.uniformBuffer,
-      this.bgTexture,
+      texture,
       this.bgSampler,
       this.iconTexture,
       this.iconSampler,
       this._circles[0]?.iconTexture ?? this.createEmptyTexture(),
-      this._circles[2]?.iconTexture ?? this.createEmptyTexture()
+      this._circles[2]?.iconTexture ?? this.createEmptyTexture(),
+      this.circlePresetBuffer
     )
   }
 
@@ -791,7 +1088,7 @@ export class WebGPURenderer {
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
         })
         this.bgTexture = this.backgroundTexture
-        this.bindGroup = this.createRenderBindGroup()
+        this.bindGroup = this.createRenderBindGroup(this.bgTexture)
       }
     }
   }

@@ -341,6 +341,23 @@ body {
   outline-offset: 1px;
 }
 
+.control-row button {
+  min-width: 84px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: #222;
+  color: #ddd;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.control-row button:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
 #displacementMap {
   width: 100%;
   aspect-ratio: 1;

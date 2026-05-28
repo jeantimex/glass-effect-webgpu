@@ -65,6 +65,10 @@ export interface GlassParams {
   centerCircleSize: number
   rightCircleSize: number
   playerControlsGroupLiquid: boolean
+  circlePresetMode: boolean
+  circlePresetStrategy: number
+  circlePresetCount: number
+  circlePresetActiveIndex: number
 }
 
 export type BackgroundType = 'grid' | 'banner' | 'article' | 'video'

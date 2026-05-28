@@ -95,6 +95,7 @@ export class GlassRenderLoop {
     const isTrackPreset = preset === 'switch' || preset === 'slider'
     const isPlayerControls = preset === 'player-controls'
     const isSplitMenu = preset === 'split-menu'
+    const isCirclePreset = preset === 'circle-lens'
     const isMultiItem = isPlayerControls || isSplitMenu
     const rectInteractionScale = isTrackPreset
       ? interactionScale / Math.max(this.userParams.circleSize, 0.001)
@@ -116,5 +117,6 @@ export class GlassRenderLoop {
     this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled
     this.renderer.glassParams.splitMenuMode = preset === 'split-menu'
     this.renderer.glassParams.playerControlsGroupLiquid = isPlayerControls && this.interactionState.movedDuringDrag
+    this.renderer.glassParams.circlePresetMode = isCirclePreset
   }
 }

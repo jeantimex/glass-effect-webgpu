@@ -1,7 +1,7 @@
 import { getGlassRadius, getRectSize } from './geometry'
 import type { GlassParams } from './types'
 
-export const GLASS_UNIFORM_BUFFER_SIZE = 400
+export const GLASS_UNIFORM_BUFFER_SIZE = 432
 
 interface BaseShadowParams {
   opacity: number
@@ -28,6 +28,7 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
   const rect = getRectSize(params)
   const uniformTime = (performance.now() - input.startTime) / 1000
   const dpr = window.devicePixelRatio || 1
+  const circlePresetCount = Math.min(params.circlePresetCount, 8)
 
   // Determine which circle gets animated shadow (active circle)
   // Non-active circles use base shadow values
@@ -49,6 +50,12 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     : baseShadow
   const splitRectShadow = activeSplitIdx === 1
     ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+    : baseShadow
+
+  const circlePresetShadow = params.circlePresetMode
+    ? (params.circlePresetActiveIndex === 0
+      ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
+      : baseShadow)
     : baseShadow
 
   return new Float32Array([
@@ -123,6 +130,10 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.centerCircleSize,
     params.rightCircleSize,
     params.playerControlsGroupLiquid ? 1.0 : 0.0,
+    params.circlePresetMode ? 1.0 : 0.0,
+    params.circlePresetStrategy,
+    circlePresetCount,
+    params.circlePresetActiveIndex,
     // Per-circle shadow params - only active circle uses animated values
     leftShadow.opacity,
     leftShadow.blur,
@@ -136,6 +147,10 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     rightShadow.blur,
     rightShadow.offsetX,
     rightShadow.offsetY,
+    circlePresetShadow.opacity,
+    circlePresetShadow.blur,
+    circlePresetShadow.offsetX,
+    circlePresetShadow.offsetY,
     // Split menu per-item shadows
     params.activeSplitMenuIndex,
     splitCircleShadow.opacity,

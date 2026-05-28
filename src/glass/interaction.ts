@@ -26,10 +26,12 @@ export class GlassInteraction {
   currentVelocity = { x: 0, y: 0 }
 
   private glassDragOffset = { x: 0, y: 0 }
+  private circlePresetDragOffset = { x: 0, y: 0 }
   private lastPointerPos = { x: 0, y: 0 }
   private pointerStartPos = { x: 0, y: 0 }
   private lastPointerTime = 0
   private trackAnimationId: number | null = null
+  private draggingCirclePresetIndex = -1
 
   constructor(private options: GlassInteractionOptions) {}
 
@@ -66,10 +68,34 @@ export class GlassInteraction {
     const { canvas, renderer, springs, userParams } = this.options
     const preset = this.options.getCurrentPreset()
     const isTrackPreset = this.isTrackPreset()
+    const isCirclePreset = preset === 'circle-lens'
     const isInsideTrack = renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
     const isInsideGlass = renderer.isPointInsideGlass(event.clientX, event.clientY)
 
     this.cancelTrackAnimation()
+
+    if (isCirclePreset) {
+      const clickedIndex = renderer.getClickedCirclePresetIndex(event.clientX, event.clientY)
+      if (clickedIndex < 0) {
+        this.updateCanvasCursor(event)
+        return
+      }
+
+      renderer.setCirclePresetActiveIndex(clickedIndex)
+      this.draggingGlass = true
+      this.draggingCirclePresetIndex = clickedIndex
+      this.movedDuringDrag = false
+      this.circlePresetDragOffset = renderer.getCirclePresetDragOffset(clickedIndex, event.clientX, event.clientY)
+      this.lastPointerPos = { x: event.clientX, y: event.clientY }
+      this.pointerStartPos = { x: event.clientX, y: event.clientY }
+      this.lastPointerTime = performance.now()
+      this.currentVelocity = { x: 0, y: 0 }
+      this.options.setCircleSize(renderer.getCirclePresetCircle(clickedIndex).size)
+      canvas.style.cursor = 'grabbing'
+      canvas.setPointerCapture(event.pointerId)
+      event.preventDefault()
+      return
+    }
 
     if (preset === 'slider' && isInsideTrack && !isInsideGlass) {
       const progress = renderer.getSwitchProgressFromClientX(event.clientX)
@@ -139,7 +165,14 @@ export class GlassInteraction {
     this.lastPointerPos = { x: event.clientX, y: event.clientY }
     this.lastPointerTime = now
 
-    if (this.isTrackPreset()) {
+    if (this.draggingCirclePresetIndex >= 0) {
+      renderer.setCirclePresetCircleFromClientPoint(
+        this.draggingCirclePresetIndex,
+        event.clientX,
+        event.clientY,
+        this.circlePresetDragOffset
+      )
+    } else if (this.isTrackPreset()) {
       this.cancelTrackAnimation()
       renderer.setSwitchProgressFromClientX(event.clientX)
     } else {
@@ -158,6 +191,7 @@ export class GlassInteraction {
     this.draggingGlass = false
     this.movedDuringDrag = false
     this.currentVelocity = { x: 0, y: 0 }
+    this.draggingCirclePresetIndex = -1
     const dragDistance = Math.hypot(event.clientX - this.pointerStartPos.x, event.clientY - this.pointerStartPos.y)
 
     const preset = this.options.getCurrentPreset()
@@ -189,6 +223,7 @@ export class GlassInteraction {
     this.draggingGlass = false
     this.movedDuringDrag = false
     this.cancelTrackAnimation()
+    this.draggingCirclePresetIndex = -1
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId)
     }

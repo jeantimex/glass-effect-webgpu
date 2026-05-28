@@ -120,6 +120,17 @@
                 <label>Circle Size</label>
                 <input type="range" id="circleSize" min="0.3" max="1.3" step="0.01" value="0.8">
               </div>
+              <div class="control-row circle-preset-only hidden">
+                <label>Circles</label>
+                <button id="circlePresetAdd" type="button">Add</button>
+              </div>
+              <div class="control-row circle-preset-only hidden">
+                <label>Strategy</label>
+                <select id="circlePresetStrategy">
+                  <option value="stack">Stack</option>
+                  <option value="merge">Same Layer</option>
+                </select>
+              </div>
               <div class="control-row player-controls-only hidden">
                 <label>Left Circle Size</label>
                 <input type="range" id="leftCircleSize" min="0.15" max="0.6" step="0.01" value="0.32">

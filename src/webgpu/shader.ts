@@ -66,6 +66,11 @@ export function createBindGroupLayout(device: GPUDevice): GPUBindGroupLayout {
         visibility: GPUShaderStage.FRAGMENT,
         texture: { sampleType: 'float' },
       },
+      {
+        binding: 7,
+        visibility: GPUShaderStage.FRAGMENT,
+        buffer: { type: 'read-only-storage' },
+      },
     ],
   })
 }
@@ -79,7 +84,8 @@ export function createBindGroup(
   iconTexture: GPUTexture,
   iconSampler: GPUSampler,
   iconLeftTexture: GPUTexture,
-  iconRightTexture: GPUTexture
+  iconRightTexture: GPUTexture,
+  circlePresetBuffer: GPUBuffer
 ): GPUBindGroup {
   return device.createBindGroup({
     layout,
@@ -91,6 +97,7 @@ export function createBindGroup(
       { binding: 4, resource: iconSampler },
       { binding: 5, resource: iconLeftTexture.createView() },
       { binding: 6, resource: iconRightTexture.createView() },
+      { binding: 7, resource: { buffer: circlePresetBuffer } },
     ],
   })
 }
