@@ -1,10 +1,12 @@
 export { articleTemplate, createArticleElement, type ArticleTemplateOptions } from './article'
 export { bannerTemplate, createBannerElement, type BannerTemplateOptions } from './banner'
 export { leavesTemplate, createLeavesElement, type LeavesTemplateOptions } from './leaves'
+export { cssAnimationTemplate, createCssAnimationElement } from './css-animation'
 
 import { createArticleElement, type ArticleTemplateOptions } from './article'
 import { createBannerElement, type BannerTemplateOptions } from './banner'
 import { createLeavesElement, type LeavesTemplateOptions } from './leaves'
+import { createCssAnimationElement } from './css-animation'
 import type { BackgroundType } from '../webgpu/types'
 
 export interface BackgroundTemplateOptions {
@@ -24,11 +26,13 @@ export function createBackgroundElement(
       return createBannerElement(options.banner ?? { imageUrl: '' })
     case 'leaves':
       return createLeavesElement(options.leaves ?? { imageUrl: '' })
+    case 'css-animation':
+      return createCssAnimationElement()
     default:
       return null
   }
 }
 
 export function isTemplateBackground(type: BackgroundType): boolean {
-  return type === 'article' || type === 'banner' || type === 'leaves'
+  return type === 'article' || type === 'banner' || type === 'leaves' || type === 'css-animation'
 }

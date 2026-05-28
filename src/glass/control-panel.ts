@@ -456,8 +456,8 @@ export class GlassControlPanel {
   private updateBackgroundControls(): void {
     const { controls } = this.options
     const bgType = controls.backgroundTypeSelect.value
-    const isGrid = bgType === 'grid'
-    controls.gridOnlyControls.forEach((control) => control.classList.toggle('hidden', !isGrid))
+    const usesGridControls = bgType === 'grid' || bgType === 'css-animation'
+    controls.gridOnlyControls.forEach((control) => control.classList.toggle('hidden', !usesGridControls))
   }
 
   private resolveGlassTheme(): Exclude<GlassTheme, 'system'> {

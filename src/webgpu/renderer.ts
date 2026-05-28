@@ -210,6 +210,7 @@ export class WebGPURenderer {
     bgElement.style.position = 'absolute'
     bgElement.style.left = '0'
     bgElement.style.top = '0'
+    this.syncCssAnimationBackground()
 
     // IMPORTANT: Element must be a direct child of the canvas for layoutsubtree to work
     this.canvas.appendChild(bgElement)
@@ -345,6 +346,7 @@ export class WebGPURenderer {
     bgElement.style.left = '-9999px'
     bgElement.style.top = '0'
     bgElement.style.visibility = 'visible'
+    this.syncCssAnimationBackground()
 
     // Wait for images to load and layout to settle
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -480,6 +482,7 @@ export class WebGPURenderer {
     const currentOffset = elapsedTime * this.glassParams.gridSpeed + this.gridOffset
     this.glassParams.gridSpeed = speed
     this.gridOffset = currentOffset - elapsedTime * speed
+    this.syncCssAnimationBackground()
   }
 
   isPointInsideGlass(clientX: number, clientY: number): boolean {
@@ -652,6 +655,7 @@ export class WebGPURenderer {
 
   render(baseShadow?: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
     this.resizeCanvas()
+    this.syncCssAnimationBackground()
     if (this.glassParams.switchMode || this.glassParams.sliderMode) {
       this.setSwitchProgress(this.glassParams.switchProgress)
     }
@@ -772,5 +776,20 @@ export class WebGPURenderer {
         this.bindGroup = this.createRenderBindGroup()
       }
     }
+  }
+
+  private syncCssAnimationBackground(): void {
+    if (this.backgroundElement?.dataset.background !== 'css-animation') return
+
+    const dpr = window.devicePixelRatio || 1
+    const cellSize = Math.max(this.glassParams.gridCellSize / dpr, 1)
+    const lineWidth = Math.max(3 / dpr, 1)
+    const speed = Math.max(this.glassParams.gridSpeed, 0)
+    const duration = speed > 0 ? this.glassParams.gridCellSize / speed : 1
+
+    this.backgroundElement.style.setProperty('--css-grid-cell-size', `${cellSize}px`)
+    this.backgroundElement.style.setProperty('--css-grid-line-width', `${lineWidth}px`)
+    this.backgroundElement.style.setProperty('--css-grid-duration', `${duration}s`)
+    this.backgroundElement.style.setProperty('--css-grid-play-state', speed > 0 ? 'running' : 'paused')
   }
 }
