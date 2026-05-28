@@ -30,7 +30,7 @@ export function createDefaultGlassParams(): GlassParams {
     glassBgOpacity: 0,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
-    circleSize: 1.0,
+    circleSize: 0.8,
     shapeType: 0,
     rectWidth: 420,
     rectHeight: 96,

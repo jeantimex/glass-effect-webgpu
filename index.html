@@ -9,7 +9,6 @@
   <body>
     <div id="app">
       <div class="preview">
-        <h4>PREVIEW</h4>
         <canvas id="mainCanvas"></canvas>
         <div id="panelControls" class="panel-controls hidden" aria-label="Music player controls">
           <button type="button" aria-label="Shuffle">
@@ -67,8 +66,8 @@
           </div>
         </div>
 
-        <div class="panel-section displacement-section">
-          <button class="section-header" type="button" aria-expanded="true">
+        <div class="panel-section displacement-section collapsed">
+          <button class="section-header" type="button" aria-expanded="false">
             <span>DISPLACEMENT MAP</span>
             <span class="section-toggle" aria-hidden="true"></span>
           </button>
@@ -103,7 +102,7 @@
               <div class="control-group-title">Shape</div>
               <div class="control-row circle-only-control">
                 <label>Circle Size</label>
-                <input type="range" id="circleSize" min="0.3" max="1.3" step="0.01" value="1">
+                <input type="range" id="circleSize" min="0.3" max="1.3" step="0.01" value="0.8">
               </div>
               <div class="control-row player-controls-only hidden">
                 <label>Left Circle Size</label>
@@ -294,10 +293,10 @@
               <div class="control-row">
                 <label>Background</label>
                 <select id="backgroundType">
-                  <option value="grid">Grid</option>
-                  <option value="banner">Banner</option>
-                  <option value="article">Article</option>
+                  <option value="banner">Liquid Glass</option>
+                  <option value="article">HTML-in-Canvas</option>
                   <option value="video">Video</option>
+                  <option value="grid">CSS Animation</option>
                 </select>
               </div>
               <div class="control-row grid-only-control">

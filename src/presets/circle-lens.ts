@@ -15,7 +15,7 @@ export class CircleLensPreset extends GlassPresetDefinition {
     glassThickness: 50,
     refractiveIndex: 1.5,
     magnifyingScale: 0,
-    circleSize: 1,
+    circleSize: 0.8,
     rectWidth: 420,
     rectHeight: 96,
     rectRadiusPercent: 100,
