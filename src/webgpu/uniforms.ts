@@ -122,6 +122,7 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.leftCircleSize,
     params.centerCircleSize,
     params.rightCircleSize,
+    params.playerControlsGroupLiquid ? 1.0 : 0.0,
     // Per-circle shadow params - only active circle uses animated values
     leftShadow.opacity,
     leftShadow.blur,

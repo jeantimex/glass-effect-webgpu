@@ -5,6 +5,7 @@ import type { PresetType, UserParams } from './types'
 
 export interface InteractionRenderState {
   draggingGlass: boolean
+  movedDuringDrag: boolean
   currentVelocity: { x: number; y: number }
 }
 
@@ -114,5 +115,6 @@ export class GlassRenderLoop {
     this.renderer.glassParams.splitMenuProgress = this.springs.splitMenuProgress.value
     this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled
     this.renderer.glassParams.splitMenuMode = preset === 'split-menu'
+    this.renderer.glassParams.playerControlsGroupLiquid = isPlayerControls && this.interactionState.movedDuringDrag
   }
 }

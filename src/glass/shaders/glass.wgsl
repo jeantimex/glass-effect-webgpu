@@ -69,6 +69,7 @@ struct Uniforms {
   left_circle_size: f32,
   center_circle_size: f32,
   right_circle_size: f32,
+  player_controls_group_liquid: f32,
   // Per-circle shadow params (left)
   left_shadow_opacity: f32,
   left_shadow_blur: f32,
@@ -698,8 +699,11 @@ struct CircleInfo {
 }
 
 fn get_scale_for_circle(circle_index: i32) -> vec2f {
-  // Only apply deformation to the active circle
-  if (uniforms.player_controls_mode > 0.5 && circle_index != i32(uniforms.active_circle_index)) {
+  if (
+    uniforms.player_controls_mode > 0.5 &&
+    uniforms.player_controls_group_liquid < 0.5 &&
+    circle_index != i32(uniforms.active_circle_index)
+  ) {
     return vec2f(1.0, 1.0);
   }
   return vec2f(uniforms.scale_x, uniforms.scale_y);

@@ -22,6 +22,7 @@ interface GlassInteractionOptions {
 
 export class GlassInteraction {
   draggingGlass = false
+  movedDuringDrag = false
   currentVelocity = { x: 0, y: 0 }
 
   private glassDragOffset = { x: 0, y: 0 }
@@ -99,6 +100,7 @@ export class GlassInteraction {
     }
 
     this.draggingGlass = true
+    this.movedDuringDrag = false
     this.glassDragOffset = renderer.getGlassDragOffset(event.clientX, event.clientY)
     this.lastPointerPos = { x: event.clientX, y: event.clientY }
     this.pointerStartPos = { x: event.clientX, y: event.clientY }
@@ -128,6 +130,10 @@ export class GlassInteraction {
 
     const now = performance.now()
     const dt = Math.max((now - this.lastPointerTime) / 1000, 1 / 120)
+    const dragDistance = Math.hypot(event.clientX - this.pointerStartPos.x, event.clientY - this.pointerStartPos.y)
+    if (dragDistance > 2) {
+      this.movedDuringDrag = true
+    }
     this.currentVelocity.x = (event.clientX - this.lastPointerPos.x) / dt
     this.currentVelocity.y = (event.clientY - this.lastPointerPos.y) / dt
     this.lastPointerPos = { x: event.clientX, y: event.clientY }
@@ -150,6 +156,7 @@ export class GlassInteraction {
     }
 
     this.draggingGlass = false
+    this.movedDuringDrag = false
     this.currentVelocity = { x: 0, y: 0 }
     const dragDistance = Math.hypot(event.clientX - this.pointerStartPos.x, event.clientY - this.pointerStartPos.y)
 
@@ -180,6 +187,7 @@ export class GlassInteraction {
     if (!this.draggingGlass) return
 
     this.draggingGlass = false
+    this.movedDuringDrag = false
     this.cancelTrackAnimation()
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId)
