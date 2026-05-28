@@ -511,6 +511,7 @@ fn shape_signed_distance(p: vec2f) -> f32 {
     let current_width = mix(uniforms.glass_radius * 2.0, pill_width, progress);
     let current_height = mix(uniforms.glass_radius * 2.0, pill_height, progress);
     let current_radius = mix(uniforms.glass_radius, pill_radius, progress);
+    let circle_radius = current_height * 0.5;
 
     // Calculate symmetric offsets to center the whole group
     let offset_x = (uniforms.glass_radius - current_width * 0.5) * 0.5;
@@ -519,7 +520,7 @@ fn shape_signed_distance(p: vec2f) -> f32 {
 
     // Circle component (left) - no deformation to keep shapes independent
     let circle_p = p - vec2f(split_dist_left, 0.0);
-    let d_circle = length(circle_p) - uniforms.glass_radius;
+    let d_circle = length(circle_p) - circle_radius;
 
     // Pill component (right) - no deformation to keep shapes independent
     let rect_p = p - vec2f(split_dist_right, 0.0);
@@ -811,6 +812,7 @@ fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
   let current_width = mix(base_radius * 2.0, pill_width, progress);
   let current_height = mix(base_radius * 2.0, pill_height, progress);
   let current_radius = mix(base_radius, pill_radius, progress);
+  let circle_radius = current_height * 0.5;
 
   let offset_x = (base_radius - current_width * 0.5) * 0.5;
   let split_dist_left = offset_x - split_dist * 0.5;
@@ -831,7 +833,7 @@ fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
 
   // Check if pixel is outside each item (for masking its shadow)
   let circle_p = (pixel - circle_center) / scale_circle;
-  let inside_circle = length(circle_p) - base_radius;
+  let inside_circle = length(circle_p) - circle_radius;
 
   let rect_p = (pixel - rect_center) / scale_rect;
   let inside_rect = rounded_rect_sdf(rect_p, vec2f(current_width, current_height) * 0.5, current_radius);
@@ -842,7 +844,7 @@ fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
 
   // Calculate shadow SDF for each item with its own offset
   let shadow_circle_p = (pixel - circle_shadow_offset - circle_center) / scale_circle;
-  let d_circle = length(shadow_circle_p) - base_radius;
+  let d_circle = length(shadow_circle_p) - circle_radius;
 
   let shadow_rect_p = (pixel - rect_shadow_offset - rect_center) / scale_rect;
   let d_rect = rounded_rect_sdf(shadow_rect_p, vec2f(current_width, current_height) * 0.5, current_radius);

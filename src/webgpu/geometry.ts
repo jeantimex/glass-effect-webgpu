@@ -132,6 +132,7 @@ export function isPointInsideSplitMenu(
   const currentWidth = baseRadius * 2 + (pillWidth - baseRadius * 2) * progress
   const currentHeight = baseRadius * 2 + (pillHeight - baseRadius * 2) * progress
   const currentRadius = baseRadius + (pillRadius - baseRadius) * progress
+  const circleRadius = currentHeight * 0.5
 
   const offsetX = (baseRadius - currentWidth * 0.5) * 0.5
   const splitDistLeft = offsetX - splitDist * 0.5
@@ -139,7 +140,7 @@ export function isPointInsideSplitMenu(
 
   // Check circle (left)
   const distCircle = Math.sqrt((dx - splitDistLeft) ** 2 + dy ** 2)
-  if (distCircle <= baseRadius) return true
+  if (distCircle <= circleRadius) return true
 
   // Check pill (right)
   const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, currentHeight, currentRadius)
@@ -175,6 +176,7 @@ export function getClickedSplitMenuIndex(
   const currentWidth = baseRadius * 2 + (pillWidth - baseRadius * 2) * progress
   const currentHeight = baseRadius * 2 + (pillHeight - baseRadius * 2) * progress
   const currentRadius = baseRadius + (pillRadius - baseRadius) * progress
+  const circleRadius = currentHeight * 0.5
 
   const offsetX = (baseRadius - currentWidth * 0.5) * 0.5
   const splitDistLeft = offsetX - splitDist * 0.5
@@ -182,7 +184,7 @@ export function getClickedSplitMenuIndex(
 
   // Check circle (left) - index 0
   const distCircle = Math.sqrt((dx - splitDistLeft) ** 2 + dy ** 2)
-  if (distCircle <= baseRadius) return 0
+  if (distCircle <= circleRadius) return 0
 
   // Check pill (right) - index 1
   const distRect = roundedRectDistance(dx - splitDistRight, dy, currentWidth, currentHeight, currentRadius)
