@@ -2,6 +2,10 @@
 
 A real-time liquid glass effect renderer built with WebGPU and HTML-in-Canvas. Features realistic refraction, specular highlights, progressive blur, live DOM backgrounds, and interactive liquid animations.
 
+https://github.com/user-attachments/assets/781efc76-c91e-4f8a-b9f6-da7a2773e194
+
+[Live demo](https://jeantimex.github.io/glass-effect-webgpu/)
+
 ## Features
 
 - **Liquid Glass Effect**: Realistic glass refraction with customizable thickness and bezel
