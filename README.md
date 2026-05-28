@@ -1,6 +1,6 @@
 # Glass Effect WebGPU
 
-A real-time liquid glass effect renderer built with WebGPU. Features realistic refraction, specular highlights, progressive blur, and interactive liquid animations.
+A real-time liquid glass effect renderer built with WebGPU and HTML-in-Canvas. Features realistic refraction, specular highlights, progressive blur, live DOM backgrounds, and interactive liquid animations.
 
 ## Features
 
@@ -10,6 +10,14 @@ A real-time liquid glass effect renderer built with WebGPU. Features realistic r
 - **Per-element Independence**: Each element in multi-item presets (Player Controls, Split Menu) animates independently
 - **Background Options**: Grid pattern, images, video, or live HTML content
 - **Customizable**: Extensive controls for refraction, blur, shadow, specular, and more
+
+## Technical Notes
+
+- **WebGPU shader pipeline**: The liquid glass surface is rendered in WGSL with refraction, blur, specular highlights, and shadowing controlled by a shared uniform buffer.
+- **Interactive deformation**: Press, drag, and release states drive spring-based liquid motion so the surface can squash, stretch, and settle naturally.
+- **Template backgrounds**: Article, banner, CSS animation, and video backgrounds are all routed through the same renderer so they can be sampled consistently by the glass shader.
+- **HTML-in-Canvas path**: Live DOM backgrounds are copied into a texture with `copyElementImageToTexture()` when supported, with `html2canvas` used as a fallback.
+- **Preset-driven UI**: Each control preset updates the same glass parameters, which keeps the preview, sliders, and displacement map in sync.
 
 ## HTML-in-Canvas Integration
 
@@ -95,6 +103,7 @@ npm run build
 - [HTML-in-Canvas Origin Trial](https://developer.chrome.com/blog/html-in-canvas-origin-trial)
 - [WICG HTML-in-Canvas Spec](https://wicg.github.io/html-in-canvas/)
 - [WebGPU Fundamentals](https://webgpufundamentals.org/)
+- [Liquid Glass CSS/SVG inspiration](https://kube.io/blog/liquid-glass-css-svg/#magnifying-glass)
 
 ## License
 
