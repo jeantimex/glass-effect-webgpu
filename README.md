@@ -32,6 +32,8 @@ Circle Lens supports adding multiple circles and choosing how they are composed.
 - **Merge**: all circles share the same layer and are blended together with a smooth union.
 - **Per-circle interaction**: each circle can be dragged independently, and the active circle drives the liquid deformation while the others stay rigid.
 
+https://github.com/user-attachments/assets/522279bb-5a83-4dd1-95b4-32980417bbcf
+
 ## HTML-in-Canvas Integration
 
 This project supports the experimental [HTML-in-Canvas API](https://developer.chrome.com/blog/html-in-canvas-origin-trial) for rendering live DOM content with text selection support.
