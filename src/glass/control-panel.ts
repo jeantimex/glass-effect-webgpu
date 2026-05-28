@@ -142,6 +142,10 @@ export class GlassControlPanel {
       renderer.resetCirclePresetCircles()
       controls.circlePresetStrategySelect.value = 'stack'
       setSliderValue(controls.circleSizeSlider, renderer.getCirclePresetCircle(0).size)
+      const icon = controls.iconTypeSelect.value
+      const iconUrl = icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
+      void renderer.setCirclePresetIcon(iconUrl)
+      renderer.setIcon(iconUrl).catch(console.error)
     }
 
     controls.surfaceButtons.forEach((button) => {
@@ -331,9 +335,12 @@ export class GlassControlPanel {
       if (icon === 'none') {
         renderer.glassParams.iconType = 0
         renderer.setIcon(null).catch(console.error)
+        renderer.setCirclePresetIcon(null).catch(console.error)
       } else {
         renderer.glassParams.iconType = 1
-        renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
+        const iconUrl = `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
+        renderer.setIcon(iconUrl).catch(console.error)
+        renderer.setCirclePresetIcon(iconUrl).catch(console.error)
       }
       this.updateIconControls()
     })

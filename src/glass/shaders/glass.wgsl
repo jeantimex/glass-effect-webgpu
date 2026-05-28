@@ -470,21 +470,20 @@ fn apply_player_controls_icons(pixel: vec2f, color: vec3f) -> vec3f {
   return result;
 }
 
-fn apply_icon_overlay(pixel: vec2f, color: vec3f) -> vec3f {
+fn apply_icon_overlay(pixel: vec2f, color: vec3f, center: vec2f, radius: f32) -> vec3f {
   if (uniforms.icon_type < 0.5) {
     return color;
   }
 
-  // Use per-circle icons for player controls mode
+  // Use per-circle icons for player controls
   if (uniforms.player_controls_mode > 0.5) {
     return apply_player_controls_icons(pixel, color);
   }
 
-  let glass_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
-  let to_pixel = pixel - glass_center;
+  let to_pixel = pixel - center;
 
   // Icon size is relative to glass radius
-  let icon_size = uniforms.glass_radius * uniforms.icon_scale * 2.0;
+  let icon_size = radius * uniforms.icon_scale * 2.0;
   let icon_uv = to_pixel / icon_size + vec2f(0.5);
 
   if (icon_uv.x < 0.0 || icon_uv.x > 1.0 || icon_uv.y < 0.0 || icon_uv.y > 1.0) {
@@ -1098,7 +1097,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     let center_blur = calculate_progressive_blur(to_pixel, 1.0);
     var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
     center_color = apply_glass_tint(center_color);
-    center_color = apply_icon_overlay(pixel, center_color);
+    center_color = apply_icon_overlay(pixel, center_color, circle.center, circle.radius);
     return vec4f(center_color, 1.0);
   }
 
@@ -1161,7 +1160,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   color = apply_glass_tint(color);
 
   // Apply icon overlay
-  color = apply_icon_overlay(pixel, color);
+  color = apply_icon_overlay(pixel, color, glass_center, effective_radius);
 
   // Calculate and apply specular highlight
   if (uniforms.specular_type > 0.5) {

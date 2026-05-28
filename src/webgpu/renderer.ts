@@ -57,6 +57,7 @@ export class WebGPURenderer {
   private _circles: Circle[] = []
   private circlePresetCircles: Circle[] = []
   private circlePresetActiveIndex = 0
+  private circlePresetIconUrl: string | null = null
 
   // Video element for fallback mode (when HTML-in-Canvas not supported)
   private videoElement: HTMLVideoElement | null = null
@@ -505,6 +506,7 @@ export class WebGPURenderer {
     this.circlePresetCircles = [
       this.createCirclePresetCircle(size, 0.5, 0.5),
     ]
+    void this.setCirclePresetIcon(this.circlePresetIconUrl)
     this.circlePresetActiveIndex = 0
     this.glassParams.circlePresetCount = this.circlePresetCircles.length
     this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
@@ -534,11 +536,18 @@ export class WebGPURenderer {
       centerY = Math.min(Math.max(0.5 + verticalStep * (nextIndex % 4 === 0 ? -1 : 1), 0.1), 0.9)
     }
 
-    this.circlePresetCircles.push(this.createCirclePresetCircle(size, centerX, centerY))
+    const circle = this.createCirclePresetCircle(size, centerX, centerY)
+    this.circlePresetCircles.push(circle)
+    void circle.setIcon(this.circlePresetIconUrl)
     this.circlePresetActiveIndex = nextIndex
     this.glassParams.circlePresetCount = this.circlePresetCircles.length
     this.glassParams.circlePresetActiveIndex = this.circlePresetActiveIndex
     return nextIndex
+  }
+
+  async setCirclePresetIcon(url: string | null): Promise<void> {
+    this.circlePresetIconUrl = url
+    await Promise.all(this.circlePresetCircles.map((circle) => circle.setIcon(url)))
   }
 
   setCirclePresetActiveIndex(index: number): void {
@@ -1015,7 +1024,7 @@ export class WebGPURenderer {
         ],
       })
 
-      const bindGroup = this.createRenderBindGroup(sourceTexture)
+      const bindGroup = this.createRenderBindGroup(sourceTexture, circle.iconTexture)
       renderPass.setPipeline(this.pipeline)
       renderPass.setBindGroup(0, bindGroup)
       renderPass.draw(4)
@@ -1035,14 +1044,14 @@ export class WebGPURenderer {
     this.glassParams.liquidEnabled = originalLiquidEnabled
   }
 
-  private createRenderBindGroup(texture: GPUTexture): GPUBindGroup {
+  private createRenderBindGroup(texture: GPUTexture, iconTexture: GPUTexture = this.iconTexture): GPUBindGroup {
     return createBindGroup(
       this.device,
       this.bindGroupLayout,
       this.uniformBuffer,
       texture,
       this.bgSampler,
-      this.iconTexture,
+      iconTexture,
       this.iconSampler,
       this._circles[0]?.iconTexture ?? this.createEmptyTexture(),
       this._circles[2]?.iconTexture ?? this.createEmptyTexture(),
