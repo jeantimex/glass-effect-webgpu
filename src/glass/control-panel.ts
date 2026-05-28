@@ -25,6 +25,11 @@ export class GlassControlPanel {
   setup(): void {
     const { controls, renderer } = this.options
 
+    const drawerQuery = window.matchMedia('(max-width: 1100px)')
+    this.setPanelDrawerOpen(!drawerQuery.matches)
+    drawerQuery.addEventListener('change', (event) => {
+      this.setPanelDrawerOpen(!event.matches)
+    })
     this.updateShapeControls()
     this.updateIconControls()
     this.updateBackgroundControls()
@@ -33,6 +38,22 @@ export class GlassControlPanel {
     this.updateChromaticControls()
     this.bindEvents()
     renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
+  }
+
+  setPanelDrawerOpen(open: boolean): void {
+    const { controls } = this.options
+    controls.appRoot.classList.toggle('panel-drawer-open', open)
+    controls.controlPanel.toggleAttribute('inert', !open)
+    controls.controlPanel.setAttribute('aria-hidden', String(!open))
+    controls.panelBackdrop.setAttribute('aria-hidden', String(!open))
+    controls.panelToggleButton.setAttribute('aria-expanded', String(open))
+    controls.panelToggleButton.setAttribute('aria-label', open ? 'Close controls' : 'Open controls')
+  }
+
+  private togglePanelDrawer(): void {
+    const { controls } = this.options
+    const open = !controls.appRoot.classList.contains('panel-drawer-open')
+    this.setPanelDrawerOpen(open)
   }
 
   setCircleSize(size: number): void {
@@ -192,6 +213,17 @@ export class GlassControlPanel {
 
     controls.presetSelect.addEventListener('change', () => {
       this.applyPreset(controls.presetSelect.value as PresetType)
+    })
+    controls.panelToggleButton.addEventListener('click', () => {
+      this.togglePanelDrawer()
+    })
+    controls.panelBackdrop.addEventListener('click', () => {
+      this.setPanelDrawerOpen(false)
+    })
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        this.setPanelDrawerOpen(false)
+      }
     })
 
     controls.surfaceButtons.forEach((button) => {

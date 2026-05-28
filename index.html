@@ -10,6 +10,14 @@
     <div id="app">
       <div class="preview">
         <canvas id="mainCanvas"></canvas>
+        <button id="panelToggleButton" class="panel-toggle-button" type="button" aria-label="Open controls" aria-expanded="false" aria-controls="controlPanel">
+          <svg class="panel-toggle-icon panel-toggle-open-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/>
+          </svg>
+          <svg class="panel-toggle-icon panel-toggle-close-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/>
+          </svg>
+        </button>
         <div id="panelControls" class="panel-controls hidden" aria-label="Music player controls">
           <button type="button" aria-label="Shuffle">
             <svg viewBox="0 0 512 512" aria-hidden="true">
@@ -44,7 +52,9 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div id="panelBackdrop" class="panel-backdrop" aria-hidden="true"></div>
+
+      <div id="controlPanel" class="panel">
         <div class="panel-section">
           <button class="section-header" type="button" aria-expanded="true">
             <span>SURFACE</span>

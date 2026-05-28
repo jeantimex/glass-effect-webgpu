@@ -1,6 +1,10 @@
 export interface GlassControls {
+  appRoot: HTMLElement
   presetSelect: HTMLSelectElement
   panelControls: HTMLElement
+  controlPanel: HTMLElement
+  panelToggleButton: HTMLButtonElement
+  panelBackdrop: HTMLElement
   bezelSlider: HTMLInputElement
   thicknessSlider: HTMLInputElement
   scaleSlider: HTMLInputElement
@@ -80,8 +84,12 @@ function getElement<T extends HTMLElement>(id: string): T {
 
 export function getGlassControls(): GlassControls {
   return {
+    appRoot: getElement<HTMLElement>('app'),
     presetSelect: getElement<HTMLSelectElement>('presetType'),
     panelControls: getElement<HTMLElement>('panelControls'),
+    controlPanel: getElement<HTMLElement>('controlPanel'),
+    panelToggleButton: getElement<HTMLButtonElement>('panelToggleButton'),
+    panelBackdrop: getElement<HTMLElement>('panelBackdrop'),
     bezelSlider: getElement<HTMLInputElement>('bezelWidth'),
     thicknessSlider: getElement<HTMLInputElement>('glassThickness'),
     scaleSlider: getElement<HTMLInputElement>('scaleRatio'),
