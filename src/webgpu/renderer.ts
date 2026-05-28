@@ -56,12 +56,16 @@ export class WebGPURenderer {
 
   // Video element for fallback mode (when HTML-in-Canvas not supported)
   private videoElement: HTMLVideoElement | null = null
+  private readonly videoPlaybackRate = 0.1
 
   // HTML-in-Canvas support for template backgrounds
   private htmlInCanvasSupport: HTMLInCanvasSupport = { supported: false, copyElementImageToTexture: false }
   private backgroundElement: HTMLElement | null = null
   private backgroundTexture: GPUTexture | null = null
+  private backgroundTextureMipLevelCount = 1
   private cleanupPaintHandler: (() => void) | null = null
+  private pendingTextureDestroys: GPUTexture[] = []
+  private textureDestroyFlushScheduled = false
 
   public glassParams: GlassParams = createDefaultGlassParams()
 
@@ -254,9 +258,11 @@ export class WebGPURenderer {
     // This avoids size mismatches between element rendering and texture
     const textureWidth = this.canvas.width
     const textureHeight = this.canvas.height
+    this.backgroundTextureMipLevelCount = Math.floor(Math.log2(Math.max(textureWidth, textureHeight))) + 1
     this.backgroundTexture = this.device.createTexture({
       size: [textureWidth, textureHeight],
       format: 'rgba8unorm',
+      mipLevelCount: this.backgroundTextureMipLevelCount,
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
     })
 
@@ -311,6 +317,10 @@ export class WebGPURenderer {
       textureHeight,
       { texture: this.backgroundTexture }
     )
+
+    if (this.backgroundTextureMipLevelCount > 1) {
+      this.textureLoader.generateMipmapsSync(this.backgroundTexture, this.backgroundTextureMipLevelCount)
+    }
   }
 
   /**
@@ -370,10 +380,14 @@ export class WebGPURenderer {
     const videoUrl = `${import.meta.env.BASE_URL}assets/video.mp4`
     const video = document.createElement('video')
     video.src = videoUrl
-    video.loop = true
+    video.loop = false
     video.muted = true
     video.playsInline = true
     video.crossOrigin = 'anonymous'
+    video.playbackRate = this.videoPlaybackRate
+    video.onended = () => {
+      video.pause()
+    }
 
     await new Promise<void>((resolve, reject) => {
       video.oncanplaythrough = () => resolve()
@@ -381,6 +395,7 @@ export class WebGPURenderer {
       video.load()
     })
 
+    video.currentTime = 0
     await video.play()
 
     // Wait for first frame to be decoded
@@ -424,11 +439,12 @@ export class WebGPURenderer {
     if (this.videoElement) {
       this.videoElement.pause()
       this.videoElement.src = ''
+      this.videoElement.onended = null
       this.videoElement = null
     }
 
     if (this.backgroundTexture) {
-      this.backgroundTexture.destroy()
+      this.deferTextureDestroy(this.backgroundTexture)
       this.backgroundTexture = null
     }
   }
@@ -766,10 +782,12 @@ export class WebGPURenderer {
       if (this.backgroundTexture &&
           (this.backgroundTexture.width !== this.canvas.width ||
            this.backgroundTexture.height !== this.canvas.height)) {
-        this.backgroundTexture.destroy()
+        this.deferTextureDestroy(this.backgroundTexture)
+        this.backgroundTextureMipLevelCount = Math.floor(Math.log2(Math.max(this.canvas.width, this.canvas.height))) + 1
         this.backgroundTexture = this.device.createTexture({
           size: [this.canvas.width, this.canvas.height],
           format: 'rgba8unorm',
+          mipLevelCount: this.backgroundTextureMipLevelCount,
           usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
         })
         this.bgTexture = this.backgroundTexture
@@ -791,5 +809,29 @@ export class WebGPURenderer {
     this.backgroundElement.style.setProperty('--css-grid-line-width', `${lineWidth}px`)
     this.backgroundElement.style.setProperty('--css-grid-duration', `${duration}s`)
     this.backgroundElement.style.setProperty('--css-grid-play-state', speed > 0 ? 'running' : 'paused')
+  }
+
+  private deferTextureDestroy(texture: GPUTexture): void {
+    this.pendingTextureDestroys.push(texture)
+    this.scheduleTextureDestroyFlush()
+  }
+
+  private scheduleTextureDestroyFlush(): void {
+    if (this.textureDestroyFlushScheduled) return
+    this.textureDestroyFlushScheduled = true
+
+    void this.device.queue.onSubmittedWorkDone().then(() => {
+      this.textureDestroyFlushScheduled = false
+
+      const textures = this.pendingTextureDestroys
+      this.pendingTextureDestroys = []
+      for (const texture of textures) {
+        texture.destroy()
+      }
+
+      if (this.pendingTextureDestroys.length > 0) {
+        this.scheduleTextureDestroyFlush()
+      }
+    })
   }
 }

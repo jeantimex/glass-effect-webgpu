@@ -116,7 +116,7 @@ export class BackgroundTextureLoader {
     return texture
   }
 
-  private generateMipmapsSync(texture: GPUTexture, mipLevelCount: number): void {
+  generateMipmapsSync(texture: GPUTexture, mipLevelCount: number): void {
     const mipmapShaderModule = this.device.createShaderModule({
       code: `
         var<private> pos: array<vec2f, 4> = array(
