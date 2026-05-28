@@ -358,28 +358,6 @@ body {
   cursor: text;
 }
 
-/* Leaves Background */
-.leaves-background {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.leaves-background .leaves-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-.leaves-background.html-in-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
 /* Banner Background */
 .banner-background {
   position: absolute;

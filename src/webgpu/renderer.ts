@@ -149,11 +149,6 @@ export class WebGPURenderer {
       return
     }
 
-    if (type === 'grid') {
-      this.glassParams.useImageBg = false
-      return
-    }
-
     if (isTemplateBackground(type)) {
       const width = this.canvas.clientWidth
       const height = this.canvas.clientHeight
@@ -162,11 +157,9 @@ export class WebGPURenderer {
       // Create element from template with default URLs
       let templateOptions = options
       if (type === 'article') {
-        templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/frog.jpg` } }
+        templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/leaves.jpg` } }
       } else if (type === 'banner') {
         templateOptions = { banner: { imageUrl: options?.banner?.imageUrl ?? `${import.meta.env.BASE_URL}assets/banner.jpeg` } }
-      } else if (type === 'leaves') {
-        templateOptions = { leaves: { imageUrl: options?.leaves?.imageUrl ?? `${import.meta.env.BASE_URL}assets/leaves.jpg` } }
       }
       const element = createBackgroundElement(type, templateOptions)
       if (!element) return
@@ -779,7 +772,7 @@ export class WebGPURenderer {
   }
 
   private syncCssAnimationBackground(): void {
-    if (this.backgroundElement?.dataset.background !== 'css-animation') return
+    if (this.backgroundElement?.dataset.background !== 'grid') return
 
     const dpr = window.devicePixelRatio || 1
     const cellSize = Math.max(this.glassParams.gridCellSize / dpr, 1)

@@ -66,7 +66,7 @@ export interface GlassParams {
   rightCircleSize: number
 }
 
-export type BackgroundType = 'grid' | 'css-animation' | 'leaves' | 'banner' | 'article' | 'video'
+export type BackgroundType = 'grid' | 'banner' | 'article' | 'video'
 
 export interface Point {
   x: number

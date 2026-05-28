@@ -1,5 +1,5 @@
 export const cssAnimationTemplate = `
-<div class="css-animation-background" data-background="css-animation">
+<div class="css-animation-background" data-background="grid">
   <div class="css-animation-grid"></div>
 </div>
 `

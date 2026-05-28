@@ -23,6 +23,8 @@ export class GlassControlPanel {
   constructor(private options: ControlPanelOptions) {}
 
   setup(): void {
+    const { controls, renderer } = this.options
+
     this.updateShapeControls()
     this.updateIconControls()
     this.updateBackgroundControls()
@@ -30,6 +32,7 @@ export class GlassControlPanel {
     this.updateSpecularControls()
     this.updateChromaticControls()
     this.bindEvents()
+    renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
   }
 
   setCircleSize(size: number): void {
@@ -456,7 +459,7 @@ export class GlassControlPanel {
   private updateBackgroundControls(): void {
     const { controls } = this.options
     const bgType = controls.backgroundTypeSelect.value
-    const usesGridControls = bgType === 'grid' || bgType === 'css-animation'
+    const usesGridControls = bgType === 'grid'
     controls.gridOnlyControls.forEach((control) => control.classList.toggle('hidden', !usesGridControls))
   }
 
