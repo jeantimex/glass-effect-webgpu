@@ -28,6 +28,7 @@ export class GlassInteraction {
   private lastPointerPos = { x: 0, y: 0 }
   private pointerStartPos = { x: 0, y: 0 }
   private lastPointerTime = 0
+  private trackAnimationId: number | null = null
 
   constructor(private options: GlassInteractionOptions) {}
 
@@ -55,15 +56,32 @@ export class GlassInteraction {
     }
 
     const isInteractive = this.isTrackPreset()
-      ? renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
+      ? renderer.isPointInsideSwitchTrack(event.clientX, event.clientY) || renderer.isPointInsideGlass(event.clientX, event.clientY)
       : renderer.isPointInsideGlass(event.clientX, event.clientY)
     canvas.style.cursor = isInteractive ? 'grab' : 'default'
   }
 
   private onPointerDown = (event: PointerEvent): void => {
     const { canvas, renderer, springs, userParams } = this.options
-    if (this.isTrackPreset()) {
-      if (!renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)) return
+    const preset = this.options.getCurrentPreset()
+    const isTrackPreset = this.isTrackPreset()
+    const isInsideTrack = renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
+    const isInsideGlass = renderer.isPointInsideGlass(event.clientX, event.clientY)
+
+    this.cancelTrackAnimation()
+
+    if (preset === 'slider' && isInsideTrack && !isInsideGlass) {
+      const progress = renderer.getSwitchProgressFromClientX(event.clientX)
+      if (progress === null) return
+
+      this.animateSwitchProgressTo(progress)
+      this.updateCanvasCursor(event)
+      event.preventDefault()
+      return
+    }
+
+    if (isTrackPreset) {
+      if (!isInsideTrack && !isInsideGlass) return
     } else if (!renderer.isPointInsideGlass(event.clientX, event.clientY)) {
       return
     }
@@ -92,7 +110,7 @@ export class GlassInteraction {
       springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
     }
 
-    if (this.options.getCurrentPreset() === 'slider') {
+    if (preset === 'slider') {
       renderer.setSwitchProgressFromClientX(event.clientX)
     }
 
@@ -116,6 +134,7 @@ export class GlassInteraction {
     this.lastPointerTime = now
 
     if (this.isTrackPreset()) {
+      this.cancelTrackAnimation()
       renderer.setSwitchProgressFromClientX(event.clientX)
     } else {
       renderer.setGlassCenterFromClientPoint(event.clientX, event.clientY, this.glassDragOffset)
@@ -161,6 +180,7 @@ export class GlassInteraction {
     if (!this.draggingGlass) return
 
     this.draggingGlass = false
+    this.cancelTrackAnimation()
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId)
     }
@@ -171,6 +191,56 @@ export class GlassInteraction {
     if (!this.draggingGlass) {
       this.options.canvas.style.cursor = 'default'
     }
+  }
+
+  private animateSwitchProgressTo(targetProgress: number): void {
+    const { renderer, springs, userParams } = this.options
+    const startProgress = renderer.getSwitchProgress()
+    const target = Math.min(Math.max(targetProgress, 0), 1)
+    const duration = 260
+    const startTime = performance.now()
+    let previousProgress = startProgress
+    let previousTime = startTime
+
+    if (userParams.liquidEnabled) {
+      springs.liquid.value = Math.max(springs.liquid.value, 0.5 * userParams.liquidClickSquash)
+      springs.liquid.velocity += 2.1 * userParams.liquidClickSquash
+    }
+
+    const animate = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      const progress = startProgress + (target - startProgress) * eased
+      const dt = Math.max((now - previousTime) / 1000, 1 / 120)
+      const progressVelocity = (progress - previousProgress) / dt
+
+      this.currentVelocity.x = progressVelocity * 2400
+      this.currentVelocity.y = Math.abs(progressVelocity) * 260
+      renderer.setSwitchProgress(progress)
+
+      previousProgress = progress
+      previousTime = now
+
+      if (t < 1) {
+        this.trackAnimationId = requestAnimationFrame(animate)
+      } else {
+        if (userParams.liquidEnabled) {
+          springs.liquid.value = Math.max(springs.liquid.value, 0.42 * userParams.liquidReleaseSquash)
+          springs.liquid.velocity -= 2.4 * userParams.liquidReleaseSquash
+        }
+        this.currentVelocity = { x: 0, y: 0 }
+        this.trackAnimationId = null
+      }
+    }
+
+    this.trackAnimationId = requestAnimationFrame(animate)
+  }
+
+  private cancelTrackAnimation(): void {
+    if (this.trackAnimationId === null) return
+
+    cancelAnimationFrame(this.trackAnimationId)
+    this.trackAnimationId = null
   }
 
   private onWheel = (event: WheelEvent): void => {

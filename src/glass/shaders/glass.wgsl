@@ -393,9 +393,10 @@ fn apply_slider_track(pixel: vec2f, color: vec3f) -> vec3f {
   let off_color = vec3f(0.537, 0.537, 0.561);
   let on_color = vec3f(0.012, 0.467, 0.969);
   let track_left = -uniforms.switch_track_width * 0.5 + uniforms.switch_track_height * 0.5;
-  let track_right = uniforms.switch_track_width * 0.5 - uniforms.switch_track_height * 0.5;
+  let track_right = uniforms.switch_track_width * 0.5;
   let fill_x = mix(track_left, track_right, uniforms.switch_progress);
-  let fill_mask = (1.0 - smoothstep(fill_x - 1.0, fill_x + 1.0, track_p.x)) * track_mask_value;
+  let fill_enabled = select(0.0, 1.0, uniforms.switch_progress > 0.0);
+  let fill_mask = (1.0 - smoothstep(fill_x - 1.0, fill_x + 1.0, track_p.x)) * track_mask_value * fill_enabled;
 
   var track_color = mix(color, off_color, track_mask_value * uniforms.switch_track_off_opacity);
   track_color = mix(track_color, on_color, fill_mask * uniforms.switch_track_on_opacity);

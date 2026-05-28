@@ -91,16 +91,20 @@ export class GlassRenderLoop {
     const interactionScale = this.springs.scale.value
     const isRectangle = this.renderer.glassParams.shapeType === 1
     const preset = this.getCurrentPreset()
+    const isTrackPreset = preset === 'switch' || preset === 'slider'
     const isPlayerControls = preset === 'player-controls'
     const isSplitMenu = preset === 'split-menu'
     const isMultiItem = isPlayerControls || isSplitMenu
+    const rectInteractionScale = isTrackPreset
+      ? interactionScale / Math.max(this.userParams.circleSize, 0.001)
+      : interactionScale
     // Player controls and split menu use fixed settings - effects are per-item
     this.renderer.glassParams.circleSize = (isRectangle || isPlayerControls) ? this.userParams.circleSize : this.springs.scale.value
     // Multi-item modes keep shared glass properties constant - only deformation and shadow animate per-item
     this.renderer.glassParams.scaleRatio = isMultiItem ? this.userParams.scaleRatio : this.springs.refraction.value
     this.renderer.glassParams.magnifyingScale = this.springs.magnification.value
-    this.renderer.glassParams.scaleX = this.springs.deformationX.value * (isRectangle ? interactionScale : 1)
-    this.renderer.glassParams.scaleY = this.springs.deformationY.value * (isRectangle ? interactionScale : 1)
+    this.renderer.glassParams.scaleX = this.springs.deformationX.value * (isRectangle ? rectInteractionScale : 1)
+    this.renderer.glassParams.scaleY = this.springs.deformationY.value * (isRectangle ? rectInteractionScale : 1)
     this.renderer.glassParams.shadowOpacity = this.springs.shadowOpacity.value
     this.renderer.glassParams.shadowBlur = this.springs.shadowBlur.value
     this.renderer.glassParams.shadowOffsetX = this.userParams.shadowOffsetX

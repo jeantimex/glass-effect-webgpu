@@ -609,7 +609,7 @@ export class WebGPURenderer {
     return this.glassParams.switchProgress
   }
 
-  setSwitchProgressFromClientX(clientX: number): void {
+  getSwitchProgressFromClientX(clientX: number): number | null {
     const point = clientPointToCanvasPoint(this.canvas, clientX, 0)
     const metrics = getSwitchMetrics(
       this.canvas,
@@ -617,9 +617,16 @@ export class WebGPURenderer {
       this.switchCenterX,
       this.switchCenterY
     )
-    if (metrics.travel <= 0) return
+    if (metrics.travel <= 0) return null
 
-    this.setSwitchProgress((point.x - metrics.centerX) / metrics.travel + 0.5)
+    return (point.x - metrics.centerX) / metrics.travel + 0.5
+  }
+
+  setSwitchProgressFromClientX(clientX: number): void {
+    const progress = this.getSwitchProgressFromClientX(clientX)
+    if (progress === null) return
+
+    this.setSwitchProgress(progress)
   }
 
   getGlassDragOffset(clientX: number, clientY: number): { x: number; y: number } {
