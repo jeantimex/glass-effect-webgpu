@@ -19,7 +19,7 @@ export interface CircleInstanceConfig extends GlassInstanceConfig {
 export const DEFAULT_CIRCLE_INSTANCE_CONFIG: CircleInstanceConfig = {
   ...DEFAULT_GLASS_INSTANCE_CONFIG,
   shapeType: 0,
-  size: 1.0,
+  size: 0.8,
   iconType: 0,
   iconOpacity: 1.0,
   iconScale: 0.5,

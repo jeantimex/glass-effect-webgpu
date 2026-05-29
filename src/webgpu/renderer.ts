@@ -113,7 +113,6 @@ export class WebGPURenderer {
     // Detect HTML-in-Canvas support
     this.htmlInCanvasSupport = detectHTMLInCanvasSupport()
     if (this.htmlInCanvasSupport.supported) {
-      console.log('HTML-in-Canvas API supported - text selection will work in article mode')
       enableLayoutSubtree(this.canvas)
     }
 
@@ -175,7 +174,7 @@ export class WebGPURenderer {
     width: number,
     height: number,
     _dpr: number,
-    bgType: string
+    _bgType: string
   ): Promise<void> {
     this.backgroundElement = bgElement
 
@@ -254,8 +253,6 @@ export class WebGPURenderer {
       this.cleanupPaintHandler = setupPaintHandler(this.canvas, () => {
         this.updateBackgroundTexture()
       })
-
-      console.log(`${bgType} background: HTML-in-Canvas active`)
     } catch (e) {
       console.warn('copyElementImageToTexture failed, falling back to html2canvas:', e)
       // Move element back out of canvas for fallback
@@ -372,6 +369,8 @@ export class WebGPURenderer {
     }
 
     if (this.backgroundTexture) {
+      this.bgTexture = this.createEmptyTexture()
+      this.bindGroup = this.createRenderBindGroup(this.bgTexture)
       this.deferTextureDestroy(this.backgroundTexture)
       this.backgroundTexture = null
     }

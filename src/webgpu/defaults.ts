@@ -3,8 +3,8 @@ import type { GlassParams } from './types'
 export function createDefaultGlassParams(): GlassParams {
   return {
     // Geometry
-    bezelWidth: 60,
-    glassThickness: 50,
+    bezelWidth: 45,
+    glassThickness: 10,
     scaleRatio: 1.0,
     surfaceType: 0,
     maxDisplacementScale: 0.8,
@@ -42,7 +42,7 @@ export function createDefaultGlassParams(): GlassParams {
     progressiveBlurType: 0,
 
     // Specular
-    specularOpacity: 0.4,
+    specularOpacity: 1,
     specularAngle: Math.PI / 3,
     specularSaturation: 4.0,
     specularType: 0,
@@ -62,8 +62,8 @@ export function createDefaultGlassParams(): GlassParams {
     iconColorB: 1,
 
     // Chromatic aberration
-    chromaticAberration: false,
-    chromaticStrength: 1.5,
+    chromaticAberration: true,
+    chromaticStrength: 0.2,
     chromaticBase: 0.4,
 
     // Liquid animation
