@@ -63,7 +63,7 @@ export class GlassRenderLoop {
 
     const preset = this.getCurrentPreset()
     const isCirclePreset = preset === 'circle-lens' || preset === 'rectangle'
-    const activeInstance = isCirclePreset ? this.renderer.getActiveCircleInstance() : null
+    const activeInstance = isCirclePreset ? this.renderer.getActiveGlassInstance() : null
     const currentActiveIndex = isCirclePreset ? this.renderer.getCirclePresetActiveIndex() : -1
     const pressedGlassBgOpacity = activeInstance?.pressedGlassBgOpacity ?? this.userParams.pressedGlassBgOpacity
     const glassBgOpacity = activeInstance?.glassBgOpacity ?? this.userParams.glassBgOpacity
@@ -128,9 +128,9 @@ export class GlassRenderLoop {
     this.renderer.glassParams.shadowOffsetX = this.userParams.shadowOffsetX
     this.renderer.glassParams.shadowOffsetY = this.springs.shadowOffsetY.value
     this.renderer.glassParams.specularOpacity = isMultiItem ? this.userParams.specularOpacity : this.springs.specularOpacity.value
-    // For circle preset, animate the active instance's glassBgOpacity using runtime value
+    // For circle/rectangle preset, animate the active instance's glassBgOpacity using runtime value
     if (isCirclePreset || isRectanglePreset) {
-      const activeInstance = this.renderer.getActiveCircleInstance()
+      const activeInstance = this.renderer.getActiveGlassInstance()
       if (activeInstance) {
         activeInstance.runtimeGlassBgOpacity = this.springs.glassBgOpacity.value
       }

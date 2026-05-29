@@ -1,7 +1,7 @@
 import html2canvas from 'html2canvas'
 import { Circle, type CircleConfig } from './circle'
-import { CircleInstanceManager } from './circle-instance-manager'
-import { CircleInstance } from './circle-instance'
+import { GlassInstanceManager, CircleInstance, RectangleInstance, GlassInstance } from './glass-instance-manager'
+import type { ShapeType } from './glass-instance-manager'
 import { createDefaultGlassParams } from './defaults'
 import { createBackgroundElement, isTemplateBackground, type BackgroundTemplateOptions } from '../templates'
 import {
@@ -31,8 +31,10 @@ import { createGlassUniformData, GLASS_UNIFORM_BUFFER_SIZE } from './uniforms'
 
 export type { BackgroundType, GlassParams } from './types'
 export { Circle, type CircleConfig } from './circle'
+export { GlassInstance } from './glass-instance'
 export { CircleInstance, type CircleInstanceConfig } from './circle-instance'
-export { CircleInstanceManager } from './circle-instance-manager'
+export { RectangleInstance, type RectangleInstanceConfig } from './rectangle-instance'
+export { GlassInstanceManager, type ShapeType } from './glass-instance-manager'
 
 export class WebGPURenderer {
   private device!: GPUDevice
@@ -57,8 +59,8 @@ export class WebGPURenderer {
   private switchCenterY = 0.5
   // Player controls circles (left, center, right)
   private _circles: Circle[] = []
-  // Circle preset instances with per-instance properties
-  private _circleInstanceManager!: CircleInstanceManager
+  // Glass preset instances with per-instance properties (circles or rectangles)
+  private _glassInstanceManager!: GlassInstanceManager
 
   // Video element for fallback mode (when HTML-in-Canvas not supported)
   private videoElement: HTMLVideoElement | null = null
@@ -111,8 +113,8 @@ export class WebGPURenderer {
     this.iconTexture = this.createEmptyTexture()
     this.bindGroupLayout = createBindGroupLayout(this.device)
 
-    // Initialize circle instance manager for circle preset mode
-    this._circleInstanceManager = new CircleInstanceManager(
+    // Initialize glass instance manager for circle/rectangle preset modes
+    this._glassInstanceManager = new GlassInstanceManager(
       this.device,
       this.textureLoader,
       this.createEmptyTexture(),
@@ -489,38 +491,62 @@ export class WebGPURenderer {
     return this._circles[index]
   }
 
-  // Circle instance manager for circle preset mode
-  get circleInstanceManager(): CircleInstanceManager {
-    return this._circleInstanceManager
+  // Glass instance manager for circle/rectangle preset modes
+  get glassInstanceManager(): GlassInstanceManager {
+    return this._glassInstanceManager
   }
 
-  get circlePresetCirclesCount(): number {
-    return this._circleInstanceManager.count
+  get glassPresetInstanceCount(): number {
+    return this._glassInstanceManager.count
+  }
+
+  getGlassPresetInstance(index: number): GlassInstance {
+    const instance = this._glassInstanceManager.getInstance(index)
+    if (!instance) {
+      throw new Error(`Missing glass preset instance at index ${index}`)
+    }
+    return instance
   }
 
   getCirclePresetCircle(index: number): CircleInstance {
-    const instance = this._circleInstanceManager.getInstance(index)
+    const instance = this._glassInstanceManager.getCircleInstance(index)
     if (!instance) {
       throw new Error(`Missing circle preset instance at index ${index}`)
     }
     return instance
   }
 
+  getRectanglePresetInstance(index: number): RectangleInstance {
+    const instance = this._glassInstanceManager.getRectangleInstance(index)
+    if (!instance) {
+      throw new Error(`Missing rectangle preset instance at index ${index}`)
+    }
+    return instance
+  }
+
   getCirclePresetActiveIndex(): number {
-    return this._circleInstanceManager.activeIndex
+    return this._glassInstanceManager.activeIndex
   }
 
   getActiveCircleInstance(): CircleInstance | undefined {
-    return this._circleInstanceManager.activeInstance
+    return this._glassInstanceManager.activeInstance instanceof CircleInstance
+      ? this._glassInstanceManager.activeInstance
+      : undefined
+  }
+
+  getActiveRectangleInstance(): RectangleInstance | undefined {
+    return this._glassInstanceManager.activeInstance instanceof RectangleInstance
+      ? this._glassInstanceManager.activeInstance
+      : undefined
+  }
+
+  getActiveGlassInstance(): GlassInstance | undefined {
+    return this._glassInstanceManager.activeInstance
   }
 
   resetCirclePresetCircles(): void {
-    this._circleInstanceManager.reset({
-      size: this.glassParams.circleSize,
-      shapeType: this.glassParams.shapeType,
-      rectWidth: this.glassParams.rectWidth,
-      rectHeight: this.glassParams.rectHeight,
-      rectRadius: this.glassParams.rectRadiusPercent / 100 * Math.min(this.glassParams.rectWidth, this.glassParams.rectHeight) * 0.5,
+    const shapeType: ShapeType = this.glassParams.shapeType === 1 ? 'rectangle' : 'circle'
+    const baseConfig = {
       bezelWidth: this.glassParams.bezelWidth,
       glassThickness: this.glassParams.glassThickness,
       refractiveIndex: this.glassParams.refractiveIndex,
@@ -545,34 +571,49 @@ export class WebGPURenderer {
       chromaticAberration: this.glassParams.chromaticAberration,
       chromaticStrength: this.glassParams.chromaticStrength,
       chromaticBase: this.glassParams.chromaticBase,
-    })
-    this.glassParams.circlePresetCount = this._circleInstanceManager.count
-    this.glassParams.circlePresetActiveIndex = this._circleInstanceManager.activeIndex
+    }
+
+    if (shapeType === 'rectangle') {
+      this._glassInstanceManager.reset(shapeType, {
+        ...baseConfig,
+        rectWidth: this.glassParams.rectWidth,
+        rectHeight: this.glassParams.rectHeight,
+        rectRadius: this.glassParams.rectRadiusPercent / 100 * Math.min(this.glassParams.rectWidth, this.glassParams.rectHeight) * 0.5,
+      })
+    } else {
+      this._glassInstanceManager.reset(shapeType, {
+        ...baseConfig,
+        size: this.glassParams.circleSize,
+      })
+    }
+
+    this.glassParams.circlePresetCount = this._glassInstanceManager.count
+    this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
   }
 
   addCirclePresetCircle(): number {
-    const index = this._circleInstanceManager.addInstance()
-    this.glassParams.circlePresetCount = this._circleInstanceManager.count
-    this.glassParams.circlePresetActiveIndex = this._circleInstanceManager.activeIndex
+    const index = this._glassInstanceManager.addInstance()
+    this.glassParams.circlePresetCount = this._glassInstanceManager.count
+    this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
     return index
   }
 
   async setCirclePresetIcon(url: string | null): Promise<void> {
-    await this._circleInstanceManager.setIconForAll(url)
+    await this._glassInstanceManager.setIconForAll(url)
   }
 
   setCirclePresetActiveIndex(index: number): void {
-    this._circleInstanceManager.setActiveIndex(index)
-    this.glassParams.circlePresetActiveIndex = this._circleInstanceManager.activeIndex
+    this._glassInstanceManager.setActiveIndex(index)
+    this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
   }
 
   setCirclePresetStrategy(strategy: number): void {
     this.glassParams.circlePresetStrategy = strategy
-    this._circleInstanceManager.strategy = strategy
+    this._glassInstanceManager.strategy = strategy
   }
 
   setCirclePresetCircleSize(index: number, size: number): void {
-    const instance = this._circleInstanceManager.getInstance(index)
+    const instance = this._glassInstanceManager.getCircleInstance(index)
     if (!instance) return
     instance.size = size
     this.glassParams.circleSize = size
@@ -583,7 +624,7 @@ export class WebGPURenderer {
 
     const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
     const dpr = window.devicePixelRatio || 1
-    return this._circleInstanceManager.getClickedInstanceIndex(
+    return this._glassInstanceManager.getClickedInstanceIndex(
       this.canvas.width,
       this.canvas.height,
       point.x,
@@ -594,7 +635,7 @@ export class WebGPURenderer {
 
   getCirclePresetDragOffset(index: number, clientX: number, clientY: number): { x: number; y: number } {
     const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
-    return this._circleInstanceManager.getDragOffset(
+    return this._glassInstanceManager.getDragOffset(
       index,
       this.canvas.width,
       this.canvas.height,
@@ -611,7 +652,7 @@ export class WebGPURenderer {
   ): void {
     const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
     const dpr = window.devicePixelRatio || 1
-    this._circleInstanceManager.setInstancePositionFromPoint(
+    this._glassInstanceManager.setInstancePositionFromPoint(
       index,
       this.canvas.width,
       this.canvas.height,
@@ -637,7 +678,7 @@ export class WebGPURenderer {
 
   private updateCircleInstanceBuffer(): void {
     const dpr = window.devicePixelRatio || 1
-    this._circleInstanceManager.updateStorageBuffer(this.canvas.width, this.canvas.height, dpr)
+    this._glassInstanceManager.updateStorageBuffer(this.canvas.width, this.canvas.height, dpr)
   }
 
   private getCirclePresetStackTexture(index: number, format: GPUTextureFormat): GPUTexture {
@@ -878,11 +919,14 @@ export class WebGPURenderer {
       this.glassParams.rightCircleSize = this._circles[2].size
     }
     if (this.glassParams.circlePresetMode) {
-      this.glassParams.circlePresetCount = this._circleInstanceManager.count
-      this.glassParams.circlePresetActiveIndex = this._circleInstanceManager.activeIndex
-      const activeInstance = this._circleInstanceManager.activeInstance
+      this.glassParams.circlePresetCount = this._glassInstanceManager.count
+      this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
+      const activeInstance = this._glassInstanceManager.activeInstance
       if (activeInstance) {
-        this.glassParams.circleSize = activeInstance.size
+        const circleInstance = activeInstance instanceof CircleInstance ? activeInstance : null
+        if (circleInstance) {
+          this.glassParams.circleSize = circleInstance.size
+        }
         activeInstance.scaleX = this.glassParams.scaleX
         activeInstance.scaleY = this.glassParams.scaleY
       }
@@ -937,10 +981,10 @@ export class WebGPURenderer {
   }
 
   private renderCirclePresetStack(baseShadow: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
-    const instances = this._circleInstanceManager.instances.slice(0, 8)
+    const instances = this._glassInstanceManager.instances.slice(0, 8)
     if (instances.length === 0) return
 
-    const originalActiveIndex = this._circleInstanceManager.activeIndex
+    const originalActiveIndex = this._glassInstanceManager.activeIndex
     const originalScaleX = this.glassParams.scaleX
     const originalScaleY = this.glassParams.scaleY
     const originalLiquidEnabled = this.glassParams.liquidEnabled
@@ -974,13 +1018,15 @@ export class WebGPURenderer {
       }
 
       // Write single instance to buffer position 0 for stack mode rendering
-      this._circleInstanceManager.writeSingleInstanceToBuffer(instance, this.canvas.width, this.canvas.height, dpr, 0)
+      this._glassInstanceManager.writeSingleInstanceToBuffer(instance, this.canvas.width, this.canvas.height, dpr, 0)
 
       this.glassParams.circlePresetMode = true
       this.glassParams.circlePresetStrategy = 0
       this.glassParams.circlePresetCount = 1
       this.glassParams.circlePresetActiveIndex = isActivePass ? 0 : 1
-      this.glassParams.circleSize = instance.size
+      if (instance instanceof CircleInstance) {
+        this.glassParams.circleSize = instance.size
+      }
       this.glassParams.scaleX = isActivePass ? originalScaleX : 1.0
       this.glassParams.scaleY = isActivePass ? originalScaleY : 1.0
       this.glassParams.liquidEnabled = isActivePass ? originalLiquidEnabled : false
@@ -1028,7 +1074,7 @@ export class WebGPURenderer {
     }
 
     // Restore original state
-    this._circleInstanceManager.setActiveIndex(originalActiveIndex)
+    this._glassInstanceManager.setActiveIndex(originalActiveIndex)
     this.glassParams.circlePresetActiveIndex = originalActiveIndex
     this.glassParams.scaleX = originalScaleX
     this.glassParams.scaleY = originalScaleY
@@ -1046,7 +1092,7 @@ export class WebGPURenderer {
       this.iconSampler,
       this._circles[0]?.iconTexture ?? this.createEmptyTexture(),
       this._circles[2]?.iconTexture ?? this.createEmptyTexture(),
-      this._circleInstanceManager.storageBuffer
+      this._glassInstanceManager.storageBuffer
     )
   }
 

@@ -1,5 +1,5 @@
 import type { SurfaceType } from './displacement-map'
-import type { BackgroundType, WebGPURenderer, CircleInstance } from '../webgpu/renderer'
+import type { BackgroundType, WebGPURenderer, GlassInstance, CircleInstance, RectangleInstance } from '../webgpu/renderer'
 import type { GlassControls } from './dom'
 import { setSliderValue } from './dom'
 import { getPresetDefinition } from '../presets'
@@ -27,13 +27,37 @@ export class GlassControlPanel {
     return preset === 'circle-lens' || preset === 'rectangle'
   }
 
-  private getActiveInstance(): CircleInstance | undefined {
+  private getActiveInstance(): GlassInstance | undefined {
+    if (!this.isCirclePresetMode()) return undefined
+    return this.options.renderer.getActiveGlassInstance()
+  }
+
+  private getActiveCircleInstance(): CircleInstance | undefined {
     if (!this.isCirclePresetMode()) return undefined
     return this.options.renderer.getActiveCircleInstance()
   }
 
-  private updateInstanceProperty(update: (instance: CircleInstance) => void): void {
+  private getActiveRectangleInstance(): RectangleInstance | undefined {
+    if (!this.isCirclePresetMode()) return undefined
+    return this.options.renderer.getActiveRectangleInstance()
+  }
+
+  private updateInstanceProperty(update: (instance: GlassInstance) => void): void {
     const instance = this.getActiveInstance()
+    if (instance) {
+      update(instance)
+    }
+  }
+
+  private updateRectangleInstanceProperty(update: (instance: RectangleInstance) => void): void {
+    const instance = this.getActiveRectangleInstance()
+    if (instance) {
+      update(instance)
+    }
+  }
+
+  private updateCircleInstanceProperty(update: (instance: CircleInstance) => void): void {
+    const instance = this.getActiveCircleInstance()
     if (instance) {
       update(instance)
     }
@@ -92,6 +116,8 @@ export class GlassControlPanel {
     const clampedWidth = Math.min(Math.max(width, parseFloat(controls.rectWidthSlider.min)), parseFloat(controls.rectWidthSlider.max))
     renderer.glassParams.rectWidth = clampedWidth
     controls.rectWidthSlider.value = String(clampedWidth)
+    this.updateRectangleInstanceProperty(inst => inst.rectWidth = clampedWidth)
+    this.updateRectRadius()
   }
 
   setRectHeight(height: number): void {
@@ -99,15 +125,26 @@ export class GlassControlPanel {
     const clampedHeight = Math.min(Math.max(height, parseFloat(controls.rectHeightSlider.min)), parseFloat(controls.rectHeightSlider.max))
     renderer.glassParams.rectHeight = clampedHeight
     controls.rectHeightSlider.value = String(clampedHeight)
+    this.updateRectangleInstanceProperty(inst => inst.rectHeight = clampedHeight)
+    this.updateRectRadius()
+  }
+
+  private updateRectRadius(): void {
+    const { controls, renderer } = this.options
+    const radiusPercent = parseFloat(controls.rectRadiusSlider.value)
+    const minDim = Math.min(renderer.glassParams.rectWidth, renderer.glassParams.rectHeight)
+    const radiusPixels = (radiusPercent / 100) * minDim * 0.5
+    this.updateRectangleInstanceProperty(inst => inst.rectRadius = radiusPixels)
   }
 
   syncSlidersFromActiveInstance(): void {
-    const instance = this.getActiveInstance()
+    const { controls, renderer, userParams } = this.options
+    const circleInstance = this.getActiveCircleInstance()
+    const rectInstance = this.getActiveRectangleInstance()
+    const instance = circleInstance ?? rectInstance
     if (!instance) return
 
-    const { controls, renderer, userParams } = this.options
-
-    setSliderValue(controls.circleSizeSlider, instance.size)
+    // Common properties
     setSliderValue(controls.bezelSlider, instance.bezelWidth)
     setSliderValue(controls.thicknessSlider, instance.glassThickness)
     setSliderValue(controls.refractiveIndexSlider, instance.refractiveIndex)
@@ -124,20 +161,28 @@ export class GlassControlPanel {
     setSliderValue(controls.shadowBlurSlider, instance.shadowBlur)
     setSliderValue(controls.shadowOffsetXSlider, instance.shadowOffsetX)
     setSliderValue(controls.shadowOffsetYSlider, instance.shadowOffsetY)
-    setSliderValue(controls.iconOpacitySlider, instance.iconOpacity)
-    setSliderValue(controls.iconScaleSlider, instance.iconScale)
     setSliderValue(controls.chromaticStrengthSlider, instance.chromaticStrength)
     setSliderValue(controls.chromaticBaseSlider, instance.chromaticBase)
 
-    if (instance.shapeType === 1) {
-      setSliderValue(controls.rectWidthSlider, instance.rectWidth)
-      setSliderValue(controls.rectHeightSlider, instance.rectHeight)
-      const minDim = Math.min(instance.rectWidth, instance.rectHeight)
-      const radiusPercent = (instance.rectRadius / (minDim * 0.5)) * 100
+    // Shape-specific properties
+    if (rectInstance) {
+      setSliderValue(controls.rectWidthSlider, rectInstance.rectWidth)
+      setSliderValue(controls.rectHeightSlider, rectInstance.rectHeight)
+      const minDim = Math.min(rectInstance.rectWidth, rectInstance.rectHeight)
+      const radiusPercent = (rectInstance.rectRadius / (minDim * 0.5)) * 100
       setSliderValue(controls.rectRadiusSlider, radiusPercent)
+      renderer.glassParams.rectWidth = rectInstance.rectWidth
+      renderer.glassParams.rectHeight = rectInstance.rectHeight
+      renderer.glassParams.rectRadiusPercent = radiusPercent
+      renderer.glassParams.circleSize = 1
+    } else if (circleInstance) {
+      setSliderValue(controls.circleSizeSlider, circleInstance.size)
+      setSliderValue(controls.iconOpacitySlider, circleInstance.iconOpacity)
+      setSliderValue(controls.iconScaleSlider, circleInstance.iconScale)
+      renderer.glassParams.circleSize = circleInstance.size
+      renderer.glassParams.iconOpacity = circleInstance.iconOpacity
+      renderer.glassParams.iconScale = circleInstance.iconScale
     }
-
-    renderer.glassParams.circleSize = instance.size
     renderer.glassParams.bezelWidth = instance.bezelWidth
     renderer.glassParams.glassThickness = instance.glassThickness
     renderer.glassParams.refractiveIndex = instance.refractiveIndex
@@ -154,8 +199,6 @@ export class GlassControlPanel {
     renderer.glassParams.shadowBlur = instance.shadowBlur
     renderer.glassParams.shadowOffsetX = instance.shadowOffsetX
     renderer.glassParams.shadowOffsetY = instance.shadowOffsetY
-    renderer.glassParams.iconOpacity = instance.iconOpacity
-    renderer.glassParams.iconScale = instance.iconScale
     renderer.glassParams.chromaticStrength = instance.chromaticStrength
     renderer.glassParams.chromaticBase = instance.chromaticBase
     renderer.glassParams.glassTintR = instance.glassTintR
@@ -255,13 +298,15 @@ export class GlassControlPanel {
     if (type === 'circle-lens' || type === 'rectangle') {
       renderer.resetCirclePresetCircles()
       controls.circlePresetStrategySelect.value = 'stack'
-      setSliderValue(controls.circleSizeSlider, renderer.getCirclePresetCircle(0).size)
       if (type === 'circle-lens') {
+        const circleInstance = renderer.getCirclePresetCircle(0)
+        setSliderValue(controls.circleSizeSlider, circleInstance.size)
         const icon = controls.iconTypeSelect.value
         const iconUrl = icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
         void renderer.setCirclePresetIcon(iconUrl)
         renderer.setIcon(iconUrl).catch(console.error)
       } else {
+        // Rectangle preset - no icon, no circle size slider
         void renderer.setCirclePresetIcon(null)
       }
     }
@@ -453,6 +498,7 @@ export class GlassControlPanel {
     })
     controls.rectRadiusSlider.addEventListener('input', () => {
       renderer.glassParams.rectRadiusPercent = parseFloat(controls.rectRadiusSlider.value)
+      this.updateRectRadius()
     })
     controls.splitMenuPillWidthSlider.addEventListener('input', () => {
       renderer.glassParams.splitMenuPillWidth = parseFloat(controls.splitMenuPillWidthSlider.value)
@@ -469,25 +515,39 @@ export class GlassControlPanel {
         renderer.glassParams.iconType = 0
         renderer.setIcon(null).catch(console.error)
         renderer.setCirclePresetIcon(null).catch(console.error)
+        this.updateCircleInstanceProperty(inst => inst.iconType = 0)
       } else {
         renderer.glassParams.iconType = 1
         const iconUrl = `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
         renderer.setIcon(iconUrl).catch(console.error)
         renderer.setCirclePresetIcon(iconUrl).catch(console.error)
+        this.updateCircleInstanceProperty(inst => inst.iconType = 1)
       }
       this.updateIconControls()
     })
     controls.iconOpacitySlider.addEventListener('input', () => {
-      renderer.glassParams.iconOpacity = parseFloat(controls.iconOpacitySlider.value)
+      const value = parseFloat(controls.iconOpacitySlider.value)
+      renderer.glassParams.iconOpacity = value
+      this.updateCircleInstanceProperty(inst => inst.iconOpacity = value)
     })
     controls.iconScaleSlider.addEventListener('input', () => {
-      renderer.glassParams.iconScale = parseFloat(controls.iconScaleSlider.value)
+      const value = parseFloat(controls.iconScaleSlider.value)
+      renderer.glassParams.iconScale = value
+      this.updateCircleInstanceProperty(inst => inst.iconScale = value)
     })
     controls.iconColorInput.addEventListener('input', () => {
       const hex = controls.iconColorInput.value
-      renderer.glassParams.iconColorR = parseInt(hex.slice(1, 3), 16) / 255
-      renderer.glassParams.iconColorG = parseInt(hex.slice(3, 5), 16) / 255
-      renderer.glassParams.iconColorB = parseInt(hex.slice(5, 7), 16) / 255
+      const r = parseInt(hex.slice(1, 3), 16) / 255
+      const g = parseInt(hex.slice(3, 5), 16) / 255
+      const b = parseInt(hex.slice(5, 7), 16) / 255
+      renderer.glassParams.iconColorR = r
+      renderer.glassParams.iconColorG = g
+      renderer.glassParams.iconColorB = b
+      this.updateCircleInstanceProperty(inst => {
+        inst.iconColorR = r
+        inst.iconColorG = g
+        inst.iconColorB = b
+      })
     })
     controls.switchTrackWidthSlider.addEventListener('input', () => {
       renderer.glassParams.switchTrackWidth = parseFloat(controls.switchTrackWidthSlider.value)

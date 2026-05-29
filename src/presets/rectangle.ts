@@ -25,7 +25,7 @@ export class RectanglePreset extends GlassPresetDefinition {
     blurType: 1,
     progressiveBlur: 0,
     progressiveBlurType: 0,
-    glassBgOpacity: 0.08,
+    glassBgOpacity: 0,
     pressedGlassBgOpacity: 0,
     specularType: 0,
     specularOpacity: 0.4,

@@ -1,22 +1,26 @@
 import {
-  CircleInstance,
-  CIRCLE_INSTANCE_FLOATS,
-  CIRCLE_INSTANCES_BUFFER_SIZE,
-  MAX_CIRCLE_INSTANCES,
-  DEFAULT_CIRCLE_INSTANCE_CONFIG,
-  type CircleInstanceConfig,
-} from './circle-instance'
+  GlassInstance,
+  GLASS_INSTANCE_FLOATS,
+  GLASS_INSTANCES_BUFFER_SIZE,
+  MAX_GLASS_INSTANCES,
+  type GlassInstanceConfig,
+} from './glass-instance'
+import { CircleInstance, DEFAULT_CIRCLE_INSTANCE_CONFIG, type CircleInstanceConfig } from './circle-instance'
+import { RectangleInstance, DEFAULT_RECTANGLE_INSTANCE_CONFIG, type RectangleInstanceConfig } from './rectangle-instance'
 import type { BackgroundTextureLoader } from './texture-loader'
 
-export class CircleInstanceManager {
+export type ShapeType = 'circle' | 'rectangle'
+
+export class GlassInstanceManager {
   private device: GPUDevice
   private textureLoader: BackgroundTextureLoader
   private emptyTexture: GPUTexture
   private onTextureChange: () => void
-  private _instances: CircleInstance[] = []
+  private _instances: GlassInstance[] = []
   private _activeIndex = 0
   private _storageBuffer: GPUBuffer
   private _strategy: number = 0 // 0 = stack, 1 = merge
+  private _shapeType: ShapeType = 'circle'
 
   constructor(
     device: GPUDevice,
@@ -30,15 +34,14 @@ export class CircleInstanceManager {
     this.onTextureChange = onTextureChange
 
     this._storageBuffer = device.createBuffer({
-      size: CIRCLE_INSTANCES_BUFFER_SIZE,
+      size: GLASS_INSTANCES_BUFFER_SIZE,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     })
 
-    // Start with one default instance
     this.reset()
   }
 
-  get instances(): readonly CircleInstance[] {
+  get instances(): readonly GlassInstance[] {
     return this._instances
   }
 
@@ -50,7 +53,7 @@ export class CircleInstanceManager {
     return this._activeIndex
   }
 
-  get activeInstance(): CircleInstance | undefined {
+  get activeInstance(): GlassInstance | undefined {
     return this._instances[this._activeIndex]
   }
 
@@ -66,10 +69,13 @@ export class CircleInstanceManager {
     this._strategy = value
   }
 
+  get shapeType(): ShapeType {
+    return this._shapeType
+  }
+
   setActiveIndex(index: number): void {
     const clampedIndex = Math.max(0, Math.min(index, this._instances.length - 1))
 
-    // Update isActive flags
     for (let i = 0; i < this._instances.length; i++) {
       this._instances[i].isActive = i === clampedIndex
     }
@@ -77,15 +83,29 @@ export class CircleInstanceManager {
     this._activeIndex = clampedIndex
   }
 
-  getInstance(index: number): CircleInstance | undefined {
+  getInstance(index: number): GlassInstance | undefined {
     return this._instances[index]
   }
 
-  reset(initialConfig?: Partial<CircleInstanceConfig>): void {
+  getCircleInstance(index: number): CircleInstance | undefined {
+    const instance = this._instances[index]
+    return instance instanceof CircleInstance ? instance : undefined
+  }
+
+  getRectangleInstance(index: number): RectangleInstance | undefined {
+    const instance = this._instances[index]
+    return instance instanceof RectangleInstance ? instance : undefined
+  }
+
+  reset(shapeType?: ShapeType, initialConfig?: Partial<CircleInstanceConfig | RectangleInstanceConfig>): void {
     this._instances = []
     this._activeIndex = 0
+
+    if (shapeType) {
+      this._shapeType = shapeType
+    }
+
     this.addInstance({
-      ...DEFAULT_CIRCLE_INSTANCE_CONFIG,
       ...initialConfig,
       centerX: 0.5,
       centerY: 0.5,
@@ -93,35 +113,52 @@ export class CircleInstanceManager {
     })
   }
 
-  addInstance(config?: Partial<CircleInstanceConfig>): number {
-    if (this._instances.length >= MAX_CIRCLE_INSTANCES) {
+  addInstance(config?: Partial<CircleInstanceConfig | RectangleInstanceConfig>): number {
+    if (this._instances.length >= MAX_GLASS_INSTANCES) {
       return this._instances.length - 1
     }
 
     const index = this._instances.length
-
-    // Copy properties from active instance if exists, else use defaults
-    const baseConfig = this._instances[this._activeIndex]
-      ? this.extractConfig(this._instances[this._activeIndex])
-      : DEFAULT_CIRCLE_INSTANCE_CONFIG
-
-    // Calculate new position
     const newPosition = this.calculateNewPosition(index)
 
-    const instance = new CircleInstance(
-      this.device,
-      this.textureLoader,
-      this.emptyTexture,
-      {
-        ...baseConfig,
-        ...newPosition,
-        ...config,
-        isActive: false,
-      },
-      this.onTextureChange
-    )
+    let instance: GlassInstance
 
-    // Copy icon from active instance if it has one
+    if (this._shapeType === 'rectangle') {
+      const baseConfig = this._instances[this._activeIndex]
+        ? this.extractRectangleConfig(this._instances[this._activeIndex] as RectangleInstance)
+        : DEFAULT_RECTANGLE_INSTANCE_CONFIG
+
+      instance = new RectangleInstance(
+        this.device,
+        this.textureLoader,
+        this.emptyTexture,
+        {
+          ...baseConfig,
+          ...newPosition,
+          ...config,
+          isActive: false,
+        } as Partial<RectangleInstanceConfig>,
+        this.onTextureChange
+      )
+    } else {
+      const baseConfig = this._instances[this._activeIndex]
+        ? this.extractCircleConfig(this._instances[this._activeIndex] as CircleInstance)
+        : DEFAULT_CIRCLE_INSTANCE_CONFIG
+
+      instance = new CircleInstance(
+        this.device,
+        this.textureLoader,
+        this.emptyTexture,
+        {
+          ...baseConfig,
+          ...newPosition,
+          ...config,
+          isActive: false,
+        } as Partial<CircleInstanceConfig>,
+        this.onTextureChange
+      )
+    }
+
     const activeInstance = this._instances[this._activeIndex]
     if (activeInstance?.iconUrl) {
       void instance.setIcon(activeInstance.iconUrl)
@@ -140,7 +177,6 @@ export class CircleInstanceManager {
 
     this._instances.splice(index, 1)
 
-    // Adjust active index if needed
     if (this._activeIndex >= this._instances.length) {
       this._activeIndex = this._instances.length - 1
     }
@@ -196,7 +232,7 @@ export class CircleInstanceManager {
   }
 
   private calculateInstanceDistance(
-    instance: CircleInstance,
+    instance: GlassInstance,
     pointX: number,
     pointY: number,
     centerX: number,
@@ -205,11 +241,10 @@ export class CircleInstanceManager {
     canvasHeight: number,
     dpr: number
   ): number {
-    if (instance.shapeType === 1) {
-      // Rounded rect distance
-      const rectWidth = instance.rectWidth * dpr * instance.size
-      const rectHeight = instance.rectHeight * dpr * instance.size
-      const rectRadius = Math.min(instance.rectRadius * dpr, Math.min(rectWidth, rectHeight) * 0.5) * instance.size
+    if (instance instanceof RectangleInstance) {
+      const rectWidth = instance.rectWidth * dpr
+      const rectHeight = instance.rectHeight * dpr
+      const rectRadius = Math.min(instance.rectRadius * dpr, Math.min(rectWidth, rectHeight) * 0.5)
       return this.roundedRectDistance(
         pointX - centerX,
         pointY - centerY,
@@ -217,11 +252,11 @@ export class CircleInstanceManager {
         rectHeight,
         rectRadius
       )
-    } else {
-      // Circle distance
+    } else if (instance instanceof CircleInstance) {
       const baseRadius = Math.min(canvasWidth, canvasHeight) * 0.35
       return Math.hypot(pointX - centerX, pointY - centerY) - baseRadius * instance.size
     }
+    return Number.POSITIVE_INFINITY
   }
 
   private roundedRectDistance(
@@ -259,20 +294,12 @@ export class CircleInstanceManager {
     const instance = this._instances[index]
     if (!instance) return
 
-    const baseRadius = Math.min(canvasWidth, canvasHeight) * 0.35
-    const radius = baseRadius * instance.size
+    const halfDims = instance.getHalfDimensions(canvasWidth, canvasHeight, dpr)
 
-    const rectHalfWidth = instance.shapeType === 1
-      ? instance.rectWidth * dpr * instance.size * 0.5
-      : radius
-    const rectHalfHeight = instance.shapeType === 1
-      ? instance.rectHeight * dpr * instance.size * 0.5
-      : radius
-
-    const minX = rectHalfWidth
-    const maxX = canvasWidth - rectHalfWidth
-    const minY = rectHalfHeight
-    const maxY = canvasHeight - rectHalfHeight
+    const minX = halfDims.width
+    const maxX = canvasWidth - halfDims.width
+    const minY = halfDims.height
+    const maxY = canvasHeight - halfDims.height
 
     instance.centerX = Math.min(Math.max(pointX - dragOffset.x, minX), maxX) / canvasWidth
     instance.centerY = Math.min(Math.max(pointY - dragOffset.y, minY), maxY) / canvasHeight
@@ -288,11 +315,9 @@ export class CircleInstanceManager {
     let centerY = previous?.centerY ?? 0.5
 
     if (this._strategy === 0) {
-      // Stack strategy: offset vertically
       const verticalStep = 0.08
       centerY = Math.min(centerY + verticalStep, 0.9)
     } else {
-      // Merge strategy: spread horizontally
       const pair = Math.max(1, Math.floor(index / 2) + 1)
       const direction = index % 2 === 0 ? -1 : 1
       const horizontalStep = 0.12 * pair
@@ -304,15 +329,33 @@ export class CircleInstanceManager {
     return { centerX, centerY }
   }
 
-  private extractConfig(instance: CircleInstance): CircleInstanceConfig {
+  private extractCircleConfig(instance: CircleInstance): CircleInstanceConfig {
     return {
-      centerX: instance.centerX,
-      centerY: instance.centerY,
+      ...this.extractBaseConfig(instance),
       size: instance.size,
-      shapeType: instance.shapeType,
+      iconType: instance.iconType,
+      iconOpacity: instance.iconOpacity,
+      iconScale: instance.iconScale,
+      iconColorR: instance.iconColorR,
+      iconColorG: instance.iconColorG,
+      iconColorB: instance.iconColorB,
+    }
+  }
+
+  private extractRectangleConfig(instance: RectangleInstance): RectangleInstanceConfig {
+    return {
+      ...this.extractBaseConfig(instance),
       rectWidth: instance.rectWidth,
       rectHeight: instance.rectHeight,
       rectRadius: instance.rectRadius,
+    }
+  }
+
+  private extractBaseConfig(instance: GlassInstance): GlassInstanceConfig {
+    return {
+      centerX: instance.centerX,
+      centerY: instance.centerY,
+      shapeType: instance.shapeType,
       surfaceType: instance.surfaceType,
       bezelWidth: instance.bezelWidth,
       glassThickness: instance.glassThickness,
@@ -337,12 +380,6 @@ export class CircleInstanceManager {
       glassTintB: instance.glassTintB,
       glassBgOpacity: instance.glassBgOpacity,
       pressedGlassBgOpacity: instance.pressedGlassBgOpacity,
-      iconType: instance.iconType,
-      iconOpacity: instance.iconOpacity,
-      iconScale: instance.iconScale,
-      iconColorR: instance.iconColorR,
-      iconColorG: instance.iconColorG,
-      iconColorB: instance.iconColorB,
       chromaticAberration: instance.chromaticAberration,
       chromaticStrength: instance.chromaticStrength,
       chromaticBase: instance.chromaticBase,
@@ -352,33 +389,38 @@ export class CircleInstanceManager {
   }
 
   updateStorageBuffer(canvasWidth: number, canvasHeight: number, dpr: number): void {
-    const fullData = new Float32Array(CIRCLE_INSTANCE_FLOATS * MAX_CIRCLE_INSTANCES)
+    const fullData = new Float32Array(GLASS_INSTANCE_FLOATS * MAX_GLASS_INSTANCES)
 
     for (let i = 0; i < this._instances.length; i++) {
       const instanceData = this._instances[i].toBufferData(canvasWidth, canvasHeight, dpr)
-      fullData.set(instanceData, i * CIRCLE_INSTANCE_FLOATS)
+      fullData.set(instanceData, i * GLASS_INSTANCE_FLOATS)
     }
 
     this.device.queue.writeBuffer(this._storageBuffer, 0, fullData)
   }
 
   writeSingleInstanceToBuffer(
-    instance: CircleInstance,
+    instance: GlassInstance,
     canvasWidth: number,
     canvasHeight: number,
     dpr: number,
     bufferIndex: number = 0
   ): void {
     const instanceData = instance.toBufferData(canvasWidth, canvasHeight, dpr)
-    const byteOffset = bufferIndex * CIRCLE_INSTANCE_FLOATS * 4
+    const byteOffset = bufferIndex * GLASS_INSTANCE_FLOATS * 4
     this.device.queue.writeBuffer(this._storageBuffer, byteOffset, instanceData)
   }
 
   getBaseRadius(canvasWidth: number, canvasHeight: number, dpr: number): number {
     const active = this.activeInstance
-    if (active && active.shapeType === 1) {
-      return Math.max(active.rectWidth, active.rectHeight) * dpr * 0.5
+    if (active) {
+      return active.getEffectiveRadius(canvasWidth, canvasHeight, dpr)
     }
     return Math.min(canvasWidth, canvasHeight) * 0.35
   }
 }
+
+// Re-export for backwards compatibility
+export { CircleInstance } from './circle-instance'
+export { RectangleInstance } from './rectangle-instance'
+export { GlassInstance } from './glass-instance'
