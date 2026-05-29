@@ -173,6 +173,28 @@ export class GlassControlPanel {
     controls.surfaceButtons.forEach((button) => {
       button.classList.toggle('active', button.getAttribute('data-surface') === surfaceName)
     })
+
+    // Update select elements to match instance
+    controls.blurTypeSelect.value = String(instance.blurType)
+    controls.progressiveBlurTypeSelect.value = String(instance.progressiveBlurType)
+    controls.specularTypeSelect.value = String(instance.specularType)
+    renderer.glassParams.blurType = instance.blurType
+    renderer.glassParams.progressiveBlurType = instance.progressiveBlurType
+    renderer.glassParams.specularType = instance.specularType
+    this.updateSpecularControls()
+
+    // Update glass theme - detect if it matches light/dark or set to custom
+    const isWhite = instance.glassTintR === 1 && instance.glassTintG === 1 && instance.glassTintB === 1
+    const isDark = Math.abs(instance.glassTintR - 0.133) < 0.01 &&
+                   Math.abs(instance.glassTintG - 0.133) < 0.01 &&
+                   Math.abs(instance.glassTintB - 0.133) < 0.01
+    if (isWhite) {
+      controls.glassThemeSelect.value = 'light'
+    } else if (isDark) {
+      controls.glassThemeSelect.value = 'dark'
+    } else {
+      controls.glassThemeSelect.value = 'custom'
+    }
   }
 
   applyPreset(type: PresetType): void {
