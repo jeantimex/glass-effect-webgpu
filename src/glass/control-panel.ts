@@ -53,7 +53,7 @@ export class GlassControlPanel {
     }
   }
 
-  setup(): void {
+  async setup(): Promise<void> {
     const { controls, renderer } = this.options
 
     const drawerQuery = window.matchMedia('(max-width: 1100px)')
@@ -68,8 +68,8 @@ export class GlassControlPanel {
     this.updateSpecularControls()
     this.updateChromaticControls()
     this.bindEvents()
-    renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
     this.applyPreset()
+    await renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType)
   }
 
   setPanelDrawerOpen(open: boolean): void {

@@ -59,7 +59,7 @@ export class GlassApp {
 
     setupCollapsibleSections()
     setupSliderValueDisplays()
-    controlPanel.setup()
+    await controlPanel.setup()
     interaction.setup()
     updateDisplacementMap()
 
