@@ -738,11 +738,17 @@ fn get_player_circle_radius(circle_index: i32) -> f32 {
 }
 
 fn get_circle_preset_base_radius() -> f32 {
+  if (uniforms.shape_type > 0.5) {
+    return max(uniforms.rect_width, uniforms.rect_height) * 0.5;
+  }
   return min(uniforms.canvas_width, uniforms.canvas_height) * 0.35;
 }
 
 fn get_circle_preset_radius(circle_index: i32) -> f32 {
   let circle = circle_preset_circles[circle_index];
+  if (uniforms.shape_type > 0.5) {
+    return min(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle.z;
+  }
   return get_circle_preset_base_radius() * circle.z;
 }
 
@@ -757,12 +763,19 @@ fn circle_preset_sdf(pixel: vec2f) -> f32 {
 
   var result = 1e9;
   let k = 40.0 * uniforms.device_pixel_ratio;
+  let rect_half_size = vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5;
+  let rect_radius = min(uniforms.rect_radius, min(rect_half_size.x, rect_half_size.y));
 
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
     let center = get_circle_preset_center(i);
     let radius = get_circle_preset_radius(i);
-    let d = length((pixel - center) / get_scale_for_circle(i)) - radius;
+    let scale = get_scale_for_circle(i);
+    let d = select(
+      length((pixel - center) / scale) - radius,
+      rounded_rect_sdf((pixel - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
+      uniforms.shape_type > 0.5
+    );
     if (uniforms.circle_preset_strategy < 0.5) {
       result = min(result, d);
     } else {
@@ -779,14 +792,24 @@ fn circle_preset_sdf(pixel: vec2f) -> f32 {
 fn circle_preset_shadow_alpha(pixel: vec2f) -> f32 {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
   var alpha = 0.0;
+  let rect_half_size = vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5;
+  let rect_radius = min(uniforms.rect_radius, min(rect_half_size.x, rect_half_size.y));
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
     let center = get_circle_preset_center(i);
     let radius = get_circle_preset_radius(i);
     let scale = get_scale_for_circle(i);
     let shadow_offset = vec2f(uniforms.circle_preset_shadow_offset_x, uniforms.circle_preset_shadow_offset_y);
-    let inside = length((pixel - center) / scale) - radius;
-    let shadow_d = length((pixel - shadow_offset - center) / scale) - radius;
+    let inside = select(
+      length((pixel - center) / scale) - radius,
+      rounded_rect_sdf((pixel - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
+      uniforms.shape_type > 0.5
+    );
+    let shadow_d = select(
+      length((pixel - shadow_offset - center) / scale) - radius,
+      rounded_rect_sdf((pixel - shadow_offset - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
+      uniforms.shape_type > 0.5
+    );
     let shadow_blur = max(uniforms.circle_preset_shadow_blur, 1.0);
     let shadow_alpha = select(0.0, smoothstep(shadow_blur, -shadow_blur * 0.5, shadow_d) * uniforms.circle_preset_shadow_opacity, inside > 0.0);
     alpha = max(alpha, shadow_alpha);
@@ -810,13 +833,22 @@ fn get_circle_preset_active_circle(pixel: vec2f) -> CircleInfo {
   var closest_index = 0;
   var closest_distance = 1e9;
   var closest_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
-  var closest_radius = uniforms.glass_radius;
+  var closest_radius = select(uniforms.glass_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
 
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
     let center = get_circle_preset_center(i);
     let radius = get_circle_preset_radius(i);
-    let dist = length(pixel - center) - radius;
+    let scale = get_scale_for_circle(i);
+    let dist = select(
+      length(pixel - center) - radius,
+      rounded_rect_sdf(
+        (pixel - center) / scale,
+        vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle_preset_circles[i].z,
+        min(uniforms.rect_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5) * circle_preset_circles[i].z
+      ),
+      uniforms.shape_type > 0.5
+    );
     if (dist < closest_distance) {
       closest_distance = dist;
       closest_index = i;

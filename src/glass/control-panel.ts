@@ -137,15 +137,19 @@ export class GlassControlPanel {
     applyPresetToUserParams(userParams, preset)
     resetGlassSpringsFromPreset(springs, preset)
     renderer.setCirclePresetStrategy(0)
-    renderer.glassParams.circlePresetMode = type === 'circle-lens'
-    if (type === 'circle-lens') {
+    renderer.glassParams.circlePresetMode = type === 'circle-lens' || type === 'rectangle'
+    if (type === 'circle-lens' || type === 'rectangle') {
       renderer.resetCirclePresetCircles()
       controls.circlePresetStrategySelect.value = 'stack'
       setSliderValue(controls.circleSizeSlider, renderer.getCirclePresetCircle(0).size)
-      const icon = controls.iconTypeSelect.value
-      const iconUrl = icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
-      void renderer.setCirclePresetIcon(iconUrl)
-      renderer.setIcon(iconUrl).catch(console.error)
+      if (type === 'circle-lens') {
+        const icon = controls.iconTypeSelect.value
+        const iconUrl = icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
+        void renderer.setCirclePresetIcon(iconUrl)
+        renderer.setIcon(iconUrl).catch(console.error)
+      } else {
+        void renderer.setCirclePresetIcon(null)
+      }
     }
 
     controls.surfaceButtons.forEach((button) => {
@@ -232,9 +236,12 @@ export class GlassControlPanel {
       this.applyPreset(controls.presetSelect.value as PresetType)
     })
     controls.circlePresetAddButton.addEventListener('click', () => {
-      if (this.options.getCurrentPreset() !== 'circle-lens') return
+      const currentPreset = this.options.getCurrentPreset()
+      if (currentPreset !== 'circle-lens' && currentPreset !== 'rectangle') return
       const index = renderer.addCirclePresetCircle()
-      this.setCircleSize(renderer.getCirclePresetCircle(index).size)
+      if (currentPreset === 'circle-lens') {
+        this.setCircleSize(renderer.getCirclePresetCircle(index).size)
+      }
     })
     controls.circlePresetStrategySelect.addEventListener('change', () => {
       const strategy = controls.circlePresetStrategySelect.value as CirclePresetStrategy
@@ -494,11 +501,12 @@ export class GlassControlPanel {
     const isRectangle = renderer.glassParams.shapeType === 1
     const preset = getCurrentPreset()
     const isCirclePreset = preset === 'circle-lens'
+    const isRectanglePreset = preset === 'rectangle'
     const isTrackPreset = preset === 'switch' || preset === 'slider'
     const isPlayerControls = preset === 'player-controls'
     const isSplitMenu = preset === 'split-menu'
     controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', isRectangle || isPlayerControls || isSplitMenu))
-    controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !isCirclePreset))
+    controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !(isCirclePreset || isRectanglePreset)))
     controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !isRectangle))
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
     controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))

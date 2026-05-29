@@ -16,6 +16,7 @@ import {
   isPointInsideGlass,
   isPointInsideSplitMenu,
   isPointInsideSwitchTrack,
+  roundedRectDistance,
   resizeCanvasToDisplaySize,
 } from './geometry'
 import {
@@ -571,15 +572,29 @@ export class WebGPURenderer {
 
     const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
     const baseRadius = this.getCirclePresetBaseRadius()
+    const dpr = window.devicePixelRatio || 1
+    const rectWidth = this.glassParams.rectWidth * dpr
+    const rectHeight = this.glassParams.rectHeight * dpr
+    const rectRadius = Math.min(this.glassParams.rectRadiusPercent, 100) / 100 * Math.min(rectWidth, rectHeight) * 0.5
     let closestIndex = -1
     let closestDistance = Number.POSITIVE_INFINITY
 
     for (let index = 0; index < this.circlePresetCircles.length; index++) {
       const circle = this.circlePresetCircles[index]
-      const radius = baseRadius * circle.size
-      const hitRadius = this.glassParams.circlePresetStrategy === 1 ? radius * 1.18 : radius
-      const distance = Math.hypot(point.x - circle.centerX * this.canvas.width, point.y - circle.centerY * this.canvas.height)
-      if (distance <= hitRadius && distance < closestDistance) {
+      const centerX = circle.centerX * this.canvas.width
+      const centerY = circle.centerY * this.canvas.height
+      const scale = circle.size
+      const distance = this.glassParams.shapeType === 1
+        ? roundedRectDistance(
+            point.x - centerX,
+            point.y - centerY,
+            rectWidth * scale,
+            rectHeight * scale,
+            rectRadius * scale
+          )
+        : Math.hypot(point.x - centerX, point.y - centerY) - baseRadius * circle.size
+      const hitDistance = this.glassParams.circlePresetStrategy === 1 ? distance - 4 : distance
+      if (hitDistance <= 0 && distance < closestDistance) {
         closestIndex = index
         closestDistance = distance
       }
@@ -608,11 +623,18 @@ export class WebGPURenderer {
     if (!circle) return
 
     const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
+    const dpr = window.devicePixelRatio || 1
     const radius = this.getCirclePresetBaseRadius() * circle.size
-    const minX = radius
-    const maxX = this.canvas.width - radius
-    const minY = radius
-    const maxY = this.canvas.height - radius
+    const rectHalfWidth = this.glassParams.shapeType === 1
+      ? this.glassParams.rectWidth * dpr * circle.size * 0.5
+      : radius
+    const rectHalfHeight = this.glassParams.shapeType === 1
+      ? this.glassParams.rectHeight * dpr * circle.size * 0.5
+      : radius
+    const minX = rectHalfWidth
+    const maxX = this.canvas.width - rectHalfWidth
+    const minY = rectHalfHeight
+    const maxY = this.canvas.height - rectHalfHeight
 
     circle.centerX = Math.min(Math.max(point.x - dragOffset.x, minX), maxX) / this.canvas.width
     circle.centerY = Math.min(Math.max(point.y - dragOffset.y, minY), maxY) / this.canvas.height
@@ -667,6 +689,9 @@ export class WebGPURenderer {
   }
 
   private getCirclePresetBaseRadius(): number {
+    if (this.glassParams.shapeType === 1) {
+      return Math.max(this.glassParams.rectWidth, this.glassParams.rectHeight) * (window.devicePixelRatio || 1) * 0.5
+    }
     return Math.min(this.canvas.width, this.canvas.height) * 0.35
   }
 

@@ -69,12 +69,14 @@ export class GlassInteraction {
     const preset = this.options.getCurrentPreset()
     const isTrackPreset = this.isTrackPreset()
     const isCirclePreset = preset === 'circle-lens'
+    const isRectanglePreset = preset === 'rectangle'
+    const isMultiItemPreset = isCirclePreset || isRectanglePreset
     const isInsideTrack = renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
     const isInsideGlass = renderer.isPointInsideGlass(event.clientX, event.clientY)
 
     this.cancelTrackAnimation()
 
-    if (isCirclePreset) {
+    if (isMultiItemPreset) {
       const clickedIndex = renderer.getClickedCirclePresetIndex(event.clientX, event.clientY)
       if (clickedIndex < 0) {
         this.updateCanvasCursor(event)
@@ -90,7 +92,9 @@ export class GlassInteraction {
       this.pointerStartPos = { x: event.clientX, y: event.clientY }
       this.lastPointerTime = performance.now()
       this.currentVelocity = { x: 0, y: 0 }
-      this.options.setCircleSize(renderer.getCirclePresetCircle(clickedIndex).size)
+      if (isCirclePreset) {
+        this.options.setCircleSize(renderer.getCirclePresetCircle(clickedIndex).size)
+      }
       canvas.style.cursor = 'grabbing'
       canvas.setPointerCapture(event.pointerId)
       event.preventDefault()
