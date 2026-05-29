@@ -1,5 +1,5 @@
 import type { SurfaceType } from './displacement-map'
-import type { BackgroundType, WebGPURenderer } from '../webgpu/renderer'
+import type { BackgroundType, WebGPURenderer, CircleInstance } from '../webgpu/renderer'
 import type { GlassControls } from './dom'
 import { setSliderValue } from './dom'
 import { getPresetDefinition } from '../presets'
@@ -22,6 +22,23 @@ interface ControlPanelOptions {
 export class GlassControlPanel {
   constructor(private options: ControlPanelOptions) {}
 
+  private isCirclePresetMode(): boolean {
+    const preset = this.options.getCurrentPreset()
+    return preset === 'circle-lens' || preset === 'rectangle'
+  }
+
+  private getActiveInstance(): CircleInstance | undefined {
+    if (!this.isCirclePresetMode()) return undefined
+    return this.options.renderer.getActiveCircleInstance()
+  }
+
+  private updateInstanceProperty(update: (instance: CircleInstance) => void): void {
+    const instance = this.getActiveInstance()
+    if (instance) {
+      update(instance)
+    }
+  }
+
   setup(): void {
     const { controls, renderer } = this.options
 
@@ -38,6 +55,7 @@ export class GlassControlPanel {
     this.updateChromaticControls()
     this.bindEvents()
     renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
+    this.applyPreset(controls.presetSelect.value as PresetType)
   }
 
   setPanelDrawerOpen(open: boolean): void {
@@ -81,6 +99,80 @@ export class GlassControlPanel {
     const clampedHeight = Math.min(Math.max(height, parseFloat(controls.rectHeightSlider.min)), parseFloat(controls.rectHeightSlider.max))
     renderer.glassParams.rectHeight = clampedHeight
     controls.rectHeightSlider.value = String(clampedHeight)
+  }
+
+  syncSlidersFromActiveInstance(): void {
+    const instance = this.getActiveInstance()
+    if (!instance) return
+
+    const { controls, renderer, userParams } = this.options
+
+    setSliderValue(controls.circleSizeSlider, instance.size)
+    setSliderValue(controls.bezelSlider, instance.bezelWidth)
+    setSliderValue(controls.thicknessSlider, instance.glassThickness)
+    setSliderValue(controls.refractiveIndexSlider, instance.refractiveIndex)
+    setSliderValue(controls.magnifyingScaleSlider, instance.magnifyingScale)
+    setSliderValue(controls.scaleSlider, instance.scaleRatio)
+    setSliderValue(controls.blurAmountSlider, instance.blurAmount)
+    setSliderValue(controls.progressiveBlurSlider, instance.progressiveBlur)
+    setSliderValue(controls.glassBgOpacitySlider, instance.glassBgOpacity)
+    setSliderValue(controls.pressedGlassBgOpacitySlider, instance.pressedGlassBgOpacity)
+    setSliderValue(controls.specularOpacitySlider, instance.specularOpacity)
+    setSliderValue(controls.specularAngleSlider, instance.specularAngle * 180 / Math.PI)
+    setSliderValue(controls.specularSaturationSlider, instance.specularSaturation)
+    setSliderValue(controls.shadowOpacitySlider, instance.shadowOpacity)
+    setSliderValue(controls.shadowBlurSlider, instance.shadowBlur)
+    setSliderValue(controls.shadowOffsetXSlider, instance.shadowOffsetX)
+    setSliderValue(controls.shadowOffsetYSlider, instance.shadowOffsetY)
+    setSliderValue(controls.iconOpacitySlider, instance.iconOpacity)
+    setSliderValue(controls.iconScaleSlider, instance.iconScale)
+    setSliderValue(controls.chromaticStrengthSlider, instance.chromaticStrength)
+    setSliderValue(controls.chromaticBaseSlider, instance.chromaticBase)
+
+    if (instance.shapeType === 1) {
+      setSliderValue(controls.rectWidthSlider, instance.rectWidth)
+      setSliderValue(controls.rectHeightSlider, instance.rectHeight)
+      const minDim = Math.min(instance.rectWidth, instance.rectHeight)
+      const radiusPercent = (instance.rectRadius / (minDim * 0.5)) * 100
+      setSliderValue(controls.rectRadiusSlider, radiusPercent)
+    }
+
+    renderer.glassParams.circleSize = instance.size
+    renderer.glassParams.bezelWidth = instance.bezelWidth
+    renderer.glassParams.glassThickness = instance.glassThickness
+    renderer.glassParams.refractiveIndex = instance.refractiveIndex
+    renderer.glassParams.magnifyingScale = instance.magnifyingScale
+    renderer.glassParams.scaleRatio = instance.scaleRatio
+    renderer.glassParams.blurAmount = instance.blurAmount
+    renderer.glassParams.progressiveBlur = instance.progressiveBlur
+    renderer.glassParams.glassBgOpacity = instance.glassBgOpacity
+    userParams.pressedGlassBgOpacity = instance.pressedGlassBgOpacity
+    renderer.glassParams.specularOpacity = instance.specularOpacity
+    renderer.glassParams.specularAngle = instance.specularAngle
+    renderer.glassParams.specularSaturation = instance.specularSaturation
+    renderer.glassParams.shadowOpacity = instance.shadowOpacity
+    renderer.glassParams.shadowBlur = instance.shadowBlur
+    renderer.glassParams.shadowOffsetX = instance.shadowOffsetX
+    renderer.glassParams.shadowOffsetY = instance.shadowOffsetY
+    renderer.glassParams.iconOpacity = instance.iconOpacity
+    renderer.glassParams.iconScale = instance.iconScale
+    renderer.glassParams.chromaticStrength = instance.chromaticStrength
+    renderer.glassParams.chromaticBase = instance.chromaticBase
+    renderer.glassParams.glassTintR = instance.glassTintR
+    renderer.glassParams.glassTintG = instance.glassTintG
+    renderer.glassParams.glassTintB = instance.glassTintB
+    renderer.glassParams.surfaceType = instance.surfaceType
+
+    // Update color picker to match instance
+    const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
+    controls.glassBgColorInput.value = `#${toHex(instance.glassTintR)}${toHex(instance.glassTintG)}${toHex(instance.glassTintB)}`
+
+    // Update surface buttons to match instance
+    const surfaceNames: SurfaceType[] = ['convex-circle', 'convex-squircle', 'concave', 'lip']
+    const surfaceName = surfaceNames[instance.surfaceType] ?? 'convex-circle'
+    controls.surfaceButtons.forEach((button) => {
+      button.classList.toggle('active', button.getAttribute('data-surface') === surfaceName)
+    })
   }
 
   applyPreset(type: PresetType): void {
@@ -265,29 +357,41 @@ export class GlassControlPanel {
         button.classList.add('active')
         const surfaceType = button.getAttribute('data-surface') as SurfaceType
         setCurrentSurfaceType(surfaceType)
-        renderer.glassParams.surfaceType = surfaceTypeMap[surfaceType]
+        const surfaceValue = surfaceTypeMap[surfaceType]
+        renderer.glassParams.surfaceType = surfaceValue
+        this.updateInstanceProperty(inst => inst.surfaceType = surfaceValue)
         updateDisplacementMap()
       })
     })
 
     controls.bezelSlider.addEventListener('input', () => {
-      renderer.glassParams.bezelWidth = parseInt(controls.bezelSlider.value)
+      const value = parseInt(controls.bezelSlider.value)
+      renderer.glassParams.bezelWidth = value
+      this.updateInstanceProperty(inst => inst.bezelWidth = value)
       updateDisplacementMap()
     })
     controls.thicknessSlider.addEventListener('input', () => {
-      renderer.glassParams.glassThickness = parseInt(controls.thicknessSlider.value)
+      const value = parseInt(controls.thicknessSlider.value)
+      renderer.glassParams.glassThickness = value
+      this.updateInstanceProperty(inst => inst.glassThickness = value)
       updateDisplacementMap()
     })
     controls.refractiveIndexSlider.addEventListener('input', () => {
-      renderer.glassParams.refractiveIndex = parseFloat(controls.refractiveIndexSlider.value)
+      const value = parseFloat(controls.refractiveIndexSlider.value)
+      renderer.glassParams.refractiveIndex = value
+      this.updateInstanceProperty(inst => inst.refractiveIndex = value)
       updateDisplacementMap()
     })
     controls.scaleSlider.addEventListener('input', () => {
-      userParams.scaleRatio = parseFloat(controls.scaleSlider.value)
+      const value = parseFloat(controls.scaleSlider.value)
+      userParams.scaleRatio = value
+      this.updateInstanceProperty(inst => inst.scaleRatio = value)
       updateDisplacementMap()
     })
     controls.magnifyingScaleSlider.addEventListener('input', () => {
-      userParams.magnifyingScale = parseFloat(controls.magnifyingScaleSlider.value)
+      const value = parseFloat(controls.magnifyingScaleSlider.value)
+      userParams.magnifyingScale = value
+      this.updateInstanceProperty(inst => inst.magnifyingScale = value)
     })
     controls.circleSizeSlider.addEventListener('input', () => {
       this.setCircleSize(parseFloat(controls.circleSizeSlider.value))
@@ -397,43 +501,71 @@ export class GlassControlPanel {
     })
 
     controls.specularOpacitySlider.addEventListener('input', () => {
-      userParams.specularOpacity = parseFloat(controls.specularOpacitySlider.value)
+      const value = parseFloat(controls.specularOpacitySlider.value)
+      userParams.specularOpacity = value
+      this.updateInstanceProperty(inst => inst.specularOpacity = value)
     })
     controls.specularAngleSlider.addEventListener('input', () => {
-      renderer.glassParams.specularAngle = parseFloat(controls.specularAngleSlider.value) * Math.PI / 180
+      const value = parseFloat(controls.specularAngleSlider.value) * Math.PI / 180
+      renderer.glassParams.specularAngle = value
+      this.updateInstanceProperty(inst => inst.specularAngle = value)
     })
     controls.specularSaturationSlider.addEventListener('input', () => {
-      renderer.glassParams.specularSaturation = parseFloat(controls.specularSaturationSlider.value)
+      const value = parseFloat(controls.specularSaturationSlider.value)
+      renderer.glassParams.specularSaturation = value
+      this.updateInstanceProperty(inst => inst.specularSaturation = value)
     })
     controls.specularTypeSelect.addEventListener('change', () => {
-      renderer.glassParams.specularType = parseFloat(controls.specularTypeSelect.value)
+      const value = parseFloat(controls.specularTypeSelect.value)
+      renderer.glassParams.specularType = value
+      this.updateInstanceProperty(inst => inst.specularType = value)
       this.updateSpecularControls()
     })
 
     controls.blurTypeSelect.addEventListener('change', () => {
-      renderer.glassParams.blurType = parseFloat(controls.blurTypeSelect.value)
+      const value = parseFloat(controls.blurTypeSelect.value)
+      renderer.glassParams.blurType = value
+      this.updateInstanceProperty(inst => inst.blurType = value)
     })
     controls.blurAmountSlider.addEventListener('input', () => {
-      renderer.glassParams.blurAmount = parseFloat(controls.blurAmountSlider.value)
+      const value = parseFloat(controls.blurAmountSlider.value)
+      renderer.glassParams.blurAmount = value
+      this.updateInstanceProperty(inst => inst.blurAmount = value)
     })
     controls.progressiveBlurSlider.addEventListener('input', () => {
-      renderer.glassParams.progressiveBlur = parseFloat(controls.progressiveBlurSlider.value)
+      const value = parseFloat(controls.progressiveBlurSlider.value)
+      renderer.glassParams.progressiveBlur = value
+      this.updateInstanceProperty(inst => inst.progressiveBlur = value)
     })
     controls.progressiveBlurTypeSelect.addEventListener('change', () => {
-      renderer.glassParams.progressiveBlurType = parseFloat(controls.progressiveBlurTypeSelect.value)
+      const value = parseFloat(controls.progressiveBlurTypeSelect.value)
+      renderer.glassParams.progressiveBlurType = value
+      this.updateInstanceProperty(inst => inst.progressiveBlurType = value)
     })
     controls.glassThemeSelect.addEventListener('change', () => this.updateGlassTheme())
     controls.glassBgColorInput.addEventListener('input', () => {
       const hex = controls.glassBgColorInput.value
-      renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
-      renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
-      renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
+      const r = parseInt(hex.slice(1, 3), 16) / 255
+      const g = parseInt(hex.slice(3, 5), 16) / 255
+      const b = parseInt(hex.slice(5, 7), 16) / 255
+      renderer.glassParams.glassTintR = r
+      renderer.glassParams.glassTintG = g
+      renderer.glassParams.glassTintB = b
+      this.updateInstanceProperty(inst => {
+        inst.glassTintR = r
+        inst.glassTintG = g
+        inst.glassTintB = b
+      })
     })
     controls.glassBgOpacitySlider.addEventListener('input', () => {
-      userParams.glassBgOpacity = parseFloat(controls.glassBgOpacitySlider.value)
+      const value = parseFloat(controls.glassBgOpacitySlider.value)
+      userParams.glassBgOpacity = value
+      this.updateInstanceProperty(inst => inst.glassBgOpacity = value)
     })
     controls.pressedGlassBgOpacitySlider.addEventListener('input', () => {
-      userParams.pressedGlassBgOpacity = parseFloat(controls.pressedGlassBgOpacitySlider.value)
+      const value = parseFloat(controls.pressedGlassBgOpacitySlider.value)
+      userParams.pressedGlassBgOpacity = value
+      this.updateInstanceProperty(inst => inst.pressedGlassBgOpacity = value)
     })
 
     controls.liquidEnabledCheckbox.addEventListener('change', () => {
@@ -464,27 +596,41 @@ export class GlassControlPanel {
     })
 
     controls.shadowOpacitySlider.addEventListener('input', () => {
-      userParams.shadowOpacity = parseFloat(controls.shadowOpacitySlider.value)
+      const value = parseFloat(controls.shadowOpacitySlider.value)
+      userParams.shadowOpacity = value
+      this.updateInstanceProperty(inst => inst.shadowOpacity = value)
     })
     controls.shadowBlurSlider.addEventListener('input', () => {
-      userParams.shadowBlur = parseFloat(controls.shadowBlurSlider.value)
+      const value = parseFloat(controls.shadowBlurSlider.value)
+      userParams.shadowBlur = value
+      this.updateInstanceProperty(inst => inst.shadowBlur = value)
     })
     controls.shadowOffsetXSlider.addEventListener('input', () => {
-      userParams.shadowOffsetX = parseFloat(controls.shadowOffsetXSlider.value)
+      const value = parseFloat(controls.shadowOffsetXSlider.value)
+      userParams.shadowOffsetX = value
+      this.updateInstanceProperty(inst => inst.shadowOffsetX = value)
     })
     controls.shadowOffsetYSlider.addEventListener('input', () => {
-      userParams.shadowOffsetY = parseFloat(controls.shadowOffsetYSlider.value)
+      const value = parseFloat(controls.shadowOffsetYSlider.value)
+      userParams.shadowOffsetY = value
+      this.updateInstanceProperty(inst => inst.shadowOffsetY = value)
     })
 
     controls.chromaticAberrationCheckbox.addEventListener('change', () => {
-      renderer.glassParams.chromaticAberration = controls.chromaticAberrationCheckbox.checked
+      const value = controls.chromaticAberrationCheckbox.checked
+      renderer.glassParams.chromaticAberration = value
+      this.updateInstanceProperty(inst => inst.chromaticAberration = value)
       this.updateChromaticControls()
     })
     controls.chromaticStrengthSlider.addEventListener('input', () => {
-      renderer.glassParams.chromaticStrength = parseFloat(controls.chromaticStrengthSlider.value)
+      const value = parseFloat(controls.chromaticStrengthSlider.value)
+      renderer.glassParams.chromaticStrength = value
+      this.updateInstanceProperty(inst => inst.chromaticStrength = value)
     })
     controls.chromaticBaseSlider.addEventListener('input', () => {
-      renderer.glassParams.chromaticBase = parseFloat(controls.chromaticBaseSlider.value)
+      const value = parseFloat(controls.chromaticBaseSlider.value)
+      renderer.glassParams.chromaticBase = value
+      this.updateInstanceProperty(inst => inst.chromaticBase = value)
     })
   }
 
@@ -553,9 +699,17 @@ export class GlassControlPanel {
     }
 
     const hex = controls.glassBgColorInput.value
-    renderer.glassParams.glassTintR = parseInt(hex.slice(1, 3), 16) / 255
-    renderer.glassParams.glassTintG = parseInt(hex.slice(3, 5), 16) / 255
-    renderer.glassParams.glassTintB = parseInt(hex.slice(5, 7), 16) / 255
+    const r = parseInt(hex.slice(1, 3), 16) / 255
+    const g = parseInt(hex.slice(3, 5), 16) / 255
+    const b = parseInt(hex.slice(5, 7), 16) / 255
+    renderer.glassParams.glassTintR = r
+    renderer.glassParams.glassTintG = g
+    renderer.glassParams.glassTintB = b
+    this.updateInstanceProperty(inst => {
+      inst.glassTintR = r
+      inst.glassTintG = g
+      inst.glassTintB = b
+    })
   }
 
   private updateSpecularControls(): void {

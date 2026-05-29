@@ -62,6 +62,7 @@ export class GlassApp {
       setCircleSize: (size) => controlPanel.setCircleSize(size),
       setRectWidth: (width) => controlPanel.setRectWidth(width),
       setRectHeight: (height) => controlPanel.setRectHeight(height),
+      syncSlidersFromActiveInstance: () => controlPanel.syncSlidersFromActiveInstance(),
       circleSizeSlider: controls.circleSizeSlider,
       rectWidthSlider: controls.rectWidthSlider,
       rectHeightSlider: controls.rectHeightSlider,

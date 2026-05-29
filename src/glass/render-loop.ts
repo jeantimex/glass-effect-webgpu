@@ -11,6 +11,7 @@ export interface InteractionRenderState {
 
 export class GlassRenderLoop {
   private lastFrameTime = performance.now()
+  private lastActiveInstanceIndex = -1
 
   constructor(
     private renderer: WebGPURenderer,
@@ -60,6 +61,20 @@ export class GlassRenderLoop {
       ? Math.min(speed * 0.00018 * this.userParams.liquidDragSquash * liquidAmount, 0.28 * this.userParams.liquidDragSquash)
       : 0
 
+    const preset = this.getCurrentPreset()
+    const isCirclePreset = preset === 'circle-lens' || preset === 'rectangle'
+    const activeInstance = isCirclePreset ? this.renderer.getActiveCircleInstance() : null
+    const currentActiveIndex = isCirclePreset ? this.renderer.getCirclePresetActiveIndex() : -1
+    const pressedGlassBgOpacity = activeInstance?.pressedGlassBgOpacity ?? this.userParams.pressedGlassBgOpacity
+    const glassBgOpacity = activeInstance?.glassBgOpacity ?? this.userParams.glassBgOpacity
+
+    // Reset spring when active instance changes to match new instance's base value
+    if (isCirclePreset && currentActiveIndex !== this.lastActiveInstanceIndex) {
+      this.springs.glassBgOpacity.value = glassBgOpacity
+      this.springs.glassBgOpacity.target = glassBgOpacity
+      this.lastActiveInstanceIndex = currentActiveIndex
+    }
+
     if (active) {
       this.springs.scale.target = this.userParams.circleSize * (this.userParams.liquidEnabled ? this.userParams.liquidPressScale : 1)
       this.springs.refraction.target = this.userParams.scaleRatio * (this.userParams.liquidEnabled ? this.userParams.liquidPressRefraction + dragLiquid * 0.45 : 1)
@@ -68,7 +83,7 @@ export class GlassRenderLoop {
       this.springs.shadowBlur.target = this.userParams.liquidEnabled ? this.userParams.shadowBlur * 0.72 : this.userParams.shadowBlur
       this.springs.shadowOffsetY.target = this.userParams.liquidEnabled ? this.userParams.shadowOffsetY + 5 : this.userParams.shadowOffsetY
       this.springs.specularOpacity.target = this.userParams.liquidEnabled ? Math.min(this.userParams.specularOpacity + 0.22, 1) : this.userParams.specularOpacity
-      this.springs.glassBgOpacity.target = this.userParams.pressedGlassBgOpacity
+      this.springs.glassBgOpacity.target = pressedGlassBgOpacity
       this.springs.liquid.target = 0
     } else {
       this.springs.scale.target = this.userParams.circleSize
@@ -78,7 +93,7 @@ export class GlassRenderLoop {
       this.springs.shadowBlur.target = this.userParams.shadowBlur
       this.springs.shadowOffsetY.target = this.userParams.shadowOffsetY
       this.springs.specularOpacity.target = this.userParams.specularOpacity
-      this.springs.glassBgOpacity.target = this.userParams.glassBgOpacity
+      this.springs.glassBgOpacity.target = glassBgOpacity
       this.springs.liquid.target = 0
     }
 
@@ -113,6 +128,13 @@ export class GlassRenderLoop {
     this.renderer.glassParams.shadowOffsetX = this.userParams.shadowOffsetX
     this.renderer.glassParams.shadowOffsetY = this.springs.shadowOffsetY.value
     this.renderer.glassParams.specularOpacity = isMultiItem ? this.userParams.specularOpacity : this.springs.specularOpacity.value
+    // For circle preset, animate the active instance's glassBgOpacity using runtime value
+    if (isCirclePreset || isRectanglePreset) {
+      const activeInstance = this.renderer.getActiveCircleInstance()
+      if (activeInstance) {
+        activeInstance.runtimeGlassBgOpacity = this.springs.glassBgOpacity.value
+      }
+    }
     this.renderer.glassParams.glassBgOpacity = isMultiItem ? this.userParams.glassBgOpacity : this.springs.glassBgOpacity.value
     this.renderer.glassParams.splitMenuProgress = this.springs.splitMenuProgress.value
     this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled

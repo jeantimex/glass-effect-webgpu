@@ -12,6 +12,7 @@ interface GlassInteractionOptions {
   setCircleSize: (size: number) => void
   setRectWidth: (width: number) => void
   setRectHeight: (height: number) => void
+  syncSlidersFromActiveInstance: () => void
   circleSizeSlider: HTMLInputElement
   rectWidthSlider: HTMLInputElement
   rectHeightSlider: HTMLInputElement
@@ -97,7 +98,7 @@ export class GlassInteraction {
         springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
       }
       if (isCirclePreset) {
-        this.options.setCircleSize(renderer.getCirclePresetCircle(clickedIndex).size)
+        this.options.syncSlidersFromActiveInstance()
       }
       canvas.style.cursor = 'grabbing'
       canvas.setPointerCapture(event.pointerId)

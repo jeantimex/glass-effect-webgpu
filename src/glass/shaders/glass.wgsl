@@ -109,6 +109,97 @@ struct Uniforms {
   split_menu_pill_radius: f32,
 }
 
+// Per-instance data for circle preset mode (64 floats = 256 bytes per instance)
+struct CircleInstanceData {
+  // Position & size (vec4)
+  center_x: f32,
+  center_y: f32,
+  size: f32,
+  shape_type: f32,
+
+  // Rect dimensions (vec4)
+  rect_width: f32,
+  rect_height: f32,
+  rect_radius: f32,
+  _pad0: f32,
+
+  // Surface & refraction (vec4 + vec4)
+  surface_type: f32,
+  bezel_width: f32,
+  glass_thickness: f32,
+  refractive_index: f32,
+  magnifying_scale: f32,
+  scale_ratio: f32,
+  max_displacement_scale: f32,
+  _pad1: f32,
+
+  // Shadow (vec4)
+  shadow_opacity: f32,
+  shadow_blur: f32,
+  shadow_offset_x: f32,
+  shadow_offset_y: f32,
+
+  // Blur (vec4)
+  blur_amount: f32,
+  blur_type: f32,
+  progressive_blur: f32,
+  progressive_blur_type: f32,
+
+  // Specular (vec4)
+  specular_opacity: f32,
+  specular_angle: f32,
+  specular_saturation: f32,
+  specular_type: f32,
+
+  // Glass tint (vec4)
+  glass_tint_r: f32,
+  glass_tint_g: f32,
+  glass_tint_b: f32,
+  glass_bg_opacity: f32,
+
+  // Icon (vec4 + vec4)
+  icon_type: f32,
+  icon_opacity: f32,
+  icon_scale: f32,
+  icon_color_r: f32,
+  icon_color_g: f32,
+  icon_color_b: f32,
+  _pad2: f32,
+  _pad3: f32,
+
+  // Chromatic aberration (vec4)
+  chromatic_aberration: f32,
+  chromatic_strength: f32,
+  chromatic_base: f32,
+  _pad4: f32,
+
+  // Layer & state (vec4)
+  layer_index: f32,
+  is_active: f32,
+  scale_x: f32,
+  scale_y: f32,
+
+  // Extra properties (vec4)
+  pressed_glass_bg_opacity: f32,
+  _pad5: f32,
+  _pad6: f32,
+  _pad7: f32,
+
+  // Padding to reach 64 floats (vec4 * 3)
+  _pad8: f32,
+  _pad9: f32,
+  _pad10: f32,
+  _pad11: f32,
+  _pad12: f32,
+  _pad13: f32,
+  _pad14: f32,
+  _pad15: f32,
+  _pad16: f32,
+  _pad17: f32,
+  _pad18: f32,
+  _pad19: f32,
+}
+
 struct VertexOutput {
   @builtin(position) position: vec4f,
   @location(0) uv: vec2f,
@@ -121,7 +212,7 @@ struct VertexOutput {
 @group(0) @binding(4) var icon_sampler: sampler;
 @group(0) @binding(5) var icon_left_texture: texture_2d<f32>;
 @group(0) @binding(6) var icon_right_texture: texture_2d<f32>;
-@group(0) @binding(7) var<storage, read> circle_preset_circles: array<vec4f, 8>;
+@group(0) @binding(7) var<storage, read> circle_instances: array<CircleInstanceData, 8>;
 
 // Surface height functions (x = 0 at edge, x = 1 at end of bezel)
 fn surface_convex_circle(x: f32) -> f32 {
@@ -161,32 +252,27 @@ fn get_surface_derivative(x: f32, surface_type: f32) -> f32 {
 }
 
 // Refraction using Snell's law
-// Returns displacement amount for a ray hitting surface at bezel position x
 fn calculate_displacement(bezel_t: f32, surface_type: f32, bezel_width: f32, glass_thickness: f32, refractive_index: f32) -> f32 {
-  let eta = 1.0 / refractive_index;  // air to glass
+  let eta = 1.0 / refractive_index;
 
   let height = get_surface_height(bezel_t, surface_type);
   let derivative = get_surface_derivative(bezel_t, surface_type);
 
-  // Calculate normal from derivative (rotate tangent by 90 degrees)
   let magnitude = sqrt(derivative * derivative + 1.0);
   let normal_x = -derivative / magnitude;
   let normal_y = -1.0 / magnitude;
 
-  // Incident ray is straight down: (0, 1)
-  // Simplified refraction for vertical incident ray
-  let dot_ni = normal_y;  // dot((0,1), normal)
+  let dot_ni = normal_y;
   let k = 1.0 - eta * eta * (1.0 - dot_ni * dot_ni);
 
   if (k < 0.0) {
-    return 0.0;  // Total internal reflection
+    return 0.0;
   }
 
   let k_sqrt = sqrt(k);
   let refracted_x = -(eta * dot_ni + k_sqrt) * normal_x;
   let refracted_y = eta - (eta * dot_ni + k_sqrt) * normal_y;
 
-  // Calculate displacement based on remaining glass height
   let remaining_height = height * bezel_width + glass_thickness;
 
   if (abs(refracted_y) < 0.001) {
@@ -196,7 +282,6 @@ fn calculate_displacement(bezel_t: f32, surface_type: f32, bezel_width: f32, gla
   return refracted_x * (remaining_height / refracted_y);
 }
 
-// Adjust color saturation (saturation > 1 = more saturated, < 1 = desaturated)
 fn adjust_saturation(color: vec3f, saturation: f32) -> vec3f {
   let luminance = dot(color, vec3f(0.299, 0.587, 0.114));
   return mix(vec3f(luminance), color, saturation);
@@ -204,6 +289,10 @@ fn adjust_saturation(color: vec3f, saturation: f32) -> vec3f {
 
 fn glass_tint_color() -> vec3f {
   return vec3f(uniforms.glass_tint_r, uniforms.glass_tint_g, uniforms.glass_tint_b);
+}
+
+fn instance_glass_tint_color(inst: CircleInstanceData) -> vec3f {
+  return vec3f(inst.glass_tint_r, inst.glass_tint_g, inst.glass_tint_b);
 }
 
 fn apply_glass_theme(color: vec3f) -> vec3f {
@@ -217,9 +306,25 @@ fn apply_glass_theme(color: vec3f) -> vec3f {
   return clamp(color * 1.03 + vec3f(0.2), vec3f(0.0), vec3f(1.0));
 }
 
+fn apply_instance_glass_theme(color: vec3f, inst: CircleInstanceData) -> vec3f {
+  let tint = instance_glass_tint_color(inst);
+  let tint_luminance = dot(tint, vec3f(0.299, 0.587, 0.114));
+
+  if (tint_luminance < 0.5) {
+    return clamp(color * 0.9 - vec3f(0.3), vec3f(0.0), vec3f(1.0));
+  }
+
+  return clamp(color * 1.03 + vec3f(0.2), vec3f(0.0), vec3f(1.0));
+}
+
 fn apply_glass_tint(color: vec3f) -> vec3f {
   let themed_color = mix(color, apply_glass_theme(color), uniforms.glass_bg_opacity);
   return mix(themed_color, glass_tint_color(), uniforms.glass_bg_opacity);
+}
+
+fn apply_instance_glass_tint(color: vec3f, inst: CircleInstanceData) -> vec3f {
+  let themed_color = mix(color, apply_instance_glass_theme(color, inst), inst.glass_bg_opacity);
+  return mix(themed_color, instance_glass_tint_color(inst), inst.glass_bg_opacity);
 }
 
 fn smin(a: f32, b: f32, k: f32) -> f32 {
@@ -306,39 +411,28 @@ fn sample_image_frosted(pixel: vec2f, blur: f32) -> vec3f {
   return color * uniforms.bg_brightness;
 }
 
-// Sample background with blur effect
 fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
-  // Use the internal function that applies blur softening to grid
   return apply_track_overlay(pixel, sample_background_internal(pixel, time, blur));
 }
 
-// Calculate specular highlight intensity
 fn calculate_specular(
   distance_from_edge: f32,
   bezel_pixels: f32,
   direction: vec2f,
   specular_angle: f32
 ) -> f32 {
-  // Specular rim width scales with device pixel ratio
   let rim_width = uniforms.device_pixel_ratio;
   if (distance_from_edge > rim_width) {
     return 0.0;
   }
 
-  // Specular light direction vector
   let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
-
-  // Surface normal direction (pointing outward from center)
   let normal_2d = vec2f(direction.x, -direction.y);
-
-  // Dot product - how aligned is the surface with the light direction
   let dot_product = abs(dot(normal_2d, specular_dir));
 
-  // Rim coefficient - matches reference: sqrt(1 - (1 - t)^2) where t = distance/rim_width
   let t = distance_from_edge / rim_width;
   let rim_coefficient = sqrt(1.0 - (1.0 - t) * (1.0 - t));
 
-  // Final intensity = dotProduct * rimCoefficient, squared for sharper falloff
   let intensity = dot_product * rim_coefficient;
 
   return intensity * intensity;
@@ -439,8 +533,6 @@ fn apply_player_controls_icons(pixel: vec2f, color: vec3f) -> vec3f {
   let icon_color = vec3f(uniforms.icon_color_r, uniforms.icon_color_g, uniforms.icon_color_b);
   var result = color;
 
-  // Check each circle and apply its icon
-  // Left circle
   let left_icon_size = left_radius * uniforms.icon_scale * 2.0;
   let left_uv = (pixel - left_center) / left_icon_size + vec2f(0.5);
   if (left_uv.x >= 0.0 && left_uv.x <= 1.0 && left_uv.y >= 0.0 && left_uv.y <= 1.0) {
@@ -449,7 +541,6 @@ fn apply_player_controls_icons(pixel: vec2f, color: vec3f) -> vec3f {
     result = mix(result, icon_color, mask * uniforms.icon_opacity);
   }
 
-  // Center circle
   let center_icon_size = center_radius * uniforms.icon_scale * 2.0;
   let center_uv = (pixel - main_center) / center_icon_size + vec2f(0.5);
   if (center_uv.x >= 0.0 && center_uv.x <= 1.0 && center_uv.y >= 0.0 && center_uv.y <= 1.0) {
@@ -458,7 +549,6 @@ fn apply_player_controls_icons(pixel: vec2f, color: vec3f) -> vec3f {
     result = mix(result, icon_color, mask * uniforms.icon_opacity);
   }
 
-  // Right circle
   let right_icon_size = right_radius * uniforms.icon_scale * 2.0;
   let right_uv = (pixel - right_center) / right_icon_size + vec2f(0.5);
   if (right_uv.x >= 0.0 && right_uv.x <= 1.0 && right_uv.y >= 0.0 && right_uv.y <= 1.0) {
@@ -475,14 +565,11 @@ fn apply_icon_overlay(pixel: vec2f, color: vec3f, center: vec2f, radius: f32) ->
     return color;
   }
 
-  // Use per-circle icons for player controls
   if (uniforms.player_controls_mode > 0.5) {
     return apply_player_controls_icons(pixel, color);
   }
 
   let to_pixel = pixel - center;
-
-  // Icon size is relative to glass radius
   let icon_size = radius * uniforms.icon_scale * 2.0;
   let icon_uv = to_pixel / icon_size + vec2f(0.5);
 
@@ -491,15 +578,30 @@ fn apply_icon_overlay(pixel: vec2f, color: vec3f, center: vec2f, radius: f32) ->
   }
 
   let icon_sample = textureSampleLevel(icon_texture, icon_sampler, icon_uv, 0.0);
-
-  // Use the max of RGB or Alpha as the mask to be robust against icon colors
   let mask = max(icon_sample.a, max(max(icon_sample.r, icon_sample.g), icon_sample.b));
-
-  // Use uniform icon color
   let icon_color = vec3f(uniforms.icon_color_r, uniforms.icon_color_g, uniforms.icon_color_b);
 
-  // Simple alpha blending
   return mix(color, icon_color, mask * uniforms.icon_opacity);
+}
+
+fn apply_instance_icon_overlay(pixel: vec2f, color: vec3f, center: vec2f, radius: f32, inst: CircleInstanceData) -> vec3f {
+  if (inst.icon_type < 0.5) {
+    return color;
+  }
+
+  let to_pixel = pixel - center;
+  let icon_size = radius * inst.icon_scale * 2.0;
+  let icon_uv = to_pixel / icon_size + vec2f(0.5);
+
+  if (icon_uv.x < 0.0 || icon_uv.x > 1.0 || icon_uv.y < 0.0 || icon_uv.y > 1.0) {
+    return color;
+  }
+
+  let icon_sample = textureSampleLevel(icon_texture, icon_sampler, icon_uv, 0.0);
+  let mask = max(icon_sample.a, max(max(icon_sample.r, icon_sample.g), icon_sample.b));
+  let icon_color = vec3f(inst.icon_color_r, inst.icon_color_g, inst.icon_color_b);
+
+  return mix(color, icon_color, mask * inst.icon_opacity);
 }
 
 fn shape_signed_distance(p: vec2f) -> f32 {
@@ -507,31 +609,24 @@ fn shape_signed_distance(p: vec2f) -> f32 {
 
   if (uniforms.split_menu_mode > 0.5) {
     let progress = uniforms.split_menu_progress;
-    // The menu splits into a circle on left and rounded rect (pill) on right
-    // Final separation distance (distance between centers)
     let split_dist = 320.0 * uniforms.device_pixel_ratio * progress;
 
-    // Pill dimensions from settings
     let pill_width = uniforms.split_menu_pill_width;
     let pill_height = uniforms.split_menu_pill_height;
     let pill_radius = min(uniforms.split_menu_pill_radius, min(pill_width, pill_height) * 0.5);
 
-    // Animate width from circle diameter to target pill width
     let current_width = mix(uniforms.glass_radius * 2.0, pill_width, progress);
     let current_height = mix(uniforms.glass_radius * 2.0, pill_height, progress);
     let current_radius = mix(uniforms.glass_radius, pill_radius, progress);
     let circle_radius = current_height * 0.5;
 
-    // Calculate symmetric offsets to center the whole group
     let offset_x = (uniforms.glass_radius - current_width * 0.5) * 0.5;
     let split_dist_left = offset_x - split_dist * 0.5;
     let split_dist_right = offset_x + split_dist * 0.5;
 
-    // Circle component (left) - no deformation to keep shapes independent
     let circle_p = p - vec2f(split_dist_left, 0.0);
     let d_circle = length(circle_p) - circle_radius;
 
-    // Pill component (right) - no deformation to keep shapes independent
     let rect_p = p - vec2f(split_dist_right, 0.0);
 
     let d_rect = rounded_rect_sdf(
@@ -583,6 +678,16 @@ fn apply_magnifying_displacement(pixel: vec2f, center: vec2f, magnify_ratio: f32
   return pixel - magnify_displacement;
 }
 
+fn apply_instance_magnifying_displacement(pixel: vec2f, center: vec2f, magnify_ratio: f32, inst: CircleInstanceData) -> vec2f {
+  if (abs(inst.magnifying_scale) < 0.001) {
+    return pixel;
+  }
+
+  let to_center = pixel - center;
+  let magnify_displacement = to_center * (inst.magnifying_scale / magnify_ratio);
+  return pixel - magnify_displacement;
+}
+
 fn get_shape_half_height() -> f32 {
   return select(uniforms.glass_radius, uniforms.rect_height * 0.5, uniforms.shape_type > 0.5);
 }
@@ -602,11 +707,29 @@ fn calculate_progressive_blur(to_pixel: vec2f, bezel_t: f32) -> f32 {
   return uniforms.blur_amount + edge_factor * uniforms.progressive_blur * 50.0;
 }
 
-// Sample background at a pixel position (blur parameter softens grid lines)
+fn calculate_instance_progressive_blur(to_pixel: vec2f, bezel_t: f32, inst: CircleInstanceData) -> f32 {
+  let half_height = select(
+    min(uniforms.canvas_width, uniforms.canvas_height) * 0.35 * inst.size,
+    inst.rect_height * 0.5 * inst.size,
+    inst.shape_type > 0.5
+  );
+
+  if (inst.progressive_blur_type > 0.5) {
+    let normalized_y = clamp((to_pixel.y + half_height) / (half_height * 2.0), 0.0, 1.0);
+    let band_width = 0.18;
+    let top_band = 1.0 - smoothstep(0.0, band_width, normalized_y);
+    let bottom_band = smoothstep(1.0 - band_width, 1.0, normalized_y);
+    let band_mask = max(top_band, bottom_band);
+    return inst.blur_amount + inst.progressive_blur * 50.0 * band_mask;
+  }
+
+  let edge_factor = 1.0 - bezel_t;
+  return inst.blur_amount + edge_factor * inst.progressive_blur * 50.0;
+}
+
 fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
   let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
 
-  // If using image background, sample from texture with cover mode
   if (uniforms.use_image_bg > 0.5) {
     if (uniforms.blur_type < 0.5) {
       let mip_level = blur * 0.1;
@@ -616,7 +739,6 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     return sample_image_frosted(pixel, blur);
   }
 
-  // Gradient colors (teal to pink) - more saturated
   let color_tl = vec3f(0.20, 0.78, 0.76);
   let color_mid = vec3f(0.55, 0.74, 0.73);
   let color_br = vec3f(0.92, 0.65, 0.65);
@@ -629,7 +751,6 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     bg_color = mix(color_mid, color_br, (t - 0.5) * 2.0);
   }
 
-  // Grid - fixed pixel size for cells
   let grid_size = uniforms.grid_cell_size;
   let base_line_width = 3.0;
   let anim_offset = time * uniforms.grid_speed + uniforms.grid_offset;
@@ -642,24 +763,19 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
   let frost = frost_noise(pixel);
   let local_blur = select(blur, blur * (0.76 + frost * 0.58), uniforms.blur_type > 0.5);
 
-  // Blur makes lines thicker and edges softer, with fine variation like a frosted surface.
   let blur_spread = local_blur * 0.2;
   let line_width = base_line_width + blur_spread;
   let line_threshold = 1.0 - (line_width / grid_size);
 
-  // Edge softness increases with blur
   let edge_width = 0.02 + local_blur * 0.003;
   let grid_line_x = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_x);
   let grid_line_y = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_y);
   let grid_line = max(grid_line_x, grid_line_y);
 
   let grid_color = vec3f(0.84, 0.91, 0.90);
-  // Reduce grid contrast/opacity with blur (colors blend together)
-  // At blur=100, grid is completely invisible
   let blur_fade = max(0.0, 1.0 - local_blur * 0.015);
   let grid_opacity = 0.8 * blur_fade;
 
-  // Also blend background colors toward average at high blur
   let blur_color_blend = min(1.0, local_blur * 0.01);
   let avg_color = (color_tl + color_mid + color_br) / 3.0;
   bg_color = mix(bg_color, avg_color, blur_color_blend);
@@ -670,12 +786,25 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     final_color = final_color + vec3f((frost - 0.5) * frost_strength * 0.025);
   }
 
-  // Brightness: 0=black, 1=normal, 2=2x bright
   return final_color * uniforms.bg_brightness;
 }
 
 fn sample_background(pixel: vec2f, time: f32) -> vec3f {
   return apply_track_overlay(pixel, sample_background_internal(pixel, time, 0.0));
+}
+
+fn sample_background_with_blur_type(pixel: vec2f, time: f32, blur: f32, blur_type: f32) -> vec3f {
+  let uv = pixel / vec2f(uniforms.canvas_width, uniforms.canvas_height);
+
+  if (uniforms.use_image_bg > 0.5) {
+    if (blur_type < 0.5) {
+      let mip_level = blur * 0.1;
+      return sample_image_background(pixel, mip_level) * uniforms.bg_brightness;
+    }
+    return sample_image_frosted(pixel, blur);
+  }
+
+  return sample_background_internal(pixel, time, blur);
 }
 
 @vertex
@@ -707,16 +836,18 @@ struct CircleInfo {
 }
 
 fn get_scale_for_circle(circle_index: i32) -> vec2f {
+  if (uniforms.circle_preset_mode > 0.5) {
+    let inst = circle_instances[circle_index];
+    if (inst.is_active < 0.5) {
+      return vec2f(1.0, 1.0);
+    }
+    return vec2f(inst.scale_x, inst.scale_y);
+  }
+
   if (
-    (
-      uniforms.player_controls_mode > 0.5 ||
-      uniforms.circle_preset_mode > 0.5
-    ) &&
+    uniforms.player_controls_mode > 0.5 &&
     uniforms.player_controls_group_liquid < 0.5 &&
-    (
-      (uniforms.player_controls_mode > 0.5 && circle_index != i32(uniforms.active_circle_index)) ||
-      (uniforms.circle_preset_mode > 0.5 && circle_preset_circles[circle_index].w < 0.5)
-    )
+    circle_index != i32(uniforms.active_circle_index)
   ) {
     return vec2f(1.0, 1.0);
   }
@@ -737,50 +868,57 @@ fn get_player_circle_radius(circle_index: i32) -> f32 {
   return base * uniforms.center_circle_size;
 }
 
-fn get_circle_preset_base_radius() -> f32 {
-  if (uniforms.shape_type > 0.5) {
-    return max(uniforms.rect_width, uniforms.rect_height) * 0.5;
+// Circle instance functions using per-instance data
+fn get_instance_base_radius(inst: CircleInstanceData) -> f32 {
+  if (inst.shape_type > 0.5) {
+    return max(inst.rect_width, inst.rect_height) * 0.5;
   }
   return min(uniforms.canvas_width, uniforms.canvas_height) * 0.35;
 }
 
-fn get_circle_preset_radius(circle_index: i32) -> f32 {
-  let circle = circle_preset_circles[circle_index];
-  if (uniforms.shape_type > 0.5) {
-    return min(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle.z;
+fn get_instance_radius(inst: CircleInstanceData) -> f32 {
+  if (inst.shape_type > 0.5) {
+    return min(inst.rect_width, inst.rect_height) * 0.5 * inst.size;
   }
-  return get_circle_preset_base_radius() * circle.z;
+  return get_instance_base_radius(inst) * inst.size;
 }
 
-fn get_circle_preset_center(circle_index: i32) -> vec2f {
-  let circle = circle_preset_circles[circle_index];
-  return circle.xy;
+fn get_instance_center(inst: CircleInstanceData) -> vec2f {
+  return vec2f(inst.center_x, inst.center_y);
 }
 
-fn circle_preset_item_sdf(pixel: vec2f, circle_index: i32) -> f32 {
-  let center = get_circle_preset_center(circle_index);
-  let radius = get_circle_preset_radius(circle_index);
-  let scale = get_scale_for_circle(circle_index);
-  return select(
-    length((pixel - center) / scale) - radius,
-    rounded_rect_sdf(
-      (pixel - center) / scale,
-      vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle_preset_circles[circle_index].z,
-      min(uniforms.rect_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5) * circle_preset_circles[circle_index].z
-    ),
-    uniforms.shape_type > 0.5
-  );
+fn get_instance_scale(inst: CircleInstanceData) -> vec2f {
+  if (inst.is_active < 0.5) {
+    return vec2f(1.0, 1.0);
+  }
+  return vec2f(inst.scale_x, inst.scale_y);
 }
 
-fn circle_preset_item_normal(pixel: vec2f, circle_index: i32) -> vec2f {
+fn instance_item_sdf(pixel: vec2f, circle_index: i32) -> f32 {
+  let inst = circle_instances[circle_index];
+  let center = get_instance_center(inst);
+  let scale = get_instance_scale(inst);
+  let scaled_p = (pixel - center) / scale;
+
+  if (inst.shape_type > 0.5) {
+    let half_size = vec2f(inst.rect_width, inst.rect_height) * 0.5 * inst.size;
+    let radius = min(inst.rect_radius, min(inst.rect_width, inst.rect_height) * 0.5) * inst.size;
+    return rounded_rect_sdf(scaled_p, half_size, radius);
+  }
+
+  let base_radius = min(uniforms.canvas_width, uniforms.canvas_height) * 0.35;
+  return length(scaled_p) - base_radius * inst.size;
+}
+
+fn instance_item_normal(pixel: vec2f, circle_index: i32) -> vec2f {
   let eps = 1.0;
-  let d = circle_preset_item_sdf(pixel, circle_index);
-  let dx = circle_preset_item_sdf(pixel + vec2f(eps, 0.0), circle_index) - d;
-  let dy = circle_preset_item_sdf(pixel + vec2f(0.0, eps), circle_index) - d;
+  let d = instance_item_sdf(pixel, circle_index);
+  let dx = instance_item_sdf(pixel + vec2f(eps, 0.0), circle_index) - d;
+  let dy = instance_item_sdf(pixel + vec2f(0.0, eps), circle_index) - d;
   return normalize(vec2f(dx, dy));
 }
 
-fn circle_preset_sdf(pixel: vec2f) -> f32 {
+fn instances_merged_sdf(pixel: vec2f) -> f32 {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
   if (count <= 0) { return 1e9; }
 
@@ -789,68 +927,79 @@ fn circle_preset_sdf(pixel: vec2f) -> f32 {
 
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
-    let d = circle_preset_item_sdf(pixel, i);
+
+    // Only merge circles on the same layer
+    let inst = circle_instances[i];
+    let d = instance_item_sdf(pixel, i);
+
     if (uniforms.circle_preset_strategy < 0.5) {
+      // Stack strategy: no merging
       result = min(result, d);
     } else {
+      // Merge strategy: smooth blend circles on same layer
       if (i == 0) {
         result = d;
       } else {
-        result = smin(result, d, k);
+        let prev_inst = circle_instances[i - 1];
+        if (inst.layer_index == prev_inst.layer_index) {
+          result = smin(result, d, k);
+        } else {
+          result = min(result, d);
+        }
       }
     }
   }
   return result;
 }
 
-fn circle_preset_shadow_alpha(pixel: vec2f) -> f32 {
+fn instances_shadow_alpha(pixel: vec2f) -> f32 {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
   var alpha = 0.0;
+
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
-    let center = get_circle_preset_center(i);
-    let radius = get_circle_preset_radius(i);
-    let scale = get_scale_for_circle(i);
-    let is_active = i == i32(uniforms.circle_preset_active_index);
-    let shadow_opacity = select(uniforms.circle_preset_shadow_opacity, uniforms.shadow_opacity, is_active);
-    let shadow_blur = select(uniforms.circle_preset_shadow_blur, uniforms.shadow_blur, is_active);
-    let shadow_offset = select(
-      vec2f(uniforms.circle_preset_shadow_offset_x, uniforms.circle_preset_shadow_offset_y),
-      vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y),
-      is_active
-    );
-    let inside = circle_preset_item_sdf(pixel, i);
-    let shadow_d = circle_preset_item_sdf(pixel - shadow_offset, i);
-    let shadow_blur_px = max(shadow_blur, 1.0);
-    let shadow_alpha = select(0.0, smoothstep(shadow_blur_px, -shadow_blur_px * 0.5, shadow_d) * shadow_opacity, inside > 0.0);
+
+    let inst = circle_instances[i];
+    let center = get_instance_center(inst);
+    let scale = get_instance_scale(inst);
+
+    let inside = instance_item_sdf(pixel, i);
+    let shadow_offset = vec2f(inst.shadow_offset_x, inst.shadow_offset_y);
+    let shadow_d = instance_item_sdf(pixel - shadow_offset, i);
+    let shadow_blur_px = max(inst.shadow_blur, 1.0);
+    let shadow_alpha = select(0.0, smoothstep(shadow_blur_px, -shadow_blur_px * 0.5, shadow_d) * inst.shadow_opacity, inside > 0.0);
     alpha = max(alpha, shadow_alpha);
   }
+
   return alpha;
 }
 
-fn circle_preset_normal(pixel: vec2f) -> vec2f {
+fn instances_merged_normal(pixel: vec2f) -> vec2f {
   let eps = 1.0;
-  let d = circle_preset_sdf(pixel);
-  let dx = circle_preset_sdf(pixel + vec2f(eps, 0.0)) - d;
-  let dy = circle_preset_sdf(pixel + vec2f(0.0, eps)) - d;
+  let d = instances_merged_sdf(pixel);
+  let dx = instances_merged_sdf(pixel + vec2f(eps, 0.0)) - d;
+  let dy = instances_merged_sdf(pixel + vec2f(0.0, eps)) - d;
   return normalize(vec2f(dx, dy));
 }
 
-fn get_circle_preset_active_circle(pixel: vec2f) -> CircleInfo {
+fn get_closest_instance(pixel: vec2f) -> CircleInfo {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
-  let sdf = circle_preset_sdf(pixel);
+  let sdf = instances_merged_sdf(pixel);
   let inside = sdf <= 0.0;
 
   var closest_index = 0;
   var closest_distance = 1e9;
   var closest_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
-  var closest_radius = select(uniforms.glass_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
+  var closest_radius = uniforms.glass_radius;
 
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
-    let center = get_circle_preset_center(i);
-    let radius = get_circle_preset_radius(i);
-    let dist = circle_preset_item_sdf(pixel, i);
+
+    let inst = circle_instances[i];
+    let center = get_instance_center(inst);
+    let radius = get_instance_radius(inst);
+    let dist = instance_item_sdf(pixel, i);
+
     if (dist < closest_distance) {
       closest_distance = dist;
       closest_index = i;
@@ -862,7 +1011,7 @@ fn get_circle_preset_active_circle(pixel: vec2f) -> CircleInfo {
   return CircleInfo(closest_center, closest_radius, inside, closest_index);
 }
 
-// Signed distance to the combined player controls shape (3 circles with smooth blending)
+// Signed distance to the combined player controls shape
 fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f32 {
   let left_radius = get_player_circle_radius(0);
   let center_radius = get_player_circle_radius(1);
@@ -871,31 +1020,24 @@ fn player_controls_sdf(pixel: vec2f, main_center: vec2f, main_radius: f32) -> f3
   let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
   let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
 
-  // Get scale for each circle (only active circle gets deformation)
   let scale_left = get_scale_for_circle(0);
   let scale_center = get_scale_for_circle(1);
   let scale_right = get_scale_for_circle(2);
 
-  // Calculate signed distance to each circle
   let d_left = length((pixel - left_center) / scale_left) - left_radius;
   let d_center = length((pixel - main_center) / scale_center) - center_radius;
   let d_right = length((pixel - right_center) / scale_right) - right_radius;
 
-  // Smooth blend factor - higher = smoother blend
   let k = 40.0 * uniforms.device_pixel_ratio;
 
-  // Combine all three circles with smooth minimum
   return smin(smin(d_left, d_center, k), d_right, k);
 }
 
-// Calculate independent shadow alpha for player controls (each circle has its own shadow config)
-// Each shadow is only visible where pixel is outside that specific circle
 fn player_controls_shadow_alpha(pixel: vec2f, main_center: vec2f) -> f32 {
   let left_radius = get_player_circle_radius(0);
   let center_radius = get_player_circle_radius(1);
   let right_radius = get_player_circle_radius(2);
 
-  // Per-circle shadow offsets
   let left_shadow_offset = vec2f(uniforms.left_shadow_offset_x, uniforms.left_shadow_offset_y);
   let center_shadow_offset = vec2f(uniforms.center_shadow_offset_x, uniforms.center_shadow_offset_y);
   let right_shadow_offset = vec2f(uniforms.right_shadow_offset_x, uniforms.right_shadow_offset_y);
@@ -903,36 +1045,29 @@ fn player_controls_shadow_alpha(pixel: vec2f, main_center: vec2f) -> f32 {
   let left_center = vec2f(main_center.x - uniforms.side_circle_offset, main_center.y);
   let right_center = vec2f(main_center.x + uniforms.side_circle_offset, main_center.y);
 
-  // Apply per-circle deformation (only active circle deforms)
   let scale_left = get_scale_for_circle(0);
   let scale_center = get_scale_for_circle(1);
   let scale_right = get_scale_for_circle(2);
 
-  // Check if pixel is outside each individual circle (for masking its shadow)
   let inside_left = length((pixel - left_center) / scale_left) - left_radius;
   let inside_center = length((pixel - main_center) / scale_center) - center_radius;
   let inside_right = length((pixel - right_center) / scale_right) - right_radius;
 
-  // Per-circle shadow blur
   let left_blur = max(uniforms.left_shadow_blur, 1.0);
   let center_blur = max(uniforms.center_shadow_blur, 1.0);
   let right_blur = max(uniforms.right_shadow_blur, 1.0);
 
-  // Calculate shadow SDF for each circle with its own offset
   let d_left = length((pixel - left_shadow_offset - left_center) / scale_left) - left_radius;
   let d_center = length((pixel - center_shadow_offset - main_center) / scale_center) - center_radius;
   let d_right = length((pixel - right_shadow_offset - right_center) / scale_right) - right_radius;
 
-  // Convert each SDF to shadow alpha with per-circle blur and opacity
   let alpha_left = select(0.0, smoothstep(left_blur, -left_blur * 0.5, d_left) * uniforms.left_shadow_opacity, inside_left > 0.0);
   let alpha_center = select(0.0, smoothstep(center_blur, -center_blur * 0.5, d_center) * uniforms.center_shadow_opacity, inside_center > 0.0);
   let alpha_right = select(0.0, smoothstep(right_blur, -right_blur * 0.5, d_right) * uniforms.right_shadow_opacity, inside_right > 0.0);
 
-  // Combine shadows with max (independent, non-merged)
   return max(max(alpha_left, alpha_center), alpha_right);
 }
 
-// Get scale for split menu item (only active item gets deformation)
 fn get_scale_for_split_item(item_index: i32) -> vec2f {
   if (uniforms.split_menu_mode > 0.5 && item_index != i32(uniforms.active_split_menu_index)) {
     return vec2f(1.0, 1.0);
@@ -940,13 +1075,11 @@ fn get_scale_for_split_item(item_index: i32) -> vec2f {
   return vec2f(uniforms.scale_x, uniforms.scale_y);
 }
 
-// Calculate independent shadow alpha for each split menu item
 fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
   let dpr = uniforms.device_pixel_ratio;
   let progress = uniforms.split_menu_progress;
   let base_radius = uniforms.glass_radius;
 
-  // Pill dimensions from settings
   let pill_width = uniforms.split_menu_pill_width;
   let pill_height = uniforms.split_menu_pill_height;
   let pill_radius = min(uniforms.split_menu_pill_radius, min(pill_width, pill_height) * 0.5);
@@ -961,45 +1094,36 @@ fn split_menu_shadow_alpha(pixel: vec2f, glass_center: vec2f) -> f32 {
   let split_dist_left = offset_x - split_dist * 0.5;
   let split_dist_right = offset_x + split_dist * 0.5;
 
-  // Circle center (left)
   let circle_center = glass_center + vec2f(split_dist_left, 0.0);
-  // Pill center (right)
   let rect_center = glass_center + vec2f(split_dist_right, 0.0);
 
-  // Per-item shadow offsets
   let circle_shadow_offset = vec2f(uniforms.split_circle_shadow_offset_x, uniforms.split_circle_shadow_offset_y);
   let rect_shadow_offset = vec2f(uniforms.split_rect_shadow_offset_x, uniforms.split_rect_shadow_offset_y);
 
-  // Apply per-item deformation
   let scale_circle = get_scale_for_split_item(0);
   let scale_rect = get_scale_for_split_item(1);
 
-  // Check if pixel is outside each item (for masking its shadow)
   let circle_p = (pixel - circle_center) / scale_circle;
   let inside_circle = length(circle_p) - circle_radius;
 
   let rect_p = (pixel - rect_center) / scale_rect;
   let inside_rect = rounded_rect_sdf(rect_p, vec2f(current_width, current_height) * 0.5, current_radius);
 
-  // Per-item shadow blur
   let circle_blur = max(uniforms.split_circle_shadow_blur, 1.0);
   let rect_blur = max(uniforms.split_rect_shadow_blur, 1.0);
 
-  // Calculate shadow SDF for each item with its own offset
   let shadow_circle_p = (pixel - circle_shadow_offset - circle_center) / scale_circle;
   let d_circle = length(shadow_circle_p) - circle_radius;
 
   let shadow_rect_p = (pixel - rect_shadow_offset - rect_center) / scale_rect;
   let d_rect = rounded_rect_sdf(shadow_rect_p, vec2f(current_width, current_height) * 0.5, current_radius);
 
-  // Convert each SDF to shadow alpha with per-item blur and opacity
   let alpha_circle = select(0.0, smoothstep(circle_blur, -circle_blur * 0.5, d_circle) * uniforms.split_circle_shadow_opacity, inside_circle > 0.0);
   let alpha_rect = select(0.0, smoothstep(rect_blur, -rect_blur * 0.5, d_rect) * uniforms.split_rect_shadow_opacity, inside_rect > 0.0);
 
   return max(alpha_circle, alpha_rect);
 }
 
-// Get the direction/normal for player controls (for refraction)
 fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) -> vec2f {
   let eps = 1.0;
   let d = player_controls_sdf(pixel, main_center, main_radius);
@@ -1010,18 +1134,16 @@ fn player_controls_normal(pixel: vec2f, main_center: vec2f, main_radius: f32) ->
 
 fn get_active_circle(pixel: vec2f, main_center: vec2f, main_radius: f32) -> CircleInfo {
   if (uniforms.circle_preset_mode > 0.5) {
-    return get_circle_preset_active_circle(pixel);
+    return get_closest_instance(pixel);
   }
 
   if (uniforms.player_controls_mode < 0.5) {
     return CircleInfo(main_center, main_radius, true, 1);
   }
 
-  // Use combined SDF for player controls
   let sdf = player_controls_sdf(pixel, main_center, main_radius);
   let inside = sdf <= 0.0;
 
-  // Determine which circle is closest (for per-circle effects)
   let left_radius = get_player_circle_radius(0);
   let center_radius = get_player_circle_radius(1);
   let right_radius = get_player_circle_radius(2);
@@ -1048,57 +1170,135 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   let main_center = vec2f(uniforms.glass_center_x, uniforms.glass_center_y);
   let main_radius = uniforms.glass_radius;
 
-  // Get which circle this pixel belongs to
   let circle = get_active_circle(pixel, main_center, main_radius);
   let glass_center = circle.center;
   let effective_radius = circle.radius;
 
   let shape_reference = select(effective_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5, uniforms.shape_type > 0.5);
-  let magnified_pixel = apply_magnifying_displacement(pixel, glass_center, shape_reference);
 
+  // For circle preset mode, use per-instance properties
+  if (uniforms.circle_preset_mode > 0.5) {
+    let inst = circle_instances[circle.index];
+    let inst_shape_ref = select(
+      effective_radius,
+      min(inst.rect_width, inst.rect_height) * 0.5,
+      inst.shape_type > 0.5
+    );
+
+    let magnified_pixel = apply_instance_magnifying_displacement(pixel, glass_center, inst_shape_ref, inst);
+    let to_pixel = pixel - glass_center;
+
+    var distance_from_edge: f32;
+    if (uniforms.circle_preset_strategy < 0.5) {
+      distance_from_edge = -instance_item_sdf(pixel, circle.index);
+    } else {
+      distance_from_edge = -instances_merged_sdf(pixel);
+    }
+
+    // Handle shadows
+    var bg = sample_background(pixel, uniforms.time);
+    let shadow_alpha = instances_shadow_alpha(pixel);
+    bg = mix(bg, vec3f(0.0), shadow_alpha);
+
+    if (distance_from_edge < 0.0) {
+      return vec4f(bg, 1.0);
+    }
+
+    // Calculate bezel
+    let circle_bezel_pixels = (inst.bezel_width / 110.0) * inst_shape_ref;
+    let rect_bezel_pixels = min(inst.bezel_width, inst_shape_ref);
+    let bezel_pixels = select(circle_bezel_pixels, rect_bezel_pixels, inst.shape_type > 0.5);
+
+    // Inside flat center
+    if (distance_from_edge >= bezel_pixels) {
+      let center_blur = calculate_instance_progressive_blur(to_pixel, 1.0, inst);
+      var center_color = sample_background_with_blur_type(magnified_pixel, uniforms.time, center_blur, inst.blur_type);
+      center_color = apply_instance_glass_tint(center_color, inst);
+      center_color = apply_instance_icon_overlay(pixel, center_color, circle.center, circle.radius, inst);
+      return vec4f(center_color, 1.0);
+    }
+
+    // In bezel region
+    let bezel_t = distance_from_edge / bezel_pixels;
+
+    let displacement_scale = select(inst_shape_ref / 110.0, 1.0, inst.shape_type > 0.5);
+    let raw_displacement = calculate_displacement(
+      bezel_t,
+      inst.surface_type,
+      inst.bezel_width,
+      inst.glass_thickness,
+      inst.refractive_index
+    ) * inst.scale_ratio * 0.5 * displacement_scale;
+
+    let max_displacement = bezel_pixels * inst.max_displacement_scale;
+    let displacement = min(raw_displacement, max_displacement);
+
+    var direction: vec2f;
+    if (uniforms.circle_preset_strategy < 0.5) {
+      direction = instance_item_normal(pixel, circle.index);
+    } else {
+      direction = instances_merged_normal(pixel);
+    }
+
+    var displaced_pixel = magnified_pixel - direction * displacement;
+    let progressive_blur = calculate_instance_progressive_blur(to_pixel, bezel_t, inst);
+
+    var color: vec3f;
+
+    if (inst.chromatic_aberration > 0.5) {
+      let aberration_amount = displacement * inst.chromatic_strength * inst.chromatic_base;
+      let displaced_r = magnified_pixel - direction * (displacement - aberration_amount);
+      let displaced_g = magnified_pixel - direction * displacement;
+      let displaced_b = magnified_pixel - direction * (displacement + aberration_amount);
+
+      let r = sample_background_with_blur_type(displaced_r, uniforms.time, progressive_blur, inst.blur_type).r;
+      let g = sample_background_with_blur_type(displaced_g, uniforms.time, progressive_blur, inst.blur_type).g;
+      let b = sample_background_with_blur_type(displaced_b, uniforms.time, progressive_blur, inst.blur_type).b;
+      color = vec3f(r, g, b);
+    } else {
+      color = sample_background_with_blur_type(displaced_pixel, uniforms.time, progressive_blur, inst.blur_type);
+    }
+
+    color = apply_instance_glass_tint(color, inst);
+    color = apply_instance_icon_overlay(pixel, color, glass_center, effective_radius, inst);
+
+    // Apply specular
+    if (inst.specular_type > 0.5) {
+      let specular_intensity = calculate_layered_specular(distance_from_edge, direction, inst.specular_angle);
+      let specular_color = vec3f(1.0, 1.0, 1.0);
+      color = mix(color, specular_color, specular_intensity * inst.specular_opacity);
+    } else {
+      let specular_intensity = calculate_specular(distance_from_edge, bezel_pixels, direction, inst.specular_angle);
+      let saturated_color = adjust_saturation(color, inst.specular_saturation);
+      color = mix(color, saturated_color, specular_intensity);
+      let specular_color = vec3f(1.0, 1.0, 1.0);
+      color = mix(color, specular_color, specular_intensity * inst.specular_opacity);
+    }
+
+    return vec4f(color, 1.0);
+  }
+
+  // Non-circle-preset modes (original behavior)
+  let magnified_pixel = apply_magnifying_displacement(pixel, glass_center, shape_reference);
   let to_pixel = pixel - glass_center;
 
-  // Calculate distance from edge
   var distance_from_edge: f32;
-  if (uniforms.circle_preset_mode > 0.5) {
-    if (uniforms.circle_preset_strategy < 0.5) {
-      distance_from_edge = -circle_preset_item_sdf(pixel, circle.index);
-    } else {
-      distance_from_edge = -circle_preset_sdf(pixel);
-    }
-  } else if (uniforms.player_controls_mode > 0.5) {
-    // Use smooth-blended SDF for metaball visual effect
+  if (uniforms.player_controls_mode > 0.5) {
     distance_from_edge = -player_controls_sdf(pixel, main_center, main_radius);
   } else {
     distance_from_edge = -shape_signed_distance(to_pixel);
   }
 
-  // Circle preset mode: handle shadows independently per circle
-  if (uniforms.circle_preset_mode > 0.5) {
+  if (uniforms.player_controls_mode > 0.5) {
     var bg = sample_background(pixel, uniforms.time);
-
-    let shadow_alpha = circle_preset_shadow_alpha(pixel);
-    bg = mix(bg, vec3f(0.0), shadow_alpha);
-
-    if (distance_from_edge < 0.0) {
-      return vec4f(bg, 1.0);
-    }
-  } else if (uniforms.player_controls_mode > 0.5) {
-    var bg = sample_background(pixel, uniforms.time);
-
-    // Always calculate independent shadows for each circle (each has its own config)
     let shadow_alpha = player_controls_shadow_alpha(pixel, main_center);
     bg = mix(bg, vec3f(0.0), shadow_alpha);
 
-    // If outside combined glass shape, return shadowed background
     if (distance_from_edge < 0.0) {
       return vec4f(bg, 1.0);
     }
-    // Otherwise continue to glass rendering below
   } else if (uniforms.split_menu_mode > 0.5) {
-    // Split menu mode: handle shadows independently per item
     var bg = sample_background(pixel, uniforms.time);
-
     let shadow_alpha = split_menu_shadow_alpha(pixel, glass_center);
     bg = mix(bg, vec3f(0.0), shadow_alpha);
 
@@ -1106,11 +1306,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
       return vec4f(bg, 1.0);
     }
   } else {
-    // Original behavior for non-player-controls modes
     if (distance_from_edge < 0.0) {
       var bg = sample_background(pixel, uniforms.time);
 
-      // Calculate shadow
       if (uniforms.shadow_opacity > 0.0) {
         let shadow_blur = max(uniforms.shadow_blur, 1.0);
         let shadow_center = glass_center + vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y);
@@ -1123,15 +1321,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     }
   }
 
-  // Circular demos use the old 110px reference radius. Rounded-rect filters
-  // define bezelWidth directly in the filter/object coordinate space.
   let circle_bezel_pixels = (uniforms.bezel_width / 110.0) * shape_reference;
   let rect_bezel_pixels = min(uniforms.bezel_width, shape_reference);
   let bezel_pixels = select(circle_bezel_pixels, rect_bezel_pixels, uniforms.shape_type > 0.5);
 
-  // Inside flat center - no refraction, but apply blur and magnification
   if (distance_from_edge >= bezel_pixels) {
-    // Progressive blur: minimal blur in center
     let center_blur = calculate_progressive_blur(to_pixel, 1.0);
     var center_color = sample_background_blurred(magnified_pixel, uniforms.time, center_blur);
     center_color = apply_glass_tint(center_color);
@@ -1139,13 +1333,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     return vec4f(center_color, 1.0);
   }
 
-  // In bezel region - apply refraction
-  let bezel_t = distance_from_edge / bezel_pixels;  // 0 at edge, 1 at inner edge
+  let bezel_t = distance_from_edge / bezel_pixels;
 
-  // Get displacement magnitude
-  // The 0.5 factor matches SVG feDisplacementMap behavior (uses XC - 0.5 formula)
-  // Scale circular demos by their 110px reference radius. Rounded rectangles
-  // already operate in object pixels, matching the SVG displacement map.
   let displacement_scale = select(shape_reference / 110.0, 1.0, uniforms.shape_type > 0.5);
   let raw_displacement = calculate_displacement(
     bezel_t,
@@ -1155,37 +1344,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
     uniforms.refractive_index
   ) * uniforms.scale_ratio * 0.5 * displacement_scale;
 
-  // Limit extreme sampling. Rounded-rect UI controls need more room than the
-  // circular demo because their SVG filters can pull color across the full rim.
   let max_displacement = bezel_pixels * uniforms.max_displacement_scale;
   let displacement = min(raw_displacement, max_displacement);
 
-  // Direction from the nearest shape edge toward this pixel.
   var direction: vec2f;
-  if (uniforms.circle_preset_mode > 0.5) {
-    if (uniforms.circle_preset_strategy < 0.5) {
-      direction = circle_preset_item_normal(pixel, circle.index);
-    } else {
-      direction = circle_preset_normal(pixel);
-    }
-  } else if (uniforms.player_controls_mode > 0.5) {
+  if (uniforms.player_controls_mode > 0.5) {
     direction = player_controls_normal(pixel, main_center, main_radius);
   } else {
     direction = shape_normal(to_pixel);
   }
 
-  // Apply displacement (rays bend toward center for convex glass)
   var displaced_pixel = magnified_pixel - direction * displacement;
-
-  // Progressive blur: more blur toward edges (bezel_t: 0=edge, 1=inner)
   let progressive_blur = calculate_progressive_blur(to_pixel, bezel_t);
 
-  // Sample background at displaced position (with optional blur)
   var color: vec3f;
 
   if (uniforms.chromatic_aberration > 0.5) {
-    // Chromatic aberration: sample R, G, B at different offsets
-    // Red refracts less, blue refracts more (dispersion)
     let aberration_amount = displacement * uniforms.chromatic_strength * uniforms.chromatic_base;
     let displaced_r = magnified_pixel - direction * (displacement - aberration_amount);
     let displaced_g = magnified_pixel - direction * displacement;
@@ -1200,32 +1374,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   }
 
   color = apply_glass_tint(color);
-
-  // Apply icon overlay
   color = apply_icon_overlay(pixel, color, glass_center, effective_radius);
 
-  // Calculate and apply specular highlight
   if (uniforms.specular_type > 0.5) {
-    let specular_intensity = calculate_layered_specular(
-      distance_from_edge,
-      direction,
-      uniforms.specular_angle
-    );
+    let specular_intensity = calculate_layered_specular(distance_from_edge, direction, uniforms.specular_angle);
     let specular_color = vec3f(1.0, 1.0, 1.0);
     color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
   } else {
-    let specular_intensity = calculate_specular(
-      distance_from_edge,
-      bezel_pixels,
-      direction,
-      uniforms.specular_angle
-    );
-
-    // Apply saturation boost where specular is visible
+    let specular_intensity = calculate_specular(distance_from_edge, bezel_pixels, direction, uniforms.specular_angle);
     let saturated_color = adjust_saturation(color, uniforms.specular_saturation);
     color = mix(color, saturated_color, specular_intensity);
-
-    // Blend specular highlight (white) on top of the saturated color
     let specular_color = vec3f(1.0, 1.0, 1.0);
     color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
   }
