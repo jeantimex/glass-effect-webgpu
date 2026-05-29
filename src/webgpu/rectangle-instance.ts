@@ -16,7 +16,7 @@ export const DEFAULT_RECTANGLE_INSTANCE_CONFIG: RectangleInstanceConfig = {
   shapeType: 1,
   rectWidth: 200,
   rectHeight: 100,
-  rectRadius: 50,
+  rectRadius: 100,
 }
 
 export class RectangleInstance extends GlassInstance {

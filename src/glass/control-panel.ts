@@ -378,17 +378,28 @@ export class GlassControlPanel {
 
       const shapeType = controls.basicShapeTypeSelect.value as 'circle' | 'rectangle'
       const index = renderer.addGlassInstance(shapeType)
+
+      // Apply slider values to the newly created instance
       if (shapeType === 'circle') {
         const circleInstance = renderer.getCirclePresetCircle(index)
         if (circleInstance) {
-          this.setCircleSize(circleInstance.size)
+          const size = parseFloat(controls.circleSizeSlider.value)
+          circleInstance.size = size
+          renderer.setCirclePresetCircleSize(index, size)
+        }
+      } else {
+        const rectInstance = renderer.getRectanglePresetInstance(index)
+        if (rectInstance) {
+          rectInstance.rectWidth = parseFloat(controls.basicShapeRectWidthSlider.value)
+          rectInstance.rectHeight = parseFloat(controls.basicShapeRectHeightSlider.value)
+          rectInstance.rectRadius = parseFloat(controls.basicShapeRectRadiusSlider.value)
         }
       }
       this.syncSlidersFromActiveInstance()
     })
     controls.basicShapeTypeSelect.addEventListener('change', () => {
-      // Shape type selector - updates which type will be added next
-      // No immediate action needed, the value is read when Add is clicked
+      // Update controls visibility based on selected shape type
+      this.updateShapeControlsForDropdown()
     })
     controls.basicShapeRectWidthSlider.addEventListener('input', () => {
       const value = parseFloat(controls.basicShapeRectWidthSlider.value)
@@ -755,6 +766,19 @@ export class GlassControlPanel {
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
     controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))
     controls.splitMenuOnlyControls.forEach((control) => control.classList.toggle('hidden', !isSplitMenu))
+  }
+
+  private updateShapeControlsForDropdown(): void {
+    const { controls, getCurrentPreset } = this.options
+    const preset = getCurrentPreset()
+    if (preset !== 'basic-shape') return
+
+    const selectedShape = controls.basicShapeTypeSelect.value
+    const isCircleSelected = selectedShape === 'circle'
+    const isRectSelected = selectedShape === 'rectangle'
+
+    controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', !isCircleSelected))
+    controls.basicShapeRectControls.forEach((control) => control.classList.toggle('hidden', !isRectSelected))
   }
 
   private updateIconControls(): void {
