@@ -4,23 +4,7 @@ export abstract class GlassPresetDefinition {
   abstract readonly id: PresetType
   abstract readonly config: GlassPreset
 
-  get isSwitchMode(): boolean {
-    return this.id === 'switch'
-  }
-
-  get isSliderMode(): boolean {
-    return this.id === 'slider'
-  }
-
-  get isTrackPreset(): boolean {
-    return this.isSwitchMode || this.isSliderMode
-  }
-
   get supportsIcon(): boolean {
     return false
-  }
-
-  get isPlayerControlsMode(): boolean {
-    return this.id === 'player-controls'
   }
 }

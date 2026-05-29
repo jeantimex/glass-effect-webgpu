@@ -4,14 +4,12 @@ import { GlassControlPanel } from './control-panel'
 import { DisplacementMapView } from './displacement-view'
 import { getGlassControls, setupCollapsibleSections, setupSliderValueDisplays } from './dom'
 import { GlassInteraction } from './interaction'
-import { PanelControlsOverlay } from './panel-controls'
 import { GlassRenderLoop } from './render-loop'
 import { createGlassSprings } from './springs'
-import type { PresetType, UserParams } from './types'
+import type { UserParams } from './types'
 
 export class GlassApp {
   private renderer!: WebGPURenderer
-  private currentPreset: PresetType = 'basic-shape'
   private currentSurfaceType: SurfaceType = 'convex-circle'
 
   constructor(
@@ -24,7 +22,6 @@ export class GlassApp {
     await this.renderer.init()
 
     const controls = getGlassControls()
-    const panelControls = new PanelControlsOverlay(controls.panelControls)
     const userParams = this.createInitialUserParams()
     const springs = createGlassSprings(this.renderer)
     const displacementMap = new DisplacementMapView(
@@ -43,10 +40,6 @@ export class GlassApp {
       renderer: this.renderer,
       userParams,
       springs,
-      setCurrentPreset: (preset) => {
-        this.currentPreset = preset
-      },
-      getCurrentPreset: () => this.currentPreset,
       setCurrentSurfaceType: (surfaceType) => {
         this.currentSurfaceType = surfaceType
       },
@@ -58,20 +51,13 @@ export class GlassApp {
       renderer: this.renderer,
       userParams,
       springs,
-      getCurrentPreset: () => this.currentPreset,
       setCircleSize: (size) => controlPanel.setCircleSize(size),
-      setRectWidth: (width) => controlPanel.setRectWidth(width),
-      setRectHeight: (height) => controlPanel.setRectHeight(height),
       syncSlidersFromActiveInstance: () => controlPanel.syncSlidersFromActiveInstance(),
+      updateControlsVisibility: () => controlPanel.updateControlsVisibility(),
       circleSizeSlider: controls.circleSizeSlider,
-      rectWidthSlider: controls.rectWidthSlider,
-      rectHeightSlider: controls.rectHeightSlider,
-      leftCircleSizeSlider: controls.leftCircleSizeSlider,
-      centerCircleSizeSlider: controls.centerCircleSizeSlider,
-      rightCircleSizeSlider: controls.rightCircleSizeSlider,
     })
 
-    setupCollapsibleSections(updateDisplacementMap)
+    setupCollapsibleSections()
     setupSliderValueDisplays()
     controlPanel.setup()
     interaction.setup()
@@ -84,9 +70,7 @@ export class GlassApp {
       this.renderer,
       userParams,
       springs,
-      interaction,
-      () => this.currentPreset,
-      () => panelControls.update(this.renderer, this.currentPreset)
+      interaction
     ).start()
   }
 
@@ -102,10 +86,7 @@ export class GlassApp {
       specularOpacity: this.renderer.glassParams.specularOpacity,
       glassBgOpacity: this.renderer.glassParams.glassBgOpacity,
       pressedGlassBgOpacity: 0,
-      forceActive: false,
       liquidEnabled: true,
-      splitMenuOpen: false,
-      splitMenuProgress: 0,
       liquidPressScale: 1.16,
       liquidPressRefraction: 1.28,
       liquidSpeed: 1,

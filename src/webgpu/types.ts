@@ -1,77 +1,79 @@
 export interface GlassParams {
+  // Geometry
   bezelWidth: number
   glassThickness: number
   scaleRatio: number
   surfaceType: number
-  gridCellSize: number
-  gridSpeed: number
-  specularOpacity: number
-  specularAngle: number
-  bgBrightness: number
-  specularSaturation: number
-  specularType: number
+  maxDisplacementScale: number
   scaleX: number
   scaleY: number
+
+  // Shape
+  shapeType: number
+  circleSize: number
+  rectWidth: number
+  rectHeight: number
+  rectRadiusPercent: number
+
+  // Refraction
+  refractiveIndex: number
+  magnifyingScale: number
+
+  // Background
+  gridCellSize: number
+  gridSpeed: number
+  bgBrightness: number
+  useImageBg: boolean
+  articleMode: boolean
+
+  // Glass appearance
+  glassTintR: number
+  glassTintG: number
+  glassTintB: number
+  glassBgOpacity: number
+
+  // Blur
   blurAmount: number
   blurType: number
+  progressiveBlur: number
+  progressiveBlurType: number
+
+  // Specular
+  specularOpacity: number
+  specularAngle: number
+  specularSaturation: number
+  specularType: number
+
+  // Shadow
   shadowOpacity: number
   shadowBlur: number
   shadowOffsetX: number
   shadowOffsetY: number
-  progressiveBlur: number
-  progressiveBlurType: number
-  glassBgOpacity: number
-  refractiveIndex: number
-  magnifyingScale: number
-  circleSize: number
-  shapeType: number
-  rectWidth: number
-  rectHeight: number
-  rectRadiusPercent: number
-  glassTintR: number
-  glassTintG: number
-  glassTintB: number
-  useImageBg: boolean
-  switchMode: boolean
-  sliderMode: boolean
-  switchProgress: number
-  switchTrackWidth: number
-  switchTrackHeight: number
-  switchTrackOffOpacity: number
-  switchTrackOnOpacity: number
-  maxDisplacementScale: number
-  splitMenuMode: boolean
-  splitMenuProgress: number
-  activeSplitMenuIndex: number
-  splitMenuPillWidth: number
-  splitMenuPillHeight: number
-  splitMenuPillRadius: number
-  liquidEnabled: boolean
+
+  // Icon
   iconType: number
   iconOpacity: number
   iconScale: number
   iconColorR: number
   iconColorG: number
   iconColorB: number
-  articleMode: boolean
+
+  // Chromatic aberration
   chromaticAberration: boolean
   chromaticStrength: number
   chromaticBase: number
-  playerControlsMode: boolean
-  sideCircleOffset: number
-  sideCircleScale: number
-  activeCircleIndex: number
-  leftCircleSize: number
-  centerCircleSize: number
-  rightCircleSize: number
-  playerControlsGroupLiquid: boolean
+
+  // Liquid animation
+  liquidEnabled: boolean
+
+  // Instance management
   circlePresetMode: boolean
   circlePresetStrategy: number
   circlePresetCount: number
   circlePresetActiveIndex: number
 }
 
-export type BackgroundType = 'grid' | 'banner' | 'article' | 'video'
+export type BackgroundType = 'grid' | 'banner' | 'article'
 
 export interface Point {
   x: number
@@ -87,12 +89,4 @@ export interface RectSize {
 export interface ShapeBounds {
   halfWidth: number
   halfHeight: number
-}
-
-export interface SwitchMetrics {
-  centerX: number
-  centerY: number
-  trackWidth: number
-  trackHeight: number
-  travel: number
 }

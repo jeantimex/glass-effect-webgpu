@@ -60,40 +60,6 @@ export class BackgroundTextureLoader {
     return texture
   }
 
-  createTextureFromVideo(video: HTMLVideoElement): GPUTexture {
-    const width = Math.max(1, video.videoWidth)
-    const height = Math.max(1, video.videoHeight)
-
-    const texture = this.device.createTexture({
-      size: [width, height],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-    })
-
-    if (video.readyState >= 2 && video.videoWidth > 0) {
-      this.device.queue.copyExternalImageToTexture(
-        { source: video },
-        { texture },
-        [width, height]
-      )
-    }
-
-    return texture
-  }
-
-  updateTextureFromVideo(texture: GPUTexture, video: HTMLVideoElement): void {
-    if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) return
-    try {
-      this.device.queue.copyExternalImageToTexture(
-        { source: video },
-        { texture },
-        [video.videoWidth, video.videoHeight]
-      )
-    } catch {
-      // Video frame not ready yet, skip this frame
-    }
-  }
-
   createTextureFromCanvas(canvas: HTMLCanvasElement): GPUTexture {
     const width = Math.max(1, canvas.width)
     const height = Math.max(1, canvas.height)

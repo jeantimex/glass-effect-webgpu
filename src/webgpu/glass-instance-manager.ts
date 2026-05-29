@@ -83,7 +83,16 @@ export class GlassInstanceManager {
   }
 
   setActiveIndex(index: number): void {
-    const clampedIndex = Math.max(0, Math.min(index, this._instances.length - 1))
+    // Allow -1 for deselection
+    if (index < 0) {
+      for (const instance of this._instances) {
+        instance.isActive = false
+      }
+      this._activeIndex = -1
+      return
+    }
+
+    const clampedIndex = Math.min(index, this._instances.length - 1)
 
     for (let i = 0; i < this._instances.length; i++) {
       this._instances[i].isActive = i === clampedIndex
@@ -120,6 +129,11 @@ export class GlassInstanceManager {
       centerY: 0.5,
       isActive: true,
     })
+  }
+
+  clear(): void {
+    this._instances = []
+    this._activeIndex = -1
   }
 
   addInstance(config?: Partial<CircleInstanceConfig | RectangleInstanceConfig>, overrideShapeType?: ShapeType): number {
@@ -192,16 +206,12 @@ export class GlassInstanceManager {
   }
 
   removeInstance(index: number): boolean {
-    if (this._instances.length <= 1 || index < 0 || index >= this._instances.length) {
+    if (this._instances.length < 1 || index < 0 || index >= this._instances.length) {
       return false
     }
 
     this._instances.splice(index, 1)
-
-    if (this._activeIndex >= this._instances.length) {
-      this._activeIndex = this._instances.length - 1
-    }
-    this.setActiveIndex(this._activeIndex)
+    this._activeIndex = -1
 
     return true
   }

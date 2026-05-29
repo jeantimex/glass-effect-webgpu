@@ -5,7 +5,7 @@ import { setSliderValue } from './dom'
 import { getPresetDefinition } from '../presets'
 import type { GlassSprings } from './springs'
 import { resetDeformationSprings, resetGlassSpringsFromPreset, setSpring } from './springs'
-import type { CirclePresetStrategy, GlassTheme, PresetType, UserParams } from './types'
+import type { CirclePresetStrategy, GlassTheme, UserParams } from './types'
 import { surfaceTypeMap } from './types'
 
 interface ControlPanelOptions {
@@ -13,8 +13,6 @@ interface ControlPanelOptions {
   renderer: WebGPURenderer
   userParams: UserParams
   springs: GlassSprings
-  setCurrentPreset: (preset: PresetType) => void
-  getCurrentPreset: () => PresetType
   setCurrentSurfaceType: (surfaceType: SurfaceType) => void
   updateDisplacementMap: () => void
 }
@@ -22,23 +20,15 @@ interface ControlPanelOptions {
 export class GlassControlPanel {
   constructor(private options: ControlPanelOptions) {}
 
-  private isCirclePresetMode(): boolean {
-    const preset = this.options.getCurrentPreset()
-    return preset === 'basic-shape'
-  }
-
   private getActiveInstance(): GlassInstance | undefined {
-    if (!this.isCirclePresetMode()) return undefined
     return this.options.renderer.getActiveGlassInstance()
   }
 
   private getActiveCircleInstance(): CircleInstance | undefined {
-    if (!this.isCirclePresetMode()) return undefined
     return this.options.renderer.getActiveCircleInstance()
   }
 
   private getActiveRectangleInstance(): RectangleInstance | undefined {
-    if (!this.isCirclePresetMode()) return undefined
     return this.options.renderer.getActiveRectangleInstance()
   }
 
@@ -79,7 +69,7 @@ export class GlassControlPanel {
     this.updateChromaticControls()
     this.bindEvents()
     renderer.setBackground(controls.backgroundTypeSelect.value as BackgroundType).catch(console.error)
-    this.applyPreset(controls.presetSelect.value as PresetType)
+    this.applyPreset()
   }
 
   setPanelDrawerOpen(open: boolean): void {
@@ -99,46 +89,21 @@ export class GlassControlPanel {
   }
 
   setCircleSize(size: number): void {
-    const { controls, userParams } = this.options
+    const { controls, userParams, renderer } = this.options
     const clampedSize = Math.min(Math.max(size, parseFloat(controls.circleSizeSlider.min)), parseFloat(controls.circleSizeSlider.max))
     userParams.circleSize = clampedSize
     controls.circleSizeSlider.value = clampedSize.toFixed(2)
-    const preset = this.options.getCurrentPreset()
-    if (preset === 'basic-shape') {
-      const renderer = this.options.renderer
-      const activeIndex = renderer.getCirclePresetActiveIndex()
-      // Only update if active instance is a circle
-      const circleInstance = renderer.getCirclePresetCircle(activeIndex)
-      if (circleInstance) {
-        renderer.setCirclePresetCircleSize(activeIndex, clampedSize)
-      }
+    const activeIndex = renderer.getCirclePresetActiveIndex()
+    const circleInstance = renderer.getCirclePresetCircle(activeIndex)
+    if (circleInstance) {
+      renderer.setCirclePresetCircleSize(activeIndex, clampedSize)
     }
   }
 
-  setRectWidth(width: number): void {
-    const { controls, renderer } = this.options
-    const clampedWidth = Math.min(Math.max(width, parseFloat(controls.rectWidthSlider.min)), parseFloat(controls.rectWidthSlider.max))
-    renderer.glassParams.rectWidth = clampedWidth
-    controls.rectWidthSlider.value = String(clampedWidth)
-    this.updateRectangleInstanceProperty(inst => inst.rectWidth = clampedWidth)
-    this.updateRectRadius()
-  }
-
-  setRectHeight(height: number): void {
-    const { controls, renderer } = this.options
-    const clampedHeight = Math.min(Math.max(height, parseFloat(controls.rectHeightSlider.min)), parseFloat(controls.rectHeightSlider.max))
-    renderer.glassParams.rectHeight = clampedHeight
-    controls.rectHeightSlider.value = String(clampedHeight)
-    this.updateRectangleInstanceProperty(inst => inst.rectHeight = clampedHeight)
-    this.updateRectRadius()
-  }
-
-  private updateRectRadius(): void {
-    const { controls, renderer } = this.options
-    const radiusPercent = parseFloat(controls.rectRadiusSlider.value)
-    const minDim = Math.min(renderer.glassParams.rectWidth, renderer.glassParams.rectHeight)
-    const radiusPixels = (radiusPercent / 100) * minDim * 0.5
-    this.updateRectangleInstanceProperty(inst => inst.rectRadius = radiusPixels)
+  updateControlsVisibility(): void {
+    this.updateSelectedInstanceControls()
+    this.updateShapeControls()
+    this.updateIconControls()
   }
 
   syncSlidersFromActiveInstance(): void {
@@ -171,14 +136,9 @@ export class GlassControlPanel {
     // Shape-specific properties - only update sliders, not renderer.glassParams
     if (rectInstance) {
       controls.basicShapeTypeSelect.value = 'rectangle'
-      setSliderValue(controls.rectWidthSlider, rectInstance.rectWidth)
-      setSliderValue(controls.rectHeightSlider, rectInstance.rectHeight)
       setSliderValue(controls.basicShapeRectWidthSlider, rectInstance.rectWidth)
       setSliderValue(controls.basicShapeRectHeightSlider, rectInstance.rectHeight)
       setSliderValue(controls.basicShapeRectRadiusSlider, rectInstance.rectRadius)
-      const minDim = Math.min(rectInstance.rectWidth, rectInstance.rectHeight)
-      const radiusPercent = (rectInstance.rectRadius / (minDim * 0.5)) * 100
-      setSliderValue(controls.rectRadiusSlider, radiusPercent)
     } else if (circleInstance) {
       controls.basicShapeTypeSelect.value = 'circle'
       setSliderValue(controls.circleSizeSlider, circleInstance.size)
@@ -199,6 +159,8 @@ export class GlassControlPanel {
     controls.surfaceButtons.forEach((button) => {
       button.classList.toggle('active', button.getAttribute('data-surface') === surfaceName)
     })
+    this.options.setCurrentSurfaceType(surfaceName)
+    this.options.updateDisplacementMap()
 
     controls.blurTypeSelect.value = String(instance.blurType)
     controls.progressiveBlurTypeSelect.value = String(instance.progressiveBlurType)
@@ -219,26 +181,15 @@ export class GlassControlPanel {
     }
 
     this.updateShapeControls()
+    this.updateIconControls()
   }
 
-  applyPreset(type: PresetType): void {
-    const definition = getPresetDefinition(type)
+  applyPreset(): void {
+    const definition = getPresetDefinition('basic-shape')
     const preset = definition.config
-    const { controls, renderer, setCurrentPreset, setCurrentSurfaceType, springs, updateDisplacementMap, userParams } = this.options
+    const { controls, renderer, setCurrentSurfaceType, springs, updateDisplacementMap, userParams } = this.options
 
-    setCurrentPreset(type)
     renderer.glassParams.shapeType = preset.shapeType
-    renderer.setSwitchMode(definition.isSwitchMode)
-    renderer.setSliderMode(definition.isSliderMode)
-    renderer.glassParams.playerControlsMode = definition.isPlayerControlsMode
-    if (definition.isPlayerControlsMode) {
-      renderer.glassParams.leftCircleSize = 0.32
-      renderer.glassParams.centerCircleSize = 0.42
-      renderer.glassParams.rightCircleSize = 0.32
-    }
-    if (type === 'panel' || type === 'player-controls') {
-      renderer.centerGlass()
-    }
     setCurrentSurfaceType(preset.surfaceType)
     renderer.glassParams.surfaceType = surfaceTypeMap[preset.surfaceType]
     renderer.glassParams.bezelWidth = preset.bezelWidth
@@ -249,12 +200,7 @@ export class GlassControlPanel {
     renderer.glassParams.rectWidth = preset.rectWidth
     renderer.glassParams.rectHeight = preset.rectHeight
     renderer.glassParams.rectRadiusPercent = preset.rectRadiusPercent
-    renderer.glassParams.switchTrackWidth = preset.switchTrackWidth
-    renderer.glassParams.switchTrackHeight = preset.switchTrackHeight
-    renderer.glassParams.switchTrackOffOpacity = preset.switchTrackOffOpacity
-    renderer.glassParams.switchTrackOnOpacity = preset.switchTrackOnOpacity
     renderer.glassParams.maxDisplacementScale = preset.maxDisplacementScale
-    renderer.setSwitchProgress(preset.trackProgress)
     renderer.glassParams.scaleRatio = preset.scaleRatio
     renderer.glassParams.blurAmount = preset.blurAmount
     renderer.glassParams.blurType = preset.blurType
@@ -270,24 +216,16 @@ export class GlassControlPanel {
     renderer.glassParams.shadowOffsetX = preset.shadowOffsetX
     renderer.glassParams.shadowOffsetY = preset.shadowOffsetY
 
-    userParams.splitMenuOpen = false
-    userParams.splitMenuProgress = 0
     applyPresetToUserParams(userParams, preset)
     resetGlassSpringsFromPreset(springs, preset)
     renderer.setCirclePresetStrategy(0)
-    const isInstancePreset = type === 'basic-shape'
-    renderer.glassParams.circlePresetMode = isInstancePreset
-    if (isInstancePreset) {
-      renderer.setMixedMode(true)
-      renderer.resetCirclePresetCircles()
-      controls.circlePresetStrategySelect.value = 'stack'
-      controls.basicShapeTypeSelect.value = 'circle'
-      const circleInstance = renderer.getCirclePresetCircle(0)
-      if (circleInstance) {
-        setSliderValue(controls.circleSizeSlider, circleInstance.size)
-      }
-      void renderer.setCirclePresetIcon(null)
-    }
+    renderer.glassParams.circlePresetMode = true
+    renderer.setMixedMode(true)
+    renderer.clearGlassInstances()
+    renderer.addCirclePresetCircle()
+    controls.circlePresetStrategySelect.value = 'stack'
+    controls.basicShapeTypeSelect.value = 'circle'
+    setSliderValue(controls.circleSizeSlider, preset.circleSize)
 
     controls.surfaceButtons.forEach((button) => {
       button.classList.toggle('active', button.getAttribute('data-surface') === preset.surfaceType)
@@ -297,13 +235,6 @@ export class GlassControlPanel {
     setSliderValue(controls.refractiveIndexSlider, preset.refractiveIndex)
     setSliderValue(controls.magnifyingScaleSlider, preset.magnifyingScale)
     setSliderValue(controls.circleSizeSlider, preset.circleSize)
-    setSliderValue(controls.rectWidthSlider, preset.rectWidth)
-    setSliderValue(controls.rectHeightSlider, preset.rectHeight)
-    setSliderValue(controls.rectRadiusSlider, preset.rectRadiusPercent)
-    setSliderValue(controls.switchTrackWidthSlider, preset.switchTrackWidth)
-    setSliderValue(controls.switchTrackHeightSlider, preset.switchTrackHeight)
-    setSliderValue(controls.switchTrackOffOpacitySlider, preset.switchTrackOffOpacity)
-    setSliderValue(controls.switchTrackOnOpacitySlider, preset.switchTrackOnOpacity)
     setSliderValue(controls.scaleSlider, preset.scaleRatio)
     controls.specularTypeSelect.value = String(preset.specularType)
     controls.blurTypeSelect.value = String(preset.blurType)
@@ -325,37 +256,8 @@ export class GlassControlPanel {
     setSliderValue(controls.shadowBlurSlider, preset.shadowBlur)
     setSliderValue(controls.shadowOffsetXSlider, preset.shadowOffsetX)
     setSliderValue(controls.shadowOffsetYSlider, preset.shadowOffsetY)
-    
-    if (!definition.supportsIcon) {
-      renderer.glassParams.iconType = 0
-      renderer.setIcon(null).catch(console.error)
-      renderer.setIconLeft(null).catch(console.error)
-      renderer.setIconRight(null).catch(console.error)
-      controls.iconTypeSelect.value = 'none'
-    } else if (definition.isPlayerControlsMode) {
-      renderer.glassParams.iconType = 1
-      // Load icons based on dropdown selections using Circle class
-      const leftIcon = controls.leftIconTypeSelect.value
-      const centerIcon = controls.centerIconTypeSelect.value
-      const rightIcon = controls.rightIconTypeSelect.value
 
-      const leftCircle = renderer.getCircle(0)
-      const centerCircle = renderer.getCircle(1)
-      const rightCircle = renderer.getCircle(2)
-
-      leftCircle.setIcon(leftIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${leftIcon}.svg`).catch(console.error)
-      renderer.setIcon(centerIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${centerIcon}.svg`).catch(console.error)
-      rightCircle.setIcon(rightIcon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${rightIcon}.svg`).catch(console.error)
-
-      setSliderValue(controls.leftCircleSizeSlider, leftCircle.size)
-      setSliderValue(controls.centerCircleSizeSlider, centerCircle.size)
-      setSliderValue(controls.rightCircleSizeSlider, rightCircle.size)
-    } else {
-      // Clear left/right icons when switching to non-player-controls preset
-      renderer.setIconLeft(null).catch(console.error)
-      renderer.setIconRight(null).catch(console.error)
-    }
-
+    this.updateSelectedInstanceControls()
     this.updateShapeControls()
     this.updateIconControls()
     updateDisplacementMap()
@@ -369,13 +271,7 @@ export class GlassControlPanel {
       if (controls.glassThemeSelect.value === 'system') this.updateGlassTheme()
     })
 
-    controls.presetSelect.addEventListener('change', () => {
-      this.applyPreset(controls.presetSelect.value as PresetType)
-    })
     controls.circlePresetAddButton.addEventListener('click', () => {
-      const currentPreset = this.options.getCurrentPreset()
-      if (currentPreset !== 'basic-shape') return
-
       const shapeType = controls.basicShapeTypeSelect.value as 'circle' | 'rectangle'
       const index = renderer.addGlassInstance(shapeType)
 
@@ -396,10 +292,24 @@ export class GlassControlPanel {
         }
       }
       this.syncSlidersFromActiveInstance()
+      this.updateSelectedInstanceControls()
+      this.updateShapeControls()
+      this.updateIconControls()
+    })
+    controls.circlePresetRemoveButton.addEventListener('click', () => {
+      const activeIndex = renderer.getCirclePresetActiveIndex()
+      const removed = renderer.removeGlassInstance(activeIndex)
+      if (removed) {
+        this.syncSlidersFromActiveInstance()
+        this.updateSelectedInstanceControls()
+        this.updateShapeControls()
+        this.updateIconControls()
+      }
     })
     controls.basicShapeTypeSelect.addEventListener('change', () => {
       // Update controls visibility based on selected shape type
       this.updateShapeControlsForDropdown()
+      this.updateIconControls()
     })
     controls.basicShapeRectWidthSlider.addEventListener('input', () => {
       const value = parseFloat(controls.basicShapeRectWidthSlider.value)
@@ -474,52 +384,6 @@ export class GlassControlPanel {
     controls.circleSizeSlider.addEventListener('input', () => {
       this.setCircleSize(parseFloat(controls.circleSizeSlider.value))
     })
-    controls.leftCircleSizeSlider.addEventListener('input', () => {
-      renderer.getCircle(0).size = parseFloat(controls.leftCircleSizeSlider.value)
-    })
-    controls.centerCircleSizeSlider.addEventListener('input', () => {
-      renderer.getCircle(1).size = parseFloat(controls.centerCircleSizeSlider.value)
-    })
-    controls.rightCircleSizeSlider.addEventListener('input', () => {
-      renderer.getCircle(2).size = parseFloat(controls.rightCircleSizeSlider.value)
-    })
-    controls.leftIconTypeSelect.addEventListener('change', () => {
-      const icon = controls.leftIconTypeSelect.value
-      renderer.getCircle(0).setIcon(icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
-    })
-    controls.centerIconTypeSelect.addEventListener('change', () => {
-      const icon = controls.centerIconTypeSelect.value
-      if (icon === 'none') {
-        renderer.glassParams.iconType = 0
-        renderer.setIcon(null).catch(console.error)
-      } else {
-        renderer.glassParams.iconType = 1
-        renderer.setIcon(`${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
-      }
-    })
-    controls.rightIconTypeSelect.addEventListener('change', () => {
-      const icon = controls.rightIconTypeSelect.value
-      renderer.getCircle(2).setIcon(icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`).catch(console.error)
-    })
-    controls.rectWidthSlider.addEventListener('input', () => {
-      this.setRectWidth(parseFloat(controls.rectWidthSlider.value))
-    })
-    controls.rectHeightSlider.addEventListener('input', () => {
-      this.setRectHeight(parseFloat(controls.rectHeightSlider.value))
-    })
-    controls.rectRadiusSlider.addEventListener('input', () => {
-      renderer.glassParams.rectRadiusPercent = parseFloat(controls.rectRadiusSlider.value)
-      this.updateRectRadius()
-    })
-    controls.splitMenuPillWidthSlider.addEventListener('input', () => {
-      renderer.glassParams.splitMenuPillWidth = parseFloat(controls.splitMenuPillWidthSlider.value)
-    })
-    controls.splitMenuPillHeightSlider.addEventListener('input', () => {
-      renderer.glassParams.splitMenuPillHeight = parseFloat(controls.splitMenuPillHeightSlider.value)
-    })
-    controls.splitMenuPillRadiusSlider.addEventListener('input', () => {
-      renderer.glassParams.splitMenuPillRadius = parseFloat(controls.splitMenuPillRadiusSlider.value)
-    })
     controls.iconTypeSelect.addEventListener('change', () => {
       const icon = controls.iconTypeSelect.value
       if (icon === 'none') {
@@ -559,23 +423,6 @@ export class GlassControlPanel {
         inst.iconColorG = g
         inst.iconColorB = b
       })
-    })
-    controls.switchTrackWidthSlider.addEventListener('input', () => {
-      renderer.glassParams.switchTrackWidth = parseFloat(controls.switchTrackWidthSlider.value)
-      this.syncTrackProgress()
-    })
-    controls.switchTrackHeightSlider.addEventListener('input', () => {
-      renderer.glassParams.switchTrackHeight = parseFloat(controls.switchTrackHeightSlider.value)
-      this.syncTrackProgress()
-    })
-    controls.switchTrackOffOpacitySlider.addEventListener('input', () => {
-      renderer.glassParams.switchTrackOffOpacity = parseFloat(controls.switchTrackOffOpacitySlider.value)
-    })
-    controls.switchTrackOnOpacitySlider.addEventListener('input', () => {
-      renderer.glassParams.switchTrackOnOpacity = parseFloat(controls.switchTrackOnOpacitySlider.value)
-    })
-    controls.forceActiveCheckbox.addEventListener('change', () => {
-      userParams.forceActive = controls.forceActiveCheckbox.checked
     })
 
     controls.backgroundTypeSelect.addEventListener('change', () => {
@@ -727,51 +574,21 @@ export class GlassControlPanel {
     })
   }
 
-  private syncTrackProgress(): void {
-    const { renderer, getCurrentPreset } = this.options
-    const preset = getCurrentPreset()
-    if (preset === 'switch' || preset === 'slider') {
-      renderer.setSwitchProgress(renderer.getSwitchProgress())
-    }
-  }
-
   private updateShapeControls(): void {
-    const { controls, renderer, getCurrentPreset } = this.options
-    const preset = getCurrentPreset()
-    const isBasicShape = preset === 'basic-shape'
-    const isTrackPreset = preset === 'switch' || preset === 'slider'
-    const isPlayerControls = preset === 'player-controls'
-    const isSplitMenu = preset === 'split-menu'
+    const { controls, renderer } = this.options
 
-    // For basic-shape mode, check the active instance type
-    let showCircleControls = false
-    let showRectControls = false
-    let showBasicShapeRectControls = false
-    if (isBasicShape) {
-      const activeCircle = renderer.getActiveCircleInstance()
-      const activeRect = renderer.getActiveRectangleInstance()
-      showCircleControls = !!activeCircle
-      showBasicShapeRectControls = !!activeRect
-    } else {
-      const isRectangle = renderer.glassParams.shapeType === 1
-      showCircleControls = !isRectangle && !isPlayerControls && !isSplitMenu
-      showRectControls = isRectangle
-    }
+    const activeCircle = renderer.getActiveCircleInstance()
+    const activeRect = renderer.getActiveRectangleInstance()
+    const showCircleControls = !!activeCircle
+    const showBasicShapeRectControls = !!activeRect
 
     controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', !showCircleControls))
-    controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !isBasicShape))
-    controls.basicShapeOnlyControls.forEach((control) => control.classList.toggle('hidden', !isBasicShape))
+    controls.circlePresetOnlyControls.forEach((control) => control.classList.remove('hidden'))
     controls.basicShapeRectControls.forEach((control) => control.classList.toggle('hidden', !showBasicShapeRectControls))
-    controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !showRectControls))
-    controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
-    controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))
-    controls.splitMenuOnlyControls.forEach((control) => control.classList.toggle('hidden', !isSplitMenu))
   }
 
   private updateShapeControlsForDropdown(): void {
-    const { controls, getCurrentPreset } = this.options
-    const preset = getCurrentPreset()
-    if (preset !== 'basic-shape') return
+    const { controls } = this.options
 
     const selectedShape = controls.basicShapeTypeSelect.value
     const isCircleSelected = selectedShape === 'circle'
@@ -782,17 +599,23 @@ export class GlassControlPanel {
   }
 
   private updateIconControls(): void {
-    const { controls, renderer, getCurrentPreset } = this.options
-    const definition = getPresetDefinition(getCurrentPreset())
-    const supportsIcon = definition.supportsIcon
+    const { controls, renderer } = this.options
     const hasIcon = renderer.glassParams.iconType > 0
 
-    // Hide icon type selector for presets that don't support icons
-    const iconTypeRow = controls.iconTypeSelect.closest<HTMLElement>('.control-row')
-    iconTypeRow?.classList.toggle('hidden', !supportsIcon)
+    // Hide icon settings when no icon is selected
+    controls.iconOnlyControls.forEach((control) => control.classList.toggle('hidden', !hasIcon))
+  }
 
-    // Hide icon settings when no icon is selected or preset doesn't support icons
-    controls.iconOnlyControls.forEach((control) => control.classList.toggle('hidden', !hasIcon || !supportsIcon))
+  private updateSelectedInstanceControls(): void {
+    const { controls, renderer } = this.options
+    const selectedIndex = renderer.getCirclePresetActiveIndex()
+    const hasSelectedInstance = selectedIndex >= 0
+
+    // Hide controls when no instance is selected
+    controls.hasInstanceControls.forEach((control) => control.classList.toggle('hidden', !hasSelectedInstance))
+
+    // Disable remove button when no instance is selected
+    controls.circlePresetRemoveButton.disabled = !hasSelectedInstance
   }
 
   private updateBackgroundControls(): void {

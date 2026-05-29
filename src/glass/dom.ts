@@ -1,7 +1,5 @@
 export interface GlassControls {
   appRoot: HTMLElement
-  presetSelect: HTMLSelectElement
-  panelControls: HTMLElement
   controlPanel: HTMLElement
   panelToggleButton: HTMLButtonElement
   panelBackdrop: HTMLElement
@@ -17,14 +15,6 @@ export interface GlassControls {
   iconOpacitySlider: HTMLInputElement
   iconScaleSlider: HTMLInputElement
   iconColorInput: HTMLInputElement
-  rectWidthSlider: HTMLInputElement
-  rectHeightSlider: HTMLInputElement
-  rectRadiusSlider: HTMLInputElement
-  switchTrackWidthSlider: HTMLInputElement
-  switchTrackHeightSlider: HTMLInputElement
-  switchTrackOffOpacitySlider: HTMLInputElement
-  switchTrackOnOpacitySlider: HTMLInputElement
-  forceActiveCheckbox: HTMLInputElement
   backgroundTypeSelect: HTMLSelectElement
   bgBrightnessSlider: HTMLInputElement
   specularOpacitySlider: HTMLInputElement
@@ -59,28 +49,16 @@ export interface GlassControls {
   circleOnlyControls: NodeListOf<HTMLElement>
   circlePresetOnlyControls: NodeListOf<HTMLElement>
   circlePresetAddButton: HTMLButtonElement
+  circlePresetRemoveButton: HTMLButtonElement
   circlePresetStrategySelect: HTMLSelectElement
-  basicShapeOnlyControls: NodeListOf<HTMLElement>
+  hasInstanceControls: NodeListOf<HTMLElement>
   basicShapeTypeSelect: HTMLSelectElement
   basicShapeRectControls: NodeListOf<HTMLElement>
   basicShapeRectWidthSlider: HTMLInputElement
   basicShapeRectHeightSlider: HTMLInputElement
   basicShapeRectRadiusSlider: HTMLInputElement
   iconOnlyControls: NodeListOf<HTMLElement>
-  rectOnlyControls: NodeListOf<HTMLElement>
-  switchOnlyControls: NodeListOf<HTMLElement>
   gridOnlyControls: NodeListOf<HTMLElement>
-  playerControlsOnlyControls: NodeListOf<HTMLElement>
-  leftCircleSizeSlider: HTMLInputElement
-  centerCircleSizeSlider: HTMLInputElement
-  rightCircleSizeSlider: HTMLInputElement
-  leftIconTypeSelect: HTMLSelectElement
-  centerIconTypeSelect: HTMLSelectElement
-  rightIconTypeSelect: HTMLSelectElement
-  splitMenuOnlyControls: NodeListOf<HTMLElement>
-  splitMenuPillWidthSlider: HTMLInputElement
-  splitMenuPillHeightSlider: HTMLInputElement
-  splitMenuPillRadiusSlider: HTMLInputElement
 }
 
 function getElement<T extends HTMLElement>(id: string): T {
@@ -94,8 +72,6 @@ function getElement<T extends HTMLElement>(id: string): T {
 export function getGlassControls(): GlassControls {
   return {
     appRoot: getElement<HTMLElement>('app'),
-    presetSelect: getElement<HTMLSelectElement>('presetType'),
-    panelControls: getElement<HTMLElement>('panelControls'),
     controlPanel: getElement<HTMLElement>('controlPanel'),
     panelToggleButton: getElement<HTMLButtonElement>('panelToggleButton'),
     panelBackdrop: getElement<HTMLElement>('panelBackdrop'),
@@ -111,14 +87,6 @@ export function getGlassControls(): GlassControls {
     iconOpacitySlider: getElement<HTMLInputElement>('iconOpacity'),
     iconScaleSlider: getElement<HTMLInputElement>('iconScale'),
     iconColorInput: getElement<HTMLInputElement>('iconColor'),
-    rectWidthSlider: getElement<HTMLInputElement>('rectWidth'),
-    rectHeightSlider: getElement<HTMLInputElement>('rectHeight'),
-    rectRadiusSlider: getElement<HTMLInputElement>('rectRadius'),
-    switchTrackWidthSlider: getElement<HTMLInputElement>('switchTrackWidth'),
-    switchTrackHeightSlider: getElement<HTMLInputElement>('switchTrackHeight'),
-    switchTrackOffOpacitySlider: getElement<HTMLInputElement>('switchTrackOffOpacity'),
-    switchTrackOnOpacitySlider: getElement<HTMLInputElement>('switchTrackOnOpacity'),
-    forceActiveCheckbox: getElement<HTMLInputElement>('forceActive'),
     backgroundTypeSelect: getElement<HTMLSelectElement>('backgroundType'),
     bgBrightnessSlider: getElement<HTMLInputElement>('bgBrightness'),
     specularOpacitySlider: getElement<HTMLInputElement>('specularOpacity'),
@@ -153,28 +121,16 @@ export function getGlassControls(): GlassControls {
     circleOnlyControls: document.querySelectorAll<HTMLElement>('.circle-only-control'),
     circlePresetOnlyControls: document.querySelectorAll<HTMLElement>('.circle-preset-only'),
     circlePresetAddButton: getElement<HTMLButtonElement>('circlePresetAdd'),
+    circlePresetRemoveButton: getElement<HTMLButtonElement>('circlePresetRemove'),
     circlePresetStrategySelect: getElement<HTMLSelectElement>('circlePresetStrategy'),
-    basicShapeOnlyControls: document.querySelectorAll<HTMLElement>('.basic-shape-only'),
+    hasInstanceControls: document.querySelectorAll<HTMLElement>('.has-instance-control'),
     basicShapeTypeSelect: getElement<HTMLSelectElement>('basicShapeType'),
     basicShapeRectControls: document.querySelectorAll<HTMLElement>('.basic-shape-rect-control'),
     basicShapeRectWidthSlider: getElement<HTMLInputElement>('basicShapeRectWidth'),
     basicShapeRectHeightSlider: getElement<HTMLInputElement>('basicShapeRectHeight'),
     basicShapeRectRadiusSlider: getElement<HTMLInputElement>('basicShapeRectRadius'),
     iconOnlyControls: document.querySelectorAll<HTMLElement>('.icon-only-control'),
-    rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
-    switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),
     gridOnlyControls: document.querySelectorAll<HTMLElement>('.grid-only-control'),
-    playerControlsOnlyControls: document.querySelectorAll<HTMLElement>('.player-controls-only'),
-    leftCircleSizeSlider: getElement<HTMLInputElement>('leftCircleSize'),
-    centerCircleSizeSlider: getElement<HTMLInputElement>('centerCircleSize'),
-    rightCircleSizeSlider: getElement<HTMLInputElement>('rightCircleSize'),
-    leftIconTypeSelect: getElement<HTMLSelectElement>('leftIconType'),
-    centerIconTypeSelect: getElement<HTMLSelectElement>('centerIconType'),
-    rightIconTypeSelect: getElement<HTMLSelectElement>('rightIconType'),
-    splitMenuOnlyControls: document.querySelectorAll<HTMLElement>('.split-menu-only'),
-    splitMenuPillWidthSlider: getElement<HTMLInputElement>('splitMenuPillWidth'),
-    splitMenuPillHeightSlider: getElement<HTMLInputElement>('splitMenuPillHeight'),
-    splitMenuPillRadiusSlider: getElement<HTMLInputElement>('splitMenuPillRadius'),
   }
 }
 
@@ -186,7 +142,7 @@ export function setSliderValue(slider: HTMLInputElement, value: number): void {
   }
 }
 
-export function setupCollapsibleSections(onDisplacementOpen: () => void): void {
+export function setupCollapsibleSections(): void {
   document.querySelectorAll<HTMLButtonElement>('.section-header').forEach((header) => {
     header.addEventListener('click', () => {
       const section = header.closest<HTMLElement>('.panel-section')
@@ -194,10 +150,16 @@ export function setupCollapsibleSections(onDisplacementOpen: () => void): void {
 
       const collapsed = section.classList.toggle('collapsed')
       header.setAttribute('aria-expanded', String(!collapsed))
+    })
+  })
 
-      if (!collapsed && section.classList.contains('displacement-section')) {
-        onDisplacementOpen()
-      }
+  document.querySelectorAll<HTMLButtonElement>('.control-group-header').forEach((header) => {
+    header.addEventListener('click', () => {
+      const group = header.closest<HTMLElement>('.control-group')
+      if (!group) return
+
+      const collapsed = group.classList.toggle('collapsed')
+      header.setAttribute('aria-expanded', String(!collapsed))
     })
   })
 }

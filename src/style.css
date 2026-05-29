@@ -229,14 +229,48 @@ body {
   color: #777;
 }
 
-.displacement-section {
-  flex-shrink: 0;
-}
-
-.surface-buttons {
+.surface-buttons-row {
   display: flex;
   gap: 12px;
   justify-content: center;
+  margin-bottom: 8px;
+}
+
+.control-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 10px;
+  border: none;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+}
+
+.control-group-header:hover {
+  color: #999;
+}
+
+.control-group-header .control-group-title {
+  margin-bottom: 0;
+}
+
+.displacement-group.collapsed .control-group-header {
+  margin-bottom: 0;
+}
+
+.displacement-group.collapsed .section-toggle {
+  transform: rotate(-45deg);
+}
+
+.displacement-group.collapsed .displacement-content {
+  display: none;
+}
+
+.displacement-map-row {
+  display: block;
 }
 
 .surface-btn {
@@ -280,7 +314,8 @@ body {
   margin-bottom: 0;
 }
 
-.control-row.hidden {
+.control-row.hidden,
+.control-group.hidden {
   display: none;
 }
 
@@ -354,8 +389,22 @@ body {
   cursor: pointer;
 }
 
-.control-row button:hover {
+.control-row button:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.24);
+}
+
+.control-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.button-group {
+  display: flex;
+  gap: 6px;
+}
+
+.button-group button {
+  min-width: 64px;
 }
 
 #displacementMap {
@@ -411,46 +460,6 @@ body {
   touch-action: none;
   position: relative;
   z-index: 1;
-}
-
-.panel-controls {
-  position: absolute;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  align-items: center;
-  justify-items: center;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.panel-controls.hidden {
-  display: none;
-}
-
-.panel-controls button {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: #26272a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.panel-controls svg {
-  width: 26px;
-  height: 26px;
-  display: block;
-  fill: currentColor;
-}
-
-.panel-controls-primary svg {
-  width: 36px;
-  height: 36px;
 }
 
 /* Article Background */
@@ -676,29 +685,6 @@ body {
     transform: translate3d(2%, 2%, 0) scale(1.04);
     opacity: 0.98;
   }
-}
-
-/* Video Background */
-.video-background {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  background: #000;
-}
-
-.video-background .video-element {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-.video-background.html-in-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
 }
 
 .article-content {

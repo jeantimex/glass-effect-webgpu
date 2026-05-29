@@ -17,8 +17,6 @@ interface GlassUniformInput {
   startTime: number
   glassCenterX: number
   glassCenterY: number
-  switchCenterX: number
-  switchCenterY: number
   gridOffset: number
 }
 
@@ -29,30 +27,6 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
   const uniformTime = (performance.now() - input.startTime) / 1000
   const dpr = window.devicePixelRatio || 1
   const circlePresetCount = Math.min(params.circlePresetCount, 8)
-
-  // Determine which circle gets animated shadow (active circle)
-  // Non-active circles use base shadow values
-  const activeIdx = params.activeCircleIndex
-  const leftShadow = activeIdx === 0
-    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-    : baseShadow
-  const centerShadow = activeIdx === 1
-    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-    : baseShadow
-  const rightShadow = activeIdx === 2
-    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-    : baseShadow
-
-  // Determine which split menu item gets animated shadow
-  const activeSplitIdx = params.activeSplitMenuIndex
-  const splitCircleShadow = activeSplitIdx === 0
-    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-    : baseShadow
-  const splitRectShadow = activeSplitIdx === 1
-    ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-    : baseShadow
-
-  const circlePresetShadow = baseShadow
 
   return new Float32Array([
     canvas.width,
@@ -95,18 +69,20 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.glassTintR,
     params.glassTintG,
     params.glassTintB,
-    params.switchMode ? 1.0 : 0.0,
-    params.sliderMode ? 1.0 : 0.0,
-    params.switchProgress,
-    params.switchTrackWidth * dpr,
-    params.switchTrackHeight * dpr,
-    input.switchCenterX * canvas.width,
-    input.switchCenterY * canvas.height,
-    params.switchTrackOffOpacity,
-    params.switchTrackOnOpacity,
+    // Switch/slider mode (removed - set to 0)
+    0, // switchMode
+    0, // sliderMode
+    0, // switchProgress
+    0, // switchTrackWidth
+    0, // switchTrackHeight
+    0, // switchCenterX
+    0, // switchCenterY
+    0, // switchTrackOffOpacity
+    0, // switchTrackOnOpacity
     params.maxDisplacementScale,
-    params.splitMenuMode ? 1.0 : 0.0,
-    params.splitMenuProgress,
+    // Split menu (removed - set to 0)
+    0, // splitMenuMode
+    0, // splitMenuProgress
     params.liquidEnabled ? 1.0 : 0.0,
     params.iconType,
     params.iconOpacity,
@@ -118,48 +94,49 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.chromaticAberration ? 1.0 : 0.0,
     params.chromaticStrength,
     params.chromaticBase,
-    params.playerControlsMode ? 1.0 : 0.0,
-    params.sideCircleOffset * dpr,
-    params.sideCircleScale,
-    params.activeCircleIndex,
-    params.leftCircleSize,
-    params.centerCircleSize,
-    params.rightCircleSize,
-    params.playerControlsGroupLiquid ? 1.0 : 0.0,
+    // Player controls (removed - set to 0)
+    0, // playerControlsMode
+    0, // sideCircleOffset
+    0, // sideCircleScale
+    0, // activeCircleIndex
+    0, // leftCircleSize
+    0, // centerCircleSize
+    0, // rightCircleSize
+    0, // playerControlsGroupLiquid
     params.circlePresetMode ? 1.0 : 0.0,
     params.circlePresetStrategy,
     circlePresetCount,
     params.circlePresetActiveIndex,
-    // Per-circle shadow params - only active circle uses animated values
-    leftShadow.opacity,
-    leftShadow.blur,
-    leftShadow.offsetX,
-    leftShadow.offsetY,
-    centerShadow.opacity,
-    centerShadow.blur,
-    centerShadow.offsetX,
-    centerShadow.offsetY,
-    rightShadow.opacity,
-    rightShadow.blur,
-    rightShadow.offsetX,
-    rightShadow.offsetY,
-    circlePresetShadow.opacity,
-    circlePresetShadow.blur,
-    circlePresetShadow.offsetX,
-    circlePresetShadow.offsetY,
-    // Split menu per-item shadows
-    params.activeSplitMenuIndex,
-    splitCircleShadow.opacity,
-    splitCircleShadow.blur,
-    splitCircleShadow.offsetX,
-    splitCircleShadow.offsetY,
-    splitRectShadow.opacity,
-    splitRectShadow.blur,
-    splitRectShadow.offsetX,
-    splitRectShadow.offsetY,
-    // Split menu pill settings
-    params.splitMenuPillWidth * dpr,
-    params.splitMenuPillHeight * dpr,
-    params.splitMenuPillRadius * dpr,
+    // Per-circle shadow params (removed - use base shadow)
+    baseShadow.opacity,
+    baseShadow.blur,
+    baseShadow.offsetX,
+    baseShadow.offsetY,
+    baseShadow.opacity,
+    baseShadow.blur,
+    baseShadow.offsetX,
+    baseShadow.offsetY,
+    baseShadow.opacity,
+    baseShadow.blur,
+    baseShadow.offsetX,
+    baseShadow.offsetY,
+    baseShadow.opacity,
+    baseShadow.blur,
+    baseShadow.offsetX,
+    baseShadow.offsetY,
+    // Split menu per-item shadows (removed - use 0)
+    0, // activeSplitMenuIndex
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    // Split menu pill settings (removed - set to 0)
+    0,
+    0,
+    0,
   ])
 }

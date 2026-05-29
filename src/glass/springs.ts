@@ -21,7 +21,6 @@ export interface GlassSprings {
   specularOpacity: Spring
   glassBgOpacity: Spring
   liquid: Spring
-  splitMenuProgress: Spring
 }
 
 export function createSpring(value: number, stiffness: number, damping: number): Spring {
@@ -41,7 +40,6 @@ export function createGlassSprings(renderer: WebGPURenderer): GlassSprings {
     specularOpacity: createSpring(renderer.glassParams.specularOpacity, 420, 20),
     glassBgOpacity: createSpring(renderer.glassParams.glassBgOpacity, 800, 50),
     liquid: createSpring(0, 300, 13),
-    splitMenuProgress: createSpring(0, 240, 20),
   }
 }
 
@@ -61,7 +59,6 @@ export function resetGlassSpringsFromPreset(springs: GlassSprings, preset: Glass
   setSpring(springs.specularOpacity, preset.specularOpacity)
   setSpring(springs.glassBgOpacity, preset.glassBgOpacity)
   setSpring(springs.liquid, 0)
-  setSpring(springs.splitMenuProgress, 0)
 }
 
 export function resetDeformationSprings(springs: GlassSprings): void {

@@ -1,77 +1,75 @@
 import type { GlassParams } from './types'
 
-const base = import.meta.env.BASE_URL
-
-export const videoBackgroundUrl = `${base}assets/video.mp4`
-
 export function createDefaultGlassParams(): GlassParams {
   return {
+    // Geometry
     bezelWidth: 60,
     glassThickness: 50,
     scaleRatio: 1.0,
     surfaceType: 0,
-    gridCellSize: 105,
-    gridSpeed: 40,
-    specularOpacity: 0.4,
-    specularAngle: Math.PI / 3,
-    bgBrightness: 1.0,
-    specularSaturation: 4.0,
-    specularType: 0,
+    maxDisplacementScale: 0.8,
     scaleX: 1.0,
     scaleY: 1.0,
+
+    // Shape
+    shapeType: 0,
+    circleSize: 0.8,
+    rectWidth: 420,
+    rectHeight: 96,
+    rectRadiusPercent: 100,
+
+    // Refraction
+    refractiveIndex: 1.5,
+    magnifyingScale: 0,
+
+    // Background
+    gridCellSize: 105,
+    gridSpeed: 40,
+    bgBrightness: 1.0,
+    useImageBg: false,
+    articleMode: false,
+
+    // Glass appearance
+    glassTintR: 1,
+    glassTintG: 1,
+    glassTintB: 1,
+    glassBgOpacity: 0,
+
+    // Blur
     blurAmount: 0.0,
     blurType: 1,
+    progressiveBlur: 0,
+    progressiveBlurType: 0,
+
+    // Specular
+    specularOpacity: 0.4,
+    specularAngle: Math.PI / 3,
+    specularSaturation: 4.0,
+    specularType: 0,
+
+    // Shadow
     shadowOpacity: 0.1,
     shadowBlur: 30,
     shadowOffsetX: 0,
     shadowOffsetY: 15,
-    progressiveBlur: 0,
-    progressiveBlurType: 0,
-    glassBgOpacity: 0,
-    refractiveIndex: 1.5,
-    magnifyingScale: 0,
-    circleSize: 0.8,
-    shapeType: 0,
-    rectWidth: 420,
-    rectHeight: 96,
-    rectRadiusPercent: 100,
-    glassTintR: 1,
-    glassTintG: 1,
-    glassTintB: 1,
-    useImageBg: false,
-    switchMode: false,
-    sliderMode: false,
-    switchProgress: 1,
-    switchTrackWidth: 160,
-    switchTrackHeight: 67,
-    switchTrackOffOpacity: 0.34,
-    switchTrackOnOpacity: 0.86,
-    maxDisplacementScale: 0.8,
-    splitMenuMode: false,
-    splitMenuProgress: 0,
-    activeSplitMenuIndex: -1,
-    splitMenuPillWidth: 280,
-    splitMenuPillHeight: 140,
-    splitMenuPillRadius: 100,
-    liquidEnabled: true,
+
+    // Icon
     iconType: 0,
     iconOpacity: 0.8,
     iconScale: 0.45,
     iconColorR: 1,
     iconColorG: 1,
     iconColorB: 1,
-    articleMode: false,
+
+    // Chromatic aberration
     chromaticAberration: false,
     chromaticStrength: 1.5,
     chromaticBase: 0.4,
-    playerControlsMode: false,
-    sideCircleOffset: 220,
-    sideCircleScale: 0.75,
-    activeCircleIndex: -1,
-    leftCircleSize: 0.32,
-    centerCircleSize: 0.42,
-    rightCircleSize: 0.32,
-    playerControlsGroupLiquid: false,
+
+    // Liquid animation
+    liquidEnabled: true,
+
+    // Instance management
     circlePresetMode: false,
     circlePresetStrategy: 0,
     circlePresetCount: 1,

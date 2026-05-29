@@ -7,42 +7,52 @@ export const surfaceTypeMap: Record<SurfaceType, number> = {
   'lip': 3,
 }
 
-export type PresetType = 'basic-shape' | 'switch' | 'slider' | 'panel' | 'split-menu' | 'player-controls'
+export type PresetType = 'basic-shape'
 export type GlassTheme = 'system' | 'light' | 'dark' | 'custom'
 export type CirclePresetStrategy = 'stack' | 'merge'
 
 export interface GlassPreset {
+  // Shape
   shapeType: number
   surfaceType: SurfaceType
-  bezelWidth: number
-  glassThickness: number
-  refractiveIndex: number
-  magnifyingScale: number
   circleSize: number
   rectWidth: number
   rectHeight: number
   rectRadiusPercent: number
-  switchTrackWidth: number
-  switchTrackHeight: number
-  switchTrackOffOpacity: number
-  switchTrackOnOpacity: number
-  maxDisplacementScale: number
-  trackProgress: number
+
+  // Geometry
+  bezelWidth: number
+  glassThickness: number
   scaleRatio: number
+  maxDisplacementScale: number
+
+  // Refraction
+  refractiveIndex: number
+  magnifyingScale: number
+
+  // Glass appearance
+  glassBgOpacity: number
+  pressedGlassBgOpacity: number
+
+  // Blur
   blurAmount: number
   blurType: number
   progressiveBlur: number
   progressiveBlurType: number
-  glassBgOpacity: number
-  pressedGlassBgOpacity: number
+
+  // Specular
   specularType: number
   specularOpacity: number
   specularAngle: number
   specularSaturation: number
+
+  // Shadow
   shadowOpacity: number
   shadowBlur: number
   shadowOffsetX: number
   shadowOffsetY: number
+
+  // Liquid animation
   liquidPressScale: number
   liquidPressRefraction: number
   liquidClickSquash: number
@@ -62,10 +72,7 @@ export interface UserParams {
   specularOpacity: number
   glassBgOpacity: number
   pressedGlassBgOpacity: number
-  forceActive: boolean
   liquidEnabled: boolean
-  splitMenuOpen: boolean
-  splitMenuProgress: number
   liquidPressScale: number
   liquidPressRefraction: number
   liquidSpeed: number

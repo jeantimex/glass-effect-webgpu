@@ -1,5 +1,4 @@
 import html2canvas from 'html2canvas'
-import { Circle, type CircleConfig } from './circle'
 import { GlassInstanceManager, CircleInstance, RectangleInstance, GlassInstance } from './glass-instance-manager'
 import type { ShapeType } from './glass-instance-manager'
 import { createDefaultGlassParams } from './defaults'
@@ -12,12 +11,8 @@ import {
 } from './html-in-canvas'
 import {
   clientPointToCanvasPoint,
-  getClickedSplitMenuIndex,
   getShapeBounds,
-  getSwitchMetrics,
   isPointInsideGlass,
-  isPointInsideSplitMenu,
-  isPointInsideSwitchTrack,
   resizeCanvasToDisplaySize,
 } from './geometry'
 import {
@@ -30,7 +25,6 @@ import type { BackgroundType, GlassParams } from './types'
 import { createGlassUniformData, GLASS_UNIFORM_BUFFER_SIZE } from './uniforms'
 
 export type { BackgroundType, GlassParams } from './types'
-export { Circle, type CircleConfig } from './circle'
 export { GlassInstance } from './glass-instance'
 export { CircleInstance, type CircleInstanceConfig } from './circle-instance'
 export { RectangleInstance, type RectangleInstanceConfig } from './rectangle-instance'
@@ -55,16 +49,8 @@ export class WebGPURenderer {
   private glassCenterX = 0.5
   private glassCenterY = 0.5
   private gridOffset = 0
-  private switchCenterX = 0.5
-  private switchCenterY = 0.5
-  // Player controls circles (left, center, right)
-  private _circles: Circle[] = []
   // Glass preset instances with per-instance properties (circles or rectangles)
   private _glassInstanceManager!: GlassInstanceManager
-
-  // Video element for fallback mode (when HTML-in-Canvas not supported)
-  private videoElement: HTMLVideoElement | null = null
-  private readonly videoPlaybackRate = 0.1
 
   // HTML-in-Canvas support for template backgrounds
   private htmlInCanvasSupport: HTMLInCanvasSupport = { supported: false, copyElementImageToTexture: false }
@@ -121,24 +107,6 @@ export class WebGPURenderer {
       () => this.rebuildBindGroup()
     )
 
-    // Initialize player control circles (left, center, right)
-    const defaultCircleConfig: CircleConfig = {
-      size: 0.32,
-      iconUrl: null,
-      shadowOpacity: this.glassParams.shadowOpacity,
-      shadowBlur: this.glassParams.shadowBlur,
-      shadowOffsetX: this.glassParams.shadowOffsetX,
-      shadowOffsetY: this.glassParams.shadowOffsetY,
-    }
-    this._circles = [
-      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
-        { ...defaultCircleConfig, size: 0.32 }, () => this.rebuildBindGroup()),
-      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
-        { ...defaultCircleConfig, size: 0.42 }, () => this.rebuildBindGroup()),
-      new Circle(this.device, this.textureLoader, this.createEmptyTexture(),
-        { ...defaultCircleConfig, size: 0.32 }, () => this.rebuildBindGroup()),
-    ]
-
     this.bindGroup = this.createRenderBindGroup(this.bgTexture)
     this.pipeline = createPipeline(this.device, this.format, this.bindGroupLayout)
 
@@ -163,13 +131,6 @@ export class WebGPURenderer {
 
     // Clean up previous background
     this.cleanupBackground()
-
-    // Handle video separately (doesn't use HTML-in-Canvas)
-    if (type === 'video') {
-      await this.startVideo()
-      if (requestId !== this.backgroundRequestId) return
-      return
-    }
 
     if (isTemplateBackground(type)) {
       const width = this.canvas.clientWidth
@@ -390,49 +351,6 @@ export class WebGPURenderer {
   }
 
   /**
-   * Start video background
-   */
-  private async startVideo(): Promise<void> {
-    if (this.videoElement) return
-
-    const videoUrl = `${import.meta.env.BASE_URL}assets/video.mp4`
-    const video = document.createElement('video')
-    video.src = videoUrl
-    video.loop = false
-    video.muted = true
-    video.playsInline = true
-    video.crossOrigin = 'anonymous'
-    video.playbackRate = this.videoPlaybackRate
-    video.onended = () => {
-      video.pause()
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      video.oncanplaythrough = () => resolve()
-      video.onerror = () => reject(new Error('Failed to load video'))
-      video.load()
-    })
-
-    video.currentTime = 0
-    await video.play()
-
-    // Wait for first frame to be decoded
-    await new Promise<void>((resolve) => {
-      if ('requestVideoFrameCallback' in video) {
-        (video as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void })
-          .requestVideoFrameCallback(() => resolve())
-      } else {
-        requestAnimationFrame(() => resolve())
-      }
-    })
-
-    this.videoElement = video
-    this.bgTexture = this.textureLoader.createTextureFromVideo(video)
-    this.glassParams.useImageBg = true
-    this.bindGroup = this.createRenderBindGroup(this.bgTexture)
-  }
-
-  /**
    * Clean up background element and textures
    */
   private cleanupBackground(): void {
@@ -451,14 +369,6 @@ export class WebGPURenderer {
       // Remove the template-created element entirely
       this.backgroundElement.remove()
       this.backgroundElement = null
-    }
-
-    // Clean up video fallback mode
-    if (this.videoElement) {
-      this.videoElement.pause()
-      this.videoElement.src = ''
-      this.videoElement.onended = null
-      this.videoElement = null
     }
 
     if (this.backgroundTexture) {
@@ -480,15 +390,6 @@ export class WebGPURenderer {
 
     this.iconTexture = texture
     this.bindGroup = this.createRenderBindGroup(this.bgTexture)
-  }
-
-  // Access circles for player controls mode
-  get circles(): Circle[] {
-    return this._circles
-  }
-
-  getCircle(index: number): Circle {
-    return this._circles[index]
   }
 
   // Glass instance manager for circle/rectangle preset modes
@@ -674,13 +575,19 @@ export class WebGPURenderer {
     )
   }
 
-  // Convenience methods that delegate to circles
-  async setIconLeft(url: string | null): Promise<void> {
-    await this._circles[0].setIcon(url)
+  removeGlassInstance(index: number): boolean {
+    const removed = this._glassInstanceManager.removeInstance(index)
+    if (removed) {
+      this.glassParams.circlePresetCount = this._glassInstanceManager.count
+      this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
+    }
+    return removed
   }
 
-  async setIconRight(url: string | null): Promise<void> {
-    await this._circles[2].setIcon(url)
+  clearGlassInstances(): void {
+    this._glassInstanceManager.clear()
+    this.glassParams.circlePresetCount = 0
+    this.glassParams.circlePresetActiveIndex = -1
   }
 
   private rebuildBindGroup(): void {
@@ -724,21 +631,6 @@ export class WebGPURenderer {
   }
 
   isPointInsideGlass(clientX: number, clientY: number): boolean {
-    if (this.glassParams.splitMenuMode) {
-      return isPointInsideSplitMenu(
-        this.canvas,
-        this.glassParams,
-        this.glassCenterX,
-        this.glassCenterY,
-        clientX,
-        clientY
-      )
-    }
-
-    if (this.glassParams.playerControlsMode) {
-      return this.getClickedCircleIndex(clientX, clientY) >= 0
-    }
-
     if (this.glassParams.circlePresetMode) {
       return this.getClickedCirclePresetIndex(clientX, clientY) >= 0
     }
@@ -753,80 +645,6 @@ export class WebGPURenderer {
     )
   }
 
-  isPointInsideSwitchTrack(clientX: number, clientY: number): boolean {
-    return isPointInsideSwitchTrack(
-      this.canvas,
-      this.glassParams,
-      this.switchCenterX,
-      this.switchCenterY,
-      clientX,
-      clientY
-    )
-  }
-
-  getClickedCircleIndex(clientX: number, clientY: number): number {
-    if (!this.glassParams.playerControlsMode) return 1
-
-    const point = clientPointToCanvasPoint(this.canvas, clientX, clientY)
-    const dpr = window.devicePixelRatio || 1
-    const centerX = this.glassCenterX * this.canvas.width
-    const centerY = this.glassCenterY * this.canvas.height
-    const baseRadius = Math.min(this.canvas.width, this.canvas.height) * 0.35
-    const centerRadius = baseRadius * this.glassParams.centerCircleSize
-    const leftRadius = baseRadius * this.glassParams.leftCircleSize
-    const rightRadius = baseRadius * this.glassParams.rightCircleSize
-    const offset = this.glassParams.sideCircleOffset * dpr
-
-    const distCenter = Math.hypot(point.x - centerX, point.y - centerY)
-    const distLeft = Math.hypot(point.x - (centerX - offset), point.y - centerY)
-    const distRight = Math.hypot(point.x - (centerX + offset), point.y - centerY)
-
-    if (distCenter <= centerRadius) return 1
-    if (distLeft <= leftRadius) return 0
-    if (distRight <= rightRadius) return 2
-    return -1
-  }
-
-  setActiveCircleIndex(index: number): void {
-    this.glassParams.activeCircleIndex = index
-  }
-
-  getClickedSplitMenuIndex(clientX: number, clientY: number): number {
-    if (!this.glassParams.splitMenuMode) return -1
-    return getClickedSplitMenuIndex(
-      this.canvas,
-      this.glassParams,
-      this.glassCenterX,
-      this.glassCenterY,
-      clientX,
-      clientY
-    )
-  }
-
-  setActiveSplitMenuIndex(index: number): void {
-    this.glassParams.activeSplitMenuIndex = index
-  }
-
-  setSwitchMode(enabled: boolean): void {
-    this.glassParams.switchMode = enabled
-    if (enabled) {
-      this.glassParams.sliderMode = false
-      this.switchCenterX = 0.5
-      this.switchCenterY = 0.5
-      this.setSwitchProgress(this.glassParams.switchProgress)
-    }
-  }
-
-  setSliderMode(enabled: boolean): void {
-    this.glassParams.sliderMode = enabled
-    if (enabled) {
-      this.glassParams.switchMode = false
-      this.switchCenterX = 0.5
-      this.switchCenterY = 0.5
-      this.setSwitchProgress(this.glassParams.switchProgress)
-    }
-  }
-
   centerGlass(): void {
     this.glassCenterX = 0.5
     this.glassCenterY = 0.5
@@ -837,45 +655,6 @@ export class WebGPURenderer {
       x: this.glassCenterX * this.canvas.clientWidth,
       y: this.glassCenterY * this.canvas.clientHeight,
     }
-  }
-
-  setSwitchProgress(progress: number): void {
-    this.glassParams.switchProgress = Math.min(Math.max(progress, 0), 1)
-    if (!this.glassParams.switchMode && !this.glassParams.sliderMode) return
-
-    const metrics = getSwitchMetrics(
-      this.canvas,
-      this.glassParams,
-      this.switchCenterX,
-      this.switchCenterY
-    )
-    const thumbCenterX = metrics.centerX + (this.glassParams.switchProgress - 0.5) * metrics.travel
-    this.glassCenterX = thumbCenterX / this.canvas.width
-    this.glassCenterY = metrics.centerY / this.canvas.height
-  }
-
-  getSwitchProgress(): number {
-    return this.glassParams.switchProgress
-  }
-
-  getSwitchProgressFromClientX(clientX: number): number | null {
-    const point = clientPointToCanvasPoint(this.canvas, clientX, 0)
-    const metrics = getSwitchMetrics(
-      this.canvas,
-      this.glassParams,
-      this.switchCenterX,
-      this.switchCenterY
-    )
-    if (metrics.travel <= 0) return null
-
-    return (point.x - metrics.centerX) / metrics.travel + 0.5
-  }
-
-  setSwitchProgressFromClientX(clientX: number): void {
-    const progress = this.getSwitchProgressFromClientX(clientX)
-    if (progress === null) return
-
-    this.setSwitchProgress(progress)
   }
 
   getGlassDragOffset(clientX: number, clientY: number): { x: number; y: number } {
@@ -905,11 +684,8 @@ export class WebGPURenderer {
   render(baseShadow?: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
     this.resizeCanvas()
     this.syncCssAnimationBackground()
-    if (this.glassParams.switchMode || this.glassParams.sliderMode) {
-      this.setSwitchProgress(this.glassParams.switchProgress)
-    }
 
-    // Update texture in HTML-in-Canvas mode for live content (including video)
+    // Update texture in HTML-in-Canvas mode for live content
     if (this.backgroundElement && this.backgroundTexture && this.htmlInCanvasSupport.copyElementImageToTexture) {
       try {
         this.updateBackgroundTexture()
@@ -918,17 +694,7 @@ export class WebGPURenderer {
       }
     }
 
-    // Update video texture in fallback mode
-    if (this.videoElement) {
-      this.textureLoader.updateTextureFromVideo(this.bgTexture, this.videoElement)
-    }
-
-    // Sync circle data to glassParams for uniforms
-    if (this.glassParams.playerControlsMode && this._circles.length === 3) {
-      this.glassParams.leftCircleSize = this._circles[0].size
-      this.glassParams.centerCircleSize = this._circles[1].size
-      this.glassParams.rightCircleSize = this._circles[2].size
-    }
+    // Sync instance data to glassParams for uniforms
     if (this.glassParams.circlePresetMode) {
       this.glassParams.circlePresetCount = this._glassInstanceManager.count
       this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
@@ -964,9 +730,7 @@ export class WebGPURenderer {
       startTime: this.startTime,
       glassCenterX: this.glassCenterX,
       glassCenterY: this.glassCenterY,
-      switchCenterX: this.switchCenterX,
-      switchCenterY: this.switchCenterY,
-      gridOffset: this.gridOffset,
+            gridOffset: this.gridOffset,
     }))
 
     const commandEncoder = this.device.createCommandEncoder()
@@ -993,7 +757,39 @@ export class WebGPURenderer {
 
   private renderCirclePresetStack(baseShadow: { opacity: number; blur: number; offsetX: number; offsetY: number }): void {
     const instances = this._glassInstanceManager.instances.slice(0, 8)
-    if (instances.length === 0) return
+    if (instances.length === 0) {
+      // No instances - render background only (no glass)
+      this.glassParams.circlePresetCount = 0
+      this.device.queue.writeBuffer(this.uniformBuffer, 0, createGlassUniformData({
+        canvas: this.canvas,
+        params: this.glassParams,
+        baseShadow,
+        startTime: this.startTime,
+        glassCenterX: this.glassCenterX,
+        glassCenterY: this.glassCenterY,
+        gridOffset: this.gridOffset,
+      }))
+
+      const commandEncoder = this.device.createCommandEncoder()
+      const renderPass = commandEncoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: this.context.getCurrentTexture().createView(),
+            clearValue: this.glassParams.articleMode
+              ? { r: 0, g: 0, b: 0, a: 0 }
+              : { r: 0.1, g: 0.1, b: 0.12, a: 1 },
+            loadOp: 'clear',
+            storeOp: 'store',
+          },
+        ],
+      })
+      renderPass.setPipeline(this.pipeline)
+      renderPass.setBindGroup(0, this.bindGroup)
+      renderPass.draw(4)
+      renderPass.end()
+      this.device.queue.submit([commandEncoder.finish()])
+      return
+    }
 
     const originalActiveIndex = this._glassInstanceManager.activeIndex
     const originalScaleX = this.glassParams.scaleX
@@ -1049,8 +845,6 @@ export class WebGPURenderer {
         startTime: this.startTime,
         glassCenterX: this.glassCenterX,
         glassCenterY: this.glassCenterY,
-        switchCenterX: this.switchCenterX,
-        switchCenterY: this.switchCenterY,
         gridOffset: this.gridOffset,
       }))
 
@@ -1101,8 +895,8 @@ export class WebGPURenderer {
       this.bgSampler,
       iconTexture,
       this.iconSampler,
-      this._circles[0]?.iconTexture ?? this.createEmptyTexture(),
-      this._circles[2]?.iconTexture ?? this.createEmptyTexture(),
+      this.createEmptyTexture(),
+      this.createEmptyTexture(),
       this._glassInstanceManager.storageBuffer
     )
   }
