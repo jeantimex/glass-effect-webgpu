@@ -224,10 +224,8 @@ export class GlassInstanceManager {
     pointY: number,
     dpr: number
   ): number {
-    let closestIndex = -1
-    let closestDistance = Number.POSITIVE_INFINITY
-
-    for (let i = 0; i < this._instances.length; i++) {
+    // Iterate in reverse so topmost (last-added) instances are checked first
+    for (let i = this._instances.length - 1; i >= 0; i--) {
       const instance = this._instances[i]
       const centerX = instance.centerX * canvasWidth
       const centerY = instance.centerY * canvasHeight
@@ -243,13 +241,12 @@ export class GlassInstanceManager {
       )
 
       const hitDistance = this._strategy === 1 ? distance - 4 : distance
-      if (hitDistance <= 0 && distance < closestDistance) {
-        closestIndex = i
-        closestDistance = distance
+      if (hitDistance <= 0) {
+        return i
       }
     }
 
-    return closestIndex
+    return -1
   }
 
   private calculateInstanceDistance(
