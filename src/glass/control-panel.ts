@@ -142,7 +142,7 @@ export class GlassControlPanel {
   }
 
   syncSlidersFromActiveInstance(): void {
-    const { controls, renderer, userParams } = this.options
+    const { controls, userParams } = this.options
     const circleInstance = this.getActiveCircleInstance()
     const rectInstance = this.getActiveRectangleInstance()
     const instance = circleInstance ?? rectInstance
@@ -168,7 +168,7 @@ export class GlassControlPanel {
     setSliderValue(controls.chromaticStrengthSlider, instance.chromaticStrength)
     setSliderValue(controls.chromaticBaseSlider, instance.chromaticBase)
 
-    // Shape-specific properties
+    // Shape-specific properties - only update sliders, not renderer.glassParams
     if (rectInstance) {
       controls.basicShapeTypeSelect.value = 'rectangle'
       setSliderValue(controls.rectWidthSlider, rectInstance.rectWidth)
@@ -179,60 +179,30 @@ export class GlassControlPanel {
       const minDim = Math.min(rectInstance.rectWidth, rectInstance.rectHeight)
       const radiusPercent = (rectInstance.rectRadius / (minDim * 0.5)) * 100
       setSliderValue(controls.rectRadiusSlider, radiusPercent)
-      renderer.glassParams.rectWidth = rectInstance.rectWidth
-      renderer.glassParams.rectHeight = rectInstance.rectHeight
-      renderer.glassParams.rectRadiusPercent = radiusPercent
-      renderer.glassParams.circleSize = 1
     } else if (circleInstance) {
       controls.basicShapeTypeSelect.value = 'circle'
       setSliderValue(controls.circleSizeSlider, circleInstance.size)
       setSliderValue(controls.iconOpacitySlider, circleInstance.iconOpacity)
       setSliderValue(controls.iconScaleSlider, circleInstance.iconScale)
-      renderer.glassParams.circleSize = circleInstance.size
-      renderer.glassParams.iconOpacity = circleInstance.iconOpacity
-      renderer.glassParams.iconScale = circleInstance.iconScale
     }
-    renderer.glassParams.bezelWidth = instance.bezelWidth
-    renderer.glassParams.glassThickness = instance.glassThickness
-    renderer.glassParams.refractiveIndex = instance.refractiveIndex
-    renderer.glassParams.magnifyingScale = instance.magnifyingScale
-    renderer.glassParams.scaleRatio = instance.scaleRatio
-    renderer.glassParams.blurAmount = instance.blurAmount
-    renderer.glassParams.progressiveBlur = instance.progressiveBlur
-    renderer.glassParams.glassBgOpacity = instance.glassBgOpacity
-    userParams.pressedGlassBgOpacity = instance.pressedGlassBgOpacity
-    renderer.glassParams.specularOpacity = instance.specularOpacity
-    renderer.glassParams.specularAngle = instance.specularAngle
-    renderer.glassParams.specularSaturation = instance.specularSaturation
-    renderer.glassParams.shadowOpacity = instance.shadowOpacity
-    renderer.glassParams.shadowBlur = instance.shadowBlur
-    renderer.glassParams.shadowOffsetX = instance.shadowOffsetX
-    renderer.glassParams.shadowOffsetY = instance.shadowOffsetY
-    renderer.glassParams.chromaticStrength = instance.chromaticStrength
-    renderer.glassParams.chromaticBase = instance.chromaticBase
-    renderer.glassParams.glassTintR = instance.glassTintR
-    renderer.glassParams.glassTintG = instance.glassTintG
-    renderer.glassParams.glassTintB = instance.glassTintB
-    renderer.glassParams.surfaceType = instance.surfaceType
 
-    // Update color picker to match instance
+    // Note: In basic-shape mode, visual properties come from per-instance storage buffer data.
+    // We only update userParams for spring animations, not renderer.glassParams which affects uniforms.
+    userParams.pressedGlassBgOpacity = instance.pressedGlassBgOpacity
+
+    // Update UI controls to reflect instance values (no renderer.glassParams updates)
     const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
     controls.glassBgColorInput.value = `#${toHex(instance.glassTintR)}${toHex(instance.glassTintG)}${toHex(instance.glassTintB)}`
 
-    // Update surface buttons to match instance
     const surfaceNames: SurfaceType[] = ['convex-circle', 'convex-squircle', 'concave', 'lip']
     const surfaceName = surfaceNames[instance.surfaceType] ?? 'convex-circle'
     controls.surfaceButtons.forEach((button) => {
       button.classList.toggle('active', button.getAttribute('data-surface') === surfaceName)
     })
 
-    // Update select elements to match instance
     controls.blurTypeSelect.value = String(instance.blurType)
     controls.progressiveBlurTypeSelect.value = String(instance.progressiveBlurType)
     controls.specularTypeSelect.value = String(instance.specularType)
-    renderer.glassParams.blurType = instance.blurType
-    renderer.glassParams.progressiveBlurType = instance.progressiveBlurType
-    renderer.glassParams.specularType = instance.specularType
     this.updateSpecularControls()
 
     // Update glass theme - detect if it matches light/dark or set to custom
