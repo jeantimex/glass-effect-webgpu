@@ -531,17 +531,6 @@ body {
   -webkit-user-select: text;
 }
 
-.article-background.html-in-canvas .article-text {
-  cursor: text;
-}
-
-.article-background.html-in-canvas .article-title,
-.article-background.html-in-canvas .article-body,
-.article-background.html-in-canvas .article-category,
-.article-background.html-in-canvas .article-credit {
-  cursor: text;
-}
-
 /* Banner Background */
 .banner-background {
   position: absolute;
@@ -623,10 +612,6 @@ body {
   font-size: clamp(14px, 1.8vw, 18px);
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.82);
-}
-
-.banner-background.html-in-canvas .banner-copy {
-  cursor: text;
 }
 
 @container preview (max-width: 700px) {

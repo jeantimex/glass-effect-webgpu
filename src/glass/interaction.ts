@@ -19,6 +19,7 @@ export class GlassInteraction {
   movedDuringDrag = false
   currentVelocity = { x: 0, y: 0 }
 
+  private cursorRoot: HTMLElement | null = null
   private circlePresetDragOffset = { x: 0, y: 0 }
   private lastPointerPos = { x: 0, y: 0 }
   private pointerStartPos = { x: 0, y: 0 }
@@ -29,6 +30,7 @@ export class GlassInteraction {
 
   setup(): void {
     const { canvas } = this.options
+    this.cursorRoot = canvas.closest<HTMLElement>('.preview')
 
     canvas.addEventListener('pointerdown', this.onPointerDown)
     canvas.addEventListener('pointermove', this.onPointerMove)
@@ -36,17 +38,60 @@ export class GlassInteraction {
     canvas.addEventListener('pointercancel', this.onPointerCancel)
     canvas.addEventListener('pointerleave', this.onPointerLeave)
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
+    this.cursorRoot?.addEventListener('pointermove', this.onCursorPointerMove, { capture: true })
+    this.cursorRoot?.addEventListener('pointerleave', this.onCursorPointerLeave)
   }
 
-  private updateCanvasCursor(event: PointerEvent): void {
+  private updateCursor(event: PointerEvent): void {
     const { canvas, renderer } = this.options
+    const cursorTarget = this.cursorRoot ?? canvas
+
     if (this.draggingGlass) {
+      cursorTarget.style.cursor = 'grabbing'
       canvas.style.cursor = 'grabbing'
       return
     }
 
-    const isInteractive = renderer.isPointInsideGlass(event.clientX, event.clientY)
-    canvas.style.cursor = isInteractive ? 'grab' : 'default'
+    let cursor = 'default'
+    if (renderer.isPointInsideGlass(event.clientX, event.clientY)) {
+      cursor = 'grab'
+    } else if (this.isPointOverText(event.clientX, event.clientY)) {
+      cursor = 'text'
+    }
+
+    cursorTarget.style.cursor = cursor
+    canvas.style.cursor = cursor
+  }
+
+  private isPointOverText(clientX: number, clientY: number): boolean {
+    const textRoot = this.cursorRoot?.querySelector<HTMLElement>('.html-in-canvas')
+    if (!textRoot) return false
+
+    const walker = document.createTreeWalker(textRoot, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => node.textContent?.trim()
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT,
+    })
+
+    while (walker.nextNode()) {
+      const range = document.createRange()
+      range.selectNodeContents(walker.currentNode)
+      const rects = range.getClientRects()
+      range.detach()
+
+      for (const rect of rects) {
+        if (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        ) {
+          return true
+        }
+      }
+    }
+
+    return false
   }
 
   private onPointerDown = (event: PointerEvent): void => {
@@ -57,7 +102,7 @@ export class GlassInteraction {
       // Clicked on empty canvas - deselect current instance
       renderer.setCirclePresetActiveIndex(-1)
       this.options.updateControlsVisibility()
-      this.updateCanvasCursor(event)
+      this.updateCursor(event)
       return
     }
 
@@ -76,7 +121,7 @@ export class GlassInteraction {
     }
     this.options.syncSlidersFromActiveInstance()
     this.options.updateControlsVisibility()
-    canvas.style.cursor = 'grabbing'
+    this.updateCursor(event)
     canvas.setPointerCapture(event.pointerId)
     event.preventDefault()
   }
@@ -84,7 +129,7 @@ export class GlassInteraction {
   private onPointerMove = (event: PointerEvent): void => {
     const { renderer } = this.options
     if (!this.draggingGlass) {
-      this.updateCanvasCursor(event)
+      this.updateCursor(event)
       return
     }
 
@@ -113,7 +158,7 @@ export class GlassInteraction {
   private onPointerUp = (event: PointerEvent): void => {
     const { canvas, springs, userParams } = this.options
     if (!this.draggingGlass) {
-      this.updateCanvasCursor(event)
+      this.updateCursor(event)
       return
     }
 
@@ -130,7 +175,7 @@ export class GlassInteraction {
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId)
     }
-    this.updateCanvasCursor(event)
+    this.updateCursor(event)
   }
 
   private onPointerCancel = (event: PointerEvent): void => {
@@ -143,13 +188,30 @@ export class GlassInteraction {
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId)
     }
-    this.updateCanvasCursor(event)
+    this.updateCursor(event)
   }
 
   private onPointerLeave = (): void => {
     if (!this.draggingGlass) {
-      this.options.canvas.style.cursor = 'default'
+      this.setDefaultCursor()
     }
+  }
+
+  private onCursorPointerMove = (event: PointerEvent): void => {
+    this.updateCursor(event)
+  }
+
+  private onCursorPointerLeave = (): void => {
+    if (!this.draggingGlass) {
+      this.setDefaultCursor()
+    }
+  }
+
+  private setDefaultCursor(): void {
+    const { canvas } = this.options
+    const cursorTarget = this.cursorRoot ?? canvas
+    cursorTarget.style.cursor = 'default'
+    canvas.style.cursor = 'default'
   }
 
   private onWheel = (event: WheelEvent): void => {
