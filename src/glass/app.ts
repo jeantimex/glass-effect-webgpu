@@ -11,7 +11,7 @@ import type { PresetType, UserParams } from './types'
 
 export class GlassApp {
   private renderer!: WebGPURenderer
-  private currentPreset: PresetType = 'circle-lens'
+  private currentPreset: PresetType = 'basic-shape'
   private currentSurfaceType: SurfaceType = 'convex-circle'
 
   constructor(

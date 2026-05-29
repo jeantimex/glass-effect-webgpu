@@ -24,7 +24,7 @@ export class GlassControlPanel {
 
   private isCirclePresetMode(): boolean {
     const preset = this.options.getCurrentPreset()
-    return preset === 'circle-lens' || preset === 'rectangle' || preset === 'basic-shape'
+    return preset === 'basic-shape'
   }
 
   private getActiveInstance(): GlassInstance | undefined {
@@ -104,7 +104,7 @@ export class GlassControlPanel {
     userParams.circleSize = clampedSize
     controls.circleSizeSlider.value = clampedSize.toFixed(2)
     const preset = this.options.getCurrentPreset()
-    if (preset === 'circle-lens' || preset === 'basic-shape') {
+    if (preset === 'basic-shape') {
       const renderer = this.options.renderer
       const activeIndex = renderer.getCirclePresetActiveIndex()
       // Only update if active instance is a circle
@@ -305,32 +305,18 @@ export class GlassControlPanel {
     applyPresetToUserParams(userParams, preset)
     resetGlassSpringsFromPreset(springs, preset)
     renderer.setCirclePresetStrategy(0)
-    const isInstancePreset = type === 'circle-lens' || type === 'rectangle' || type === 'basic-shape'
+    const isInstancePreset = type === 'basic-shape'
     renderer.glassParams.circlePresetMode = isInstancePreset
     if (isInstancePreset) {
-      // Set mixed mode for basic-shape preset
-      renderer.setMixedMode(type === 'basic-shape')
+      renderer.setMixedMode(true)
       renderer.resetCirclePresetCircles()
       controls.circlePresetStrategySelect.value = 'stack'
-      if (type === 'circle-lens') {
-        const circleInstance = renderer.getCirclePresetCircle(0)
+      controls.basicShapeTypeSelect.value = 'circle'
+      const circleInstance = renderer.getCirclePresetCircle(0)
+      if (circleInstance) {
         setSliderValue(controls.circleSizeSlider, circleInstance.size)
-        const icon = controls.iconTypeSelect.value
-        const iconUrl = icon === 'none' ? null : `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
-        void renderer.setCirclePresetIcon(iconUrl)
-        renderer.setIcon(iconUrl).catch(console.error)
-      } else if (type === 'basic-shape') {
-        // Basic shape starts with circle by default
-        controls.basicShapeTypeSelect.value = 'circle'
-        const circleInstance = renderer.getCirclePresetCircle(0)
-        if (circleInstance) {
-          setSliderValue(controls.circleSizeSlider, circleInstance.size)
-        }
-        void renderer.setCirclePresetIcon(null)
-      } else {
-        // Rectangle preset - no icon, no circle size slider
-        void renderer.setCirclePresetIcon(null)
       }
+      void renderer.setCirclePresetIcon(null)
     }
 
     controls.surfaceButtons.forEach((button) => {
@@ -418,25 +404,17 @@ export class GlassControlPanel {
     })
     controls.circlePresetAddButton.addEventListener('click', () => {
       const currentPreset = this.options.getCurrentPreset()
-      if (currentPreset !== 'circle-lens' && currentPreset !== 'rectangle' && currentPreset !== 'basic-shape') return
+      if (currentPreset !== 'basic-shape') return
 
-      if (currentPreset === 'basic-shape') {
-        // In basic-shape mode, use the selected shape type
-        const shapeType = controls.basicShapeTypeSelect.value as 'circle' | 'rectangle'
-        const index = renderer.addGlassInstance(shapeType)
-        if (shapeType === 'circle') {
-          const circleInstance = renderer.getCirclePresetCircle(index)
-          if (circleInstance) {
-            this.setCircleSize(circleInstance.size)
-          }
-        }
-        this.syncSlidersFromActiveInstance()
-      } else {
-        const index = renderer.addCirclePresetCircle()
-        if (currentPreset === 'circle-lens') {
-          this.setCircleSize(renderer.getCirclePresetCircle(index).size)
+      const shapeType = controls.basicShapeTypeSelect.value as 'circle' | 'rectangle'
+      const index = renderer.addGlassInstance(shapeType)
+      if (shapeType === 'circle') {
+        const circleInstance = renderer.getCirclePresetCircle(index)
+        if (circleInstance) {
+          this.setCircleSize(circleInstance.size)
         }
       }
+      this.syncSlidersFromActiveInstance()
     })
     controls.basicShapeTypeSelect.addEventListener('change', () => {
       // Shape type selector - updates which type will be added next
@@ -779,10 +757,7 @@ export class GlassControlPanel {
   private updateShapeControls(): void {
     const { controls, renderer, getCurrentPreset } = this.options
     const preset = getCurrentPreset()
-    const isCirclePreset = preset === 'circle-lens'
-    const isRectanglePreset = preset === 'rectangle'
     const isBasicShape = preset === 'basic-shape'
-    const isInstancePreset = isCirclePreset || isRectanglePreset || isBasicShape
     const isTrackPreset = preset === 'switch' || preset === 'slider'
     const isPlayerControls = preset === 'player-controls'
     const isSplitMenu = preset === 'split-menu'
@@ -803,7 +778,7 @@ export class GlassControlPanel {
     }
 
     controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', !showCircleControls))
-    controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !isInstancePreset))
+    controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !isBasicShape))
     controls.basicShapeOnlyControls.forEach((control) => control.classList.toggle('hidden', !isBasicShape))
     controls.basicShapeRectControls.forEach((control) => control.classList.toggle('hidden', !showBasicShapeRectControls))
     controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !showRectControls))

@@ -1,8 +1,6 @@
 import type { PresetType } from '../glass/types'
 import { GlassPresetDefinition } from './base'
 import { BasicShapePreset } from './basic-shape'
-import { CircleLensPreset } from './circle-lens'
-import { RectanglePreset } from './rectangle'
 import { PanelPreset } from './panel'
 import { PlayerControlsPreset } from './player-controls'
 import { SliderPreset } from './slider'
@@ -13,8 +11,6 @@ export { GlassPresetDefinition } from './base'
 
 export const presetDefinitions = {
   'basic-shape': new BasicShapePreset(),
-  'circle-lens': new CircleLensPreset(),
-  rectangle: new RectanglePreset(),
   switch: new SwitchPreset(),
   slider: new SliderPreset(),
   panel: new PanelPreset(),
