@@ -170,8 +170,12 @@ export class GlassControlPanel {
 
     // Shape-specific properties
     if (rectInstance) {
+      controls.basicShapeTypeSelect.value = 'rectangle'
       setSliderValue(controls.rectWidthSlider, rectInstance.rectWidth)
       setSliderValue(controls.rectHeightSlider, rectInstance.rectHeight)
+      setSliderValue(controls.basicShapeRectWidthSlider, rectInstance.rectWidth)
+      setSliderValue(controls.basicShapeRectHeightSlider, rectInstance.rectHeight)
+      setSliderValue(controls.basicShapeRectRadiusSlider, rectInstance.rectRadius)
       const minDim = Math.min(rectInstance.rectWidth, rectInstance.rectHeight)
       const radiusPercent = (rectInstance.rectRadius / (minDim * 0.5)) * 100
       setSliderValue(controls.rectRadiusSlider, radiusPercent)
@@ -180,6 +184,7 @@ export class GlassControlPanel {
       renderer.glassParams.rectRadiusPercent = radiusPercent
       renderer.glassParams.circleSize = 1
     } else if (circleInstance) {
+      controls.basicShapeTypeSelect.value = 'circle'
       setSliderValue(controls.circleSizeSlider, circleInstance.size)
       setSliderValue(controls.iconOpacitySlider, circleInstance.iconOpacity)
       setSliderValue(controls.iconScaleSlider, circleInstance.iconScale)
@@ -436,6 +441,18 @@ export class GlassControlPanel {
     controls.basicShapeTypeSelect.addEventListener('change', () => {
       // Shape type selector - updates which type will be added next
       // No immediate action needed, the value is read when Add is clicked
+    })
+    controls.basicShapeRectWidthSlider.addEventListener('input', () => {
+      const value = parseFloat(controls.basicShapeRectWidthSlider.value)
+      this.updateRectangleInstanceProperty(rect => rect.rectWidth = value)
+    })
+    controls.basicShapeRectHeightSlider.addEventListener('input', () => {
+      const value = parseFloat(controls.basicShapeRectHeightSlider.value)
+      this.updateRectangleInstanceProperty(rect => rect.rectHeight = value)
+    })
+    controls.basicShapeRectRadiusSlider.addEventListener('input', () => {
+      const value = parseFloat(controls.basicShapeRectRadiusSlider.value)
+      this.updateRectangleInstanceProperty(rect => rect.rectRadius = value)
     })
     controls.circlePresetStrategySelect.addEventListener('change', () => {
       const strategy = controls.circlePresetStrategySelect.value as CirclePresetStrategy
@@ -773,11 +790,12 @@ export class GlassControlPanel {
     // For basic-shape mode, check the active instance type
     let showCircleControls = false
     let showRectControls = false
+    let showBasicShapeRectControls = false
     if (isBasicShape) {
       const activeCircle = renderer.getActiveCircleInstance()
       const activeRect = renderer.getActiveRectangleInstance()
       showCircleControls = !!activeCircle
-      showRectControls = !!activeRect
+      showBasicShapeRectControls = !!activeRect
     } else {
       const isRectangle = renderer.glassParams.shapeType === 1
       showCircleControls = !isRectangle && !isPlayerControls && !isSplitMenu
@@ -787,6 +805,7 @@ export class GlassControlPanel {
     controls.circleOnlyControls.forEach((control) => control.classList.toggle('hidden', !showCircleControls))
     controls.circlePresetOnlyControls.forEach((control) => control.classList.toggle('hidden', !isInstancePreset))
     controls.basicShapeOnlyControls.forEach((control) => control.classList.toggle('hidden', !isBasicShape))
+    controls.basicShapeRectControls.forEach((control) => control.classList.toggle('hidden', !showBasicShapeRectControls))
     controls.rectOnlyControls.forEach((control) => control.classList.toggle('hidden', !showRectControls))
     controls.switchOnlyControls.forEach((control) => control.classList.toggle('hidden', !isTrackPreset))
     controls.playerControlsOnlyControls.forEach((control) => control.classList.toggle('hidden', !isPlayerControls))

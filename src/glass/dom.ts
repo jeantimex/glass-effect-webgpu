@@ -62,6 +62,10 @@ export interface GlassControls {
   circlePresetStrategySelect: HTMLSelectElement
   basicShapeOnlyControls: NodeListOf<HTMLElement>
   basicShapeTypeSelect: HTMLSelectElement
+  basicShapeRectControls: NodeListOf<HTMLElement>
+  basicShapeRectWidthSlider: HTMLInputElement
+  basicShapeRectHeightSlider: HTMLInputElement
+  basicShapeRectRadiusSlider: HTMLInputElement
   iconOnlyControls: NodeListOf<HTMLElement>
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
@@ -152,6 +156,10 @@ export function getGlassControls(): GlassControls {
     circlePresetStrategySelect: getElement<HTMLSelectElement>('circlePresetStrategy'),
     basicShapeOnlyControls: document.querySelectorAll<HTMLElement>('.basic-shape-only'),
     basicShapeTypeSelect: getElement<HTMLSelectElement>('basicShapeType'),
+    basicShapeRectControls: document.querySelectorAll<HTMLElement>('.basic-shape-rect-control'),
+    basicShapeRectWidthSlider: getElement<HTMLInputElement>('basicShapeRectWidth'),
+    basicShapeRectHeightSlider: getElement<HTMLInputElement>('basicShapeRectHeight'),
+    basicShapeRectRadiusSlider: getElement<HTMLInputElement>('basicShapeRectRadius'),
     iconOnlyControls: document.querySelectorAll<HTMLElement>('.icon-only-control'),
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),
