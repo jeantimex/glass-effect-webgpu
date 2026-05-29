@@ -715,7 +715,7 @@ fn get_scale_for_circle(circle_index: i32) -> vec2f {
     uniforms.player_controls_group_liquid < 0.5 &&
     (
       (uniforms.player_controls_mode > 0.5 && circle_index != i32(uniforms.active_circle_index)) ||
-      (uniforms.circle_preset_mode > 0.5 && circle_index != i32(uniforms.circle_preset_active_index))
+      (uniforms.circle_preset_mode > 0.5 && circle_preset_circles[circle_index].w < 0.5)
     )
   ) {
     return vec2f(1.0, 1.0);
@@ -757,25 +757,39 @@ fn get_circle_preset_center(circle_index: i32) -> vec2f {
   return circle.xy;
 }
 
+fn circle_preset_item_sdf(pixel: vec2f, circle_index: i32) -> f32 {
+  let center = get_circle_preset_center(circle_index);
+  let radius = get_circle_preset_radius(circle_index);
+  let scale = get_scale_for_circle(circle_index);
+  return select(
+    length((pixel - center) / scale) - radius,
+    rounded_rect_sdf(
+      (pixel - center) / scale,
+      vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle_preset_circles[circle_index].z,
+      min(uniforms.rect_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5) * circle_preset_circles[circle_index].z
+    ),
+    uniforms.shape_type > 0.5
+  );
+}
+
+fn circle_preset_item_normal(pixel: vec2f, circle_index: i32) -> vec2f {
+  let eps = 1.0;
+  let d = circle_preset_item_sdf(pixel, circle_index);
+  let dx = circle_preset_item_sdf(pixel + vec2f(eps, 0.0), circle_index) - d;
+  let dy = circle_preset_item_sdf(pixel + vec2f(0.0, eps), circle_index) - d;
+  return normalize(vec2f(dx, dy));
+}
+
 fn circle_preset_sdf(pixel: vec2f) -> f32 {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
   if (count <= 0) { return 1e9; }
 
   var result = 1e9;
   let k = 40.0 * uniforms.device_pixel_ratio;
-  let rect_half_size = vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5;
-  let rect_radius = min(uniforms.rect_radius, min(rect_half_size.x, rect_half_size.y));
 
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
-    let center = get_circle_preset_center(i);
-    let radius = get_circle_preset_radius(i);
-    let scale = get_scale_for_circle(i);
-    let d = select(
-      length((pixel - center) / scale) - radius,
-      rounded_rect_sdf((pixel - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
-      uniforms.shape_type > 0.5
-    );
+    let d = circle_preset_item_sdf(pixel, i);
     if (uniforms.circle_preset_strategy < 0.5) {
       result = min(result, d);
     } else {
@@ -792,26 +806,23 @@ fn circle_preset_sdf(pixel: vec2f) -> f32 {
 fn circle_preset_shadow_alpha(pixel: vec2f) -> f32 {
   let count = i32(min(uniforms.circle_preset_count, 8.0));
   var alpha = 0.0;
-  let rect_half_size = vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5;
-  let rect_radius = min(uniforms.rect_radius, min(rect_half_size.x, rect_half_size.y));
   for (var i = 0; i < 8; i = i + 1) {
     if (i >= count) { break; }
     let center = get_circle_preset_center(i);
     let radius = get_circle_preset_radius(i);
     let scale = get_scale_for_circle(i);
-    let shadow_offset = vec2f(uniforms.circle_preset_shadow_offset_x, uniforms.circle_preset_shadow_offset_y);
-    let inside = select(
-      length((pixel - center) / scale) - radius,
-      rounded_rect_sdf((pixel - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
-      uniforms.shape_type > 0.5
+    let is_active = i == i32(uniforms.circle_preset_active_index);
+    let shadow_opacity = select(uniforms.circle_preset_shadow_opacity, uniforms.shadow_opacity, is_active);
+    let shadow_blur = select(uniforms.circle_preset_shadow_blur, uniforms.shadow_blur, is_active);
+    let shadow_offset = select(
+      vec2f(uniforms.circle_preset_shadow_offset_x, uniforms.circle_preset_shadow_offset_y),
+      vec2f(uniforms.shadow_offset_x, uniforms.shadow_offset_y),
+      is_active
     );
-    let shadow_d = select(
-      length((pixel - shadow_offset - center) / scale) - radius,
-      rounded_rect_sdf((pixel - shadow_offset - center) / scale, rect_half_size * circle_preset_circles[i].z, rect_radius * circle_preset_circles[i].z),
-      uniforms.shape_type > 0.5
-    );
-    let shadow_blur = max(uniforms.circle_preset_shadow_blur, 1.0);
-    let shadow_alpha = select(0.0, smoothstep(shadow_blur, -shadow_blur * 0.5, shadow_d) * uniforms.circle_preset_shadow_opacity, inside > 0.0);
+    let inside = circle_preset_item_sdf(pixel, i);
+    let shadow_d = circle_preset_item_sdf(pixel - shadow_offset, i);
+    let shadow_blur_px = max(shadow_blur, 1.0);
+    let shadow_alpha = select(0.0, smoothstep(shadow_blur_px, -shadow_blur_px * 0.5, shadow_d) * shadow_opacity, inside > 0.0);
     alpha = max(alpha, shadow_alpha);
   }
   return alpha;
@@ -839,16 +850,7 @@ fn get_circle_preset_active_circle(pixel: vec2f) -> CircleInfo {
     if (i >= count) { break; }
     let center = get_circle_preset_center(i);
     let radius = get_circle_preset_radius(i);
-    let scale = get_scale_for_circle(i);
-    let dist = select(
-      length(pixel - center) - radius,
-      rounded_rect_sdf(
-        (pixel - center) / scale,
-        vec2f(uniforms.rect_width, uniforms.rect_height) * 0.5 * circle_preset_circles[i].z,
-        min(uniforms.rect_radius, min(uniforms.rect_width, uniforms.rect_height) * 0.5) * circle_preset_circles[i].z
-      ),
-      uniforms.shape_type > 0.5
-    );
+    let dist = circle_preset_item_sdf(pixel, i);
     if (dist < closest_distance) {
       closest_distance = dist;
       closest_index = i;
@@ -1059,7 +1061,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   // Calculate distance from edge
   var distance_from_edge: f32;
   if (uniforms.circle_preset_mode > 0.5) {
-    distance_from_edge = -circle_preset_sdf(pixel);
+    if (uniforms.circle_preset_strategy < 0.5) {
+      distance_from_edge = -circle_preset_item_sdf(pixel, circle.index);
+    } else {
+      distance_from_edge = -circle_preset_sdf(pixel);
+    }
   } else if (uniforms.player_controls_mode > 0.5) {
     // Use smooth-blended SDF for metaball visual effect
     distance_from_edge = -player_controls_sdf(pixel, main_center, main_radius);
@@ -1157,7 +1163,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   // Direction from the nearest shape edge toward this pixel.
   var direction: vec2f;
   if (uniforms.circle_preset_mode > 0.5) {
-    direction = circle_preset_normal(pixel);
+    if (uniforms.circle_preset_strategy < 0.5) {
+      direction = circle_preset_item_normal(pixel, circle.index);
+    } else {
+      direction = circle_preset_normal(pixel);
+    }
   } else if (uniforms.player_controls_mode > 0.5) {
     direction = player_controls_normal(pixel, main_center, main_radius);
   } else {

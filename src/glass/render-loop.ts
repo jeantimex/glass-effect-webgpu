@@ -97,7 +97,7 @@ export class GlassRenderLoop {
     const isSplitMenu = preset === 'split-menu'
     const isCirclePreset = preset === 'circle-lens'
     const isRectanglePreset = preset === 'rectangle'
-    const isMultiItem = isPlayerControls || isSplitMenu || isRectanglePreset
+    const isMultiItem = isPlayerControls || isSplitMenu || isRectanglePreset || isCirclePreset
     const rectInteractionScale = isTrackPreset
       ? interactionScale / Math.max(this.userParams.circleSize, 0.001)
       : interactionScale

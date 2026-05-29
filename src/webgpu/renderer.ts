@@ -653,14 +653,14 @@ export class WebGPURenderer {
     this.bindGroup = this.createRenderBindGroup(this.bgTexture)
   }
 
-  private updateCirclePresetBuffer(circles: Circle[] = this.circlePresetCircles): void {
+  private updateCirclePresetBuffer(circles: Circle[] = this.circlePresetCircles, activeIndex: number = this.circlePresetActiveIndex): void {
     const circleData = new Float32Array(8 * 4)
     for (let index = 0; index < Math.min(circles.length, 8); index++) {
       const circle = circles[index]
       circleData[index * 4 + 0] = circle.centerX * this.canvas.width
       circleData[index * 4 + 1] = circle.centerY * this.canvas.height
       circleData[index * 4 + 2] = circle.size
-      circleData[index * 4 + 3] = 0
+      circleData[index * 4 + 3] = index === activeIndex ? 1 : 0
     }
     this.device.queue.writeBuffer(this.circlePresetBuffer, 0, circleData)
   }
@@ -1010,7 +1010,7 @@ export class WebGPURenderer {
     for (let orderIndex = 0; orderIndex < orderedCircles.length; orderIndex++) {
       const { circle, index } = orderedCircles[orderIndex]
       const isActivePass = index === originalActiveIndex
-      this.updateCirclePresetBuffer([circle])
+      this.updateCirclePresetBuffer([circle], isActivePass ? 0 : -1)
 
       this.glassParams.circlePresetMode = true
       this.glassParams.circlePresetStrategy = 0

@@ -52,11 +52,7 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
     : baseShadow
 
-  const circlePresetShadow = params.circlePresetMode
-    ? (params.circlePresetActiveIndex === 0
-      ? { opacity: params.shadowOpacity, blur: params.shadowBlur, offsetX: params.shadowOffsetX, offsetY: params.shadowOffsetY }
-      : baseShadow)
-    : baseShadow
+  const circlePresetShadow = baseShadow
 
   return new Float32Array([
     canvas.width,

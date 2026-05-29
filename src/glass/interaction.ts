@@ -92,6 +92,10 @@ export class GlassInteraction {
       this.pointerStartPos = { x: event.clientX, y: event.clientY }
       this.lastPointerTime = performance.now()
       this.currentVelocity = { x: 0, y: 0 }
+      if (userParams.liquidEnabled) {
+        springs.liquid.value = Math.max(springs.liquid.value, 0.72 * userParams.liquidClickSquash)
+        springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
+      }
       if (isCirclePreset) {
         this.options.setCircleSize(renderer.getCirclePresetCircle(clickedIndex).size)
       }
