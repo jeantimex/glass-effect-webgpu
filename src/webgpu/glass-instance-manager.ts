@@ -21,6 +21,7 @@ export class GlassInstanceManager {
   private _storageBuffer: GPUBuffer
   private _strategy: number = 0 // 0 = stack, 1 = merge
   private _shapeType: ShapeType = 'circle'
+  private _mixedMode: boolean = false // Allow mixing circle and rectangle instances
 
   constructor(
     device: GPUDevice,
@@ -73,6 +74,14 @@ export class GlassInstanceManager {
     return this._shapeType
   }
 
+  get mixedMode(): boolean {
+    return this._mixedMode
+  }
+
+  set mixedMode(value: boolean) {
+    this._mixedMode = value
+  }
+
   setActiveIndex(index: number): void {
     const clampedIndex = Math.max(0, Math.min(index, this._instances.length - 1))
 
@@ -113,7 +122,7 @@ export class GlassInstanceManager {
     })
   }
 
-  addInstance(config?: Partial<CircleInstanceConfig | RectangleInstanceConfig>): number {
+  addInstance(config?: Partial<CircleInstanceConfig | RectangleInstanceConfig>, overrideShapeType?: ShapeType): number {
     if (this._instances.length >= MAX_GLASS_INSTANCES) {
       return this._instances.length - 1
     }
@@ -121,11 +130,18 @@ export class GlassInstanceManager {
     const index = this._instances.length
     const newPosition = this.calculateNewPosition(index)
 
+    // Determine which shape type to create
+    const shapeToCreate = overrideShapeType ?? this._shapeType
+
     let instance: GlassInstance
 
-    if (this._shapeType === 'rectangle') {
-      const baseConfig = this._instances[this._activeIndex]
-        ? this.extractRectangleConfig(this._instances[this._activeIndex] as RectangleInstance)
+    if (shapeToCreate === 'rectangle') {
+      // Get base config from active instance if it's a rectangle, otherwise use defaults
+      const activeRect = this._instances[this._activeIndex] instanceof RectangleInstance
+        ? this._instances[this._activeIndex] as RectangleInstance
+        : null
+      const baseConfig = activeRect
+        ? this.extractRectangleConfig(activeRect)
         : DEFAULT_RECTANGLE_INSTANCE_CONFIG
 
       instance = new RectangleInstance(
@@ -141,8 +157,12 @@ export class GlassInstanceManager {
         this.onTextureChange
       )
     } else {
-      const baseConfig = this._instances[this._activeIndex]
-        ? this.extractCircleConfig(this._instances[this._activeIndex] as CircleInstance)
+      // Get base config from active instance if it's a circle, otherwise use defaults
+      const activeCircle = this._instances[this._activeIndex] instanceof CircleInstance
+        ? this._instances[this._activeIndex] as CircleInstance
+        : null
+      const baseConfig = activeCircle
+        ? this.extractCircleConfig(activeCircle)
         : DEFAULT_CIRCLE_INSTANCE_CONFIG
 
       instance = new CircleInstance(
@@ -159,8 +179,9 @@ export class GlassInstanceManager {
       )
     }
 
+    // Copy icon from active instance if it has one and new instance supports icons
     const activeInstance = this._instances[this._activeIndex]
-    if (activeInstance?.iconUrl) {
+    if (activeInstance?.iconUrl && instance instanceof CircleInstance) {
       void instance.setIcon(activeInstance.iconUrl)
     }
 

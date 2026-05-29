@@ -612,6 +612,17 @@ export class WebGPURenderer {
     this._glassInstanceManager.strategy = strategy
   }
 
+  setMixedMode(enabled: boolean): void {
+    this._glassInstanceManager.mixedMode = enabled
+  }
+
+  addGlassInstance(shapeType?: 'circle' | 'rectangle'): number {
+    const index = this._glassInstanceManager.addInstance(undefined, shapeType)
+    this.glassParams.circlePresetCount = this._glassInstanceManager.count
+    this.glassParams.circlePresetActiveIndex = this._glassInstanceManager.activeIndex
+    return index
+  }
+
   setCirclePresetCircleSize(index: number, size: number): void {
     const instance = this._glassInstanceManager.getCircleInstance(index)
     if (!instance) return

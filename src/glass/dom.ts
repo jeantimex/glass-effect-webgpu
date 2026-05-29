@@ -60,6 +60,8 @@ export interface GlassControls {
   circlePresetOnlyControls: NodeListOf<HTMLElement>
   circlePresetAddButton: HTMLButtonElement
   circlePresetStrategySelect: HTMLSelectElement
+  basicShapeOnlyControls: NodeListOf<HTMLElement>
+  basicShapeTypeSelect: HTMLSelectElement
   iconOnlyControls: NodeListOf<HTMLElement>
   rectOnlyControls: NodeListOf<HTMLElement>
   switchOnlyControls: NodeListOf<HTMLElement>
@@ -148,6 +150,8 @@ export function getGlassControls(): GlassControls {
     circlePresetOnlyControls: document.querySelectorAll<HTMLElement>('.circle-preset-only'),
     circlePresetAddButton: getElement<HTMLButtonElement>('circlePresetAdd'),
     circlePresetStrategySelect: getElement<HTMLSelectElement>('circlePresetStrategy'),
+    basicShapeOnlyControls: document.querySelectorAll<HTMLElement>('.basic-shape-only'),
+    basicShapeTypeSelect: getElement<HTMLSelectElement>('basicShapeType'),
     iconOnlyControls: document.querySelectorAll<HTMLElement>('.icon-only-control'),
     rectOnlyControls: document.querySelectorAll<HTMLElement>('.rect-only-control'),
     switchOnlyControls: document.querySelectorAll<HTMLElement>('.switch-only-control'),

@@ -71,7 +71,8 @@ export class GlassInteraction {
     const isTrackPreset = this.isTrackPreset()
     const isCirclePreset = preset === 'circle-lens'
     const isRectanglePreset = preset === 'rectangle'
-    const isMultiItemPreset = isCirclePreset || isRectanglePreset
+    const isBasicShape = preset === 'basic-shape'
+    const isMultiItemPreset = isCirclePreset || isRectanglePreset || isBasicShape
     const isInsideTrack = renderer.isPointInsideSwitchTrack(event.clientX, event.clientY)
     const isInsideGlass = renderer.isPointInsideGlass(event.clientX, event.clientY)
 
@@ -97,7 +98,7 @@ export class GlassInteraction {
         springs.liquid.value = Math.max(springs.liquid.value, 0.72 * userParams.liquidClickSquash)
         springs.liquid.velocity += 2.6 * userParams.liquidClickSquash
       }
-      if (isCirclePreset) {
+      if (isCirclePreset || isBasicShape) {
         this.options.syncSlidersFromActiveInstance()
       }
       canvas.style.cursor = 'grabbing'

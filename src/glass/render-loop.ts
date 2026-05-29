@@ -62,14 +62,14 @@ export class GlassRenderLoop {
       : 0
 
     const preset = this.getCurrentPreset()
-    const isCirclePreset = preset === 'circle-lens' || preset === 'rectangle'
-    const activeInstance = isCirclePreset ? this.renderer.getActiveGlassInstance() : null
-    const currentActiveIndex = isCirclePreset ? this.renderer.getCirclePresetActiveIndex() : -1
+    const isInstancePreset = preset === 'circle-lens' || preset === 'rectangle' || preset === 'basic-shape'
+    const activeInstance = isInstancePreset ? this.renderer.getActiveGlassInstance() : null
+    const currentActiveIndex = isInstancePreset ? this.renderer.getCirclePresetActiveIndex() : -1
     const pressedGlassBgOpacity = activeInstance?.pressedGlassBgOpacity ?? this.userParams.pressedGlassBgOpacity
     const glassBgOpacity = activeInstance?.glassBgOpacity ?? this.userParams.glassBgOpacity
 
     // Reset spring when active instance changes to match new instance's base value
-    if (isCirclePreset && currentActiveIndex !== this.lastActiveInstanceIndex) {
+    if (isInstancePreset && currentActiveIndex !== this.lastActiveInstanceIndex) {
       this.springs.glassBgOpacity.value = glassBgOpacity
       this.springs.glassBgOpacity.target = glassBgOpacity
       this.lastActiveInstanceIndex = currentActiveIndex
@@ -112,7 +112,8 @@ export class GlassRenderLoop {
     const isSplitMenu = preset === 'split-menu'
     const isCirclePreset = preset === 'circle-lens'
     const isRectanglePreset = preset === 'rectangle'
-    const isMultiItem = isPlayerControls || isSplitMenu || isRectanglePreset || isCirclePreset
+    const isBasicShape = preset === 'basic-shape'
+    const isMultiItem = isPlayerControls || isSplitMenu || isRectanglePreset || isCirclePreset || isBasicShape
     const rectInteractionScale = isTrackPreset
       ? interactionScale / Math.max(this.userParams.circleSize, 0.001)
       : interactionScale
@@ -128,8 +129,8 @@ export class GlassRenderLoop {
     this.renderer.glassParams.shadowOffsetX = this.userParams.shadowOffsetX
     this.renderer.glassParams.shadowOffsetY = this.springs.shadowOffsetY.value
     this.renderer.glassParams.specularOpacity = isMultiItem ? this.userParams.specularOpacity : this.springs.specularOpacity.value
-    // For circle/rectangle preset, animate the active instance's glassBgOpacity using runtime value
-    if (isCirclePreset || isRectanglePreset) {
+    // For instance presets, animate the active instance's glassBgOpacity using runtime value
+    if (isCirclePreset || isRectanglePreset || isBasicShape) {
       const activeInstance = this.renderer.getActiveGlassInstance()
       if (activeInstance) {
         activeInstance.runtimeGlassBgOpacity = this.springs.glassBgOpacity.value
@@ -140,6 +141,6 @@ export class GlassRenderLoop {
     this.renderer.glassParams.liquidEnabled = this.userParams.liquidEnabled
     this.renderer.glassParams.splitMenuMode = preset === 'split-menu'
     this.renderer.glassParams.playerControlsGroupLiquid = isPlayerControls && this.interactionState.movedDuringDrag
-    this.renderer.glassParams.circlePresetMode = isCirclePreset || isRectanglePreset
+    this.renderer.glassParams.circlePresetMode = isCirclePreset || isRectanglePreset || isBasicShape
   }
 }
