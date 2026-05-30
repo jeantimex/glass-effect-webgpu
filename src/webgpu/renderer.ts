@@ -948,14 +948,13 @@ export class WebGPURenderer {
 
     const dpr = window.devicePixelRatio || 1
     const cellSize = Math.max(this.glassParams.gridCellSize / dpr, 1)
-    const lineWidth = Math.max(3 / dpr, 1)
     const speed = Math.max(this.glassParams.gridSpeed, 0)
-    const duration = speed > 0 ? this.glassParams.gridCellSize / speed : 1
+    const elapsedTime = (performance.now() - this.startTime) / 1000
+    const currentOffset = elapsedTime * speed + this.gridOffset
+    const cssOffset = ((currentOffset / dpr) % cellSize + cellSize) % cellSize
 
     this.backgroundElement.style.setProperty('--css-grid-cell-size', `${cellSize}px`)
-    this.backgroundElement.style.setProperty('--css-grid-line-width', `${lineWidth}px`)
-    this.backgroundElement.style.setProperty('--css-grid-duration', `${duration}s`)
-    this.backgroundElement.style.setProperty('--css-grid-play-state', speed > 0 ? 'running' : 'paused')
+    this.backgroundElement.style.setProperty('--css-grid-offset', `${cssOffset}px`)
   }
 
   private deferTextureDestroy(texture: GPUTexture): void {

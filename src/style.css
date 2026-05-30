@@ -648,7 +648,7 @@ body {
   inset: 0;
   z-index: 0;
   overflow: hidden;
-  background: linear-gradient(135deg, #2b1f73 0%, #20b7a8 48%, #f3c13a 100%);
+  background: #bcbcbc;
 }
 
 .css-animation-background.html-in-canvas {
@@ -661,19 +661,17 @@ body {
 .css-animation-background::before {
   content: "";
   position: absolute;
-  inset: -8%;
+  inset: 0;
   background:
-    radial-gradient(circle at 18% 12%, rgba(80, 65, 190, 0.42), transparent 36%),
-    radial-gradient(circle at 86% 90%, rgba(246, 199, 62, 0.38), transparent 42%),
-    linear-gradient(135deg, #2b1f73 0%, #20b7a8 50%, #f3c13a 100%);
-  animation: css-motion-gradient 16s ease-in-out infinite alternate;
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, 0.05));
+  pointer-events: none;
 }
 
 .css-animation-background::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0.18));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.08));
   pointer-events: none;
 }
 
@@ -681,21 +679,9 @@ body {
   position: absolute;
   inset: -120px;
   background:
-    linear-gradient(rgba(214, 232, 230, 0.8) var(--css-grid-line-width, 3px), transparent var(--css-grid-line-width, 3px)),
-    linear-gradient(90deg, rgba(214, 232, 230, 0.8) var(--css-grid-line-width, 3px), transparent var(--css-grid-line-width, 3px));
-  background-size: var(--css-grid-cell-size, 105px) var(--css-grid-cell-size, 105px);
-  transform: translate3d(0, 0, 0);
-  animation: css-motion-grid var(--css-grid-duration, 2.625s) linear infinite;
-  animation-play-state: var(--css-grid-play-state, running);
-}
-
-@keyframes css-motion-grid {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(var(--css-grid-cell-size, 105px), var(--css-grid-cell-size, 105px), 0);
-  }
+    conic-gradient(from 90deg, #c6c6c6 25%, #b5b5b5 0 50%, #c6c6c6 0 75%, #b5b5b5 0);
+  background-size: calc(var(--css-grid-cell-size, 105px) * 2) calc(var(--css-grid-cell-size, 105px) * 2);
+  transform: translate3d(var(--css-grid-offset, 0px), var(--css-grid-offset, 0px), 0);
 }
 
 @keyframes css-motion-gradient {

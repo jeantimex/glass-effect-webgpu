@@ -739,9 +739,9 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
     return sample_image_frosted(pixel, blur);
   }
 
-  let color_tl = vec3f(0.20, 0.78, 0.76);
-  let color_mid = vec3f(0.55, 0.74, 0.73);
-  let color_br = vec3f(0.92, 0.65, 0.65);
+  let color_tl = vec3f(0.78, 0.78, 0.78);
+  let color_mid = vec3f(0.70, 0.70, 0.70);
+  let color_br = vec3f(0.76, 0.76, 0.76);
 
   let t = clamp((uv.x + uv.y) * 0.5, 0.0, 1.0);
   var bg_color: vec3f;
@@ -772,15 +772,15 @@ fn sample_background_internal(pixel: vec2f, time: f32, blur: f32) -> vec3f {
   let grid_line_y = smoothstep(line_threshold - edge_width, line_threshold + edge_width, grid_y);
   let grid_line = max(grid_line_x, grid_line_y);
 
-  let grid_color = vec3f(0.84, 0.91, 0.90);
-  let blur_fade = max(0.0, 1.0 - local_blur * 0.015);
-  let grid_opacity = 0.8 * blur_fade;
-
   let blur_color_blend = min(1.0, local_blur * 0.01);
   let avg_color = (color_tl + color_mid + color_br) / 3.0;
   bg_color = mix(bg_color, avg_color, blur_color_blend);
 
-  var final_color = mix(bg_color, grid_color, grid_line * grid_opacity);
+  let checker_index = i32(floor(grid_pixel.x / grid_size) + floor(grid_pixel.y / grid_size));
+  let checker_color = select(vec3f(0.71, 0.71, 0.71), vec3f(0.78, 0.78, 0.78), checker_index % 2 == 0);
+  bg_color = mix(bg_color, checker_color, 0.92);
+
+  var final_color = bg_color;
   if (uniforms.blur_type > 0.5) {
     final_color = mix(final_color, avg_color, frost_strength * 0.08 * frost);
     final_color = final_color + vec3f((frost - 0.5) * frost_strength * 0.025);
