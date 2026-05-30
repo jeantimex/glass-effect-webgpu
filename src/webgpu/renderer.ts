@@ -142,6 +142,8 @@ export class WebGPURenderer {
         templateOptions = { article: { imageUrl: options?.article?.imageUrl ?? `${import.meta.env.BASE_URL}assets/leaves.jpg` } }
       } else if (type === 'banner') {
         templateOptions = { banner: { imageUrl: options?.banner?.imageUrl ?? `${import.meta.env.BASE_URL}assets/banner.jpeg` } }
+      } else if (type === 'fuji') {
+        templateOptions = { fuji: { imageUrl: options?.fuji?.imageUrl ?? `${import.meta.env.BASE_URL}assets/fuji.png` } }
       }
       const element = createBackgroundElement(type, templateOptions)
       if (!element) return

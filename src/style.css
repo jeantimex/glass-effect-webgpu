@@ -642,6 +642,106 @@ body {
   }
 }
 
+/* Fuji Mountain Background */
+.fuji-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #f8f8f8;
+}
+
+.fuji-background.html-in-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.fuji-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44%;
+  min-height: 160px;
+  overflow: hidden;
+}
+
+.fuji-banner .fuji-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.fuji-content {
+  position: absolute;
+  top: 44%;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: clamp(16px, 3vw, 32px) clamp(20px, 4vw, 40px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f8f8f8;
+}
+
+.fuji-title {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.fuji-body {
+  margin: 0;
+  font-size: clamp(12px, 1.4vw, 15px);
+  line-height: 1.6;
+  color: #333;
+}
+
+@container preview (max-width: 600px) {
+  .fuji-banner {
+    height: 36%;
+    min-height: 120px;
+  }
+
+  .fuji-content {
+    top: 36%;
+    gap: 10px;
+  }
+
+  .fuji-body {
+    font-size: 12px;
+  }
+}
+
+@container preview (max-height: 500px) {
+  .fuji-banner {
+    height: 32%;
+    min-height: 100px;
+  }
+
+  .fuji-content {
+    top: 32%;
+    gap: 8px;
+    padding: 12px 20px;
+  }
+
+  .fuji-body {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
 /* CSS Animation Background */
 .css-animation-background {
   position: absolute;
