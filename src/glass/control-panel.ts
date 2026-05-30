@@ -124,6 +124,7 @@ export class GlassControlPanel {
     setSliderValue(controls.glassBgOpacitySlider, instance.glassBgOpacity)
     setSliderValue(controls.pressedGlassBgOpacitySlider, instance.pressedGlassBgOpacity)
     setSliderValue(controls.specularOpacitySlider, instance.specularOpacity)
+    setSliderValue(controls.specularThicknessSlider, instance.specularThickness)
     setSliderValue(controls.specularAngleSlider, instance.specularAngle * 180 / Math.PI)
     setSliderValue(controls.specularSaturationSlider, instance.specularSaturation)
     setSliderValue(controls.shadowOpacitySlider, instance.shadowOpacity)
@@ -209,6 +210,7 @@ export class GlassControlPanel {
     renderer.glassParams.glassBgOpacity = preset.glassBgOpacity
     renderer.glassParams.specularType = preset.specularType
     renderer.glassParams.specularOpacity = preset.specularOpacity
+    renderer.glassParams.specularThickness = preset.specularThickness
     renderer.glassParams.specularAngle = preset.specularAngle * Math.PI / 180
     renderer.glassParams.specularSaturation = preset.specularSaturation
     renderer.glassParams.shadowOpacity = preset.shadowOpacity
@@ -250,6 +252,7 @@ export class GlassControlPanel {
     setSliderValue(controls.liquidReleaseSquashSlider, preset.liquidReleaseSquash)
     setSliderValue(controls.liquidSpeedSlider, preset.liquidSpeed)
     setSliderValue(controls.specularOpacitySlider, preset.specularOpacity)
+    setSliderValue(controls.specularThicknessSlider, preset.specularThickness)
     setSliderValue(controls.specularAngleSlider, preset.specularAngle)
     setSliderValue(controls.specularSaturationSlider, preset.specularSaturation)
     setSliderValue(controls.shadowOpacitySlider, preset.shadowOpacity)
@@ -444,6 +447,11 @@ export class GlassControlPanel {
       const value = parseFloat(controls.specularOpacitySlider.value)
       userParams.specularOpacity = value
       this.updateInstanceProperty(inst => inst.specularOpacity = value)
+    })
+    controls.specularThicknessSlider.addEventListener('input', () => {
+      const value = parseFloat(controls.specularThicknessSlider.value)
+      renderer.glassParams.specularThickness = value
+      this.updateInstanceProperty(inst => inst.specularThickness = value)
     })
     controls.specularAngleSlider.addEventListener('input', () => {
       const value = parseFloat(controls.specularAngleSlider.value) * Math.PI / 180

@@ -29,6 +29,7 @@ export class BasicShapePreset extends GlassPresetDefinition {
     pressedGlassBgOpacity: 0,
     specularType: 0,
     specularOpacity: 0.4,
+    specularThickness: 1,
     specularAngle: 60,
     specularSaturation: 4,
     shadowOpacity: 0.1,

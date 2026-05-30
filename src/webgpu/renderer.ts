@@ -461,6 +461,7 @@ export class WebGPURenderer {
       progressiveBlur: this.glassParams.progressiveBlur,
       progressiveBlurType: this.glassParams.progressiveBlurType,
       specularOpacity: this.glassParams.specularOpacity,
+      specularThickness: this.glassParams.specularThickness,
       specularAngle: this.glassParams.specularAngle,
       specularSaturation: this.glassParams.specularSaturation,
       specularType: this.glassParams.specularType,

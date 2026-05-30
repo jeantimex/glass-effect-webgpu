@@ -17,6 +17,7 @@ struct Uniforms {
   device_pixel_ratio: f32,
   specular_saturation: f32,
   specular_type: f32,
+  specular_thickness: f32,
   progressive_blur_type: f32,
   scale_x: f32,
   scale_y: f32,
@@ -181,7 +182,7 @@ struct CircleInstanceData {
 
   // Extra properties (vec4)
   pressed_glass_bg_opacity: f32,
-  _pad5: f32,
+  specular_thickness: f32,
   _pad6: f32,
   _pad7: f32,
 
@@ -417,11 +418,11 @@ fn sample_background_blurred(pixel: vec2f, time: f32, blur: f32) -> vec3f {
 
 fn calculate_specular(
   distance_from_edge: f32,
-  bezel_pixels: f32,
+  specular_thickness: f32,
   direction: vec2f,
   specular_angle: f32
 ) -> f32 {
-  let rim_width = uniforms.device_pixel_ratio;
+  let rim_width = max(specular_thickness, 0.001) * uniforms.device_pixel_ratio;
   if (distance_from_edge > rim_width) {
     return 0.0;
   }
@@ -440,10 +441,11 @@ fn calculate_specular(
 
 fn calculate_layered_specular(
   distance_from_edge: f32,
+  specular_thickness: f32,
   direction: vec2f,
   specular_angle: f32
 ) -> f32 {
-  let rim_width = uniforms.device_pixel_ratio;
+  let rim_width = max(specular_thickness, 0.001) * uniforms.device_pixel_ratio;
   if (distance_from_edge > rim_width) {
     return 0.0;
   }
@@ -1264,11 +1266,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
 
     // Apply specular
     if (inst.specular_type > 0.5) {
-      let specular_intensity = calculate_layered_specular(distance_from_edge, direction, inst.specular_angle);
+      let specular_intensity = calculate_layered_specular(distance_from_edge, inst.specular_thickness, direction, inst.specular_angle);
       let specular_color = vec3f(1.0, 1.0, 1.0);
       color = mix(color, specular_color, specular_intensity * inst.specular_opacity);
     } else {
-      let specular_intensity = calculate_specular(distance_from_edge, bezel_pixels, direction, inst.specular_angle);
+      let specular_intensity = calculate_specular(distance_from_edge, inst.specular_thickness, direction, inst.specular_angle);
       let saturated_color = adjust_saturation(color, inst.specular_saturation);
       color = mix(color, saturated_color, specular_intensity);
       let specular_color = vec3f(1.0, 1.0, 1.0);
@@ -1377,11 +1379,11 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4f {
   color = apply_icon_overlay(pixel, color, glass_center, effective_radius);
 
   if (uniforms.specular_type > 0.5) {
-    let specular_intensity = calculate_layered_specular(distance_from_edge, direction, uniforms.specular_angle);
+    let specular_intensity = calculate_layered_specular(distance_from_edge, uniforms.specular_thickness, direction, uniforms.specular_angle);
     let specular_color = vec3f(1.0, 1.0, 1.0);
     color = mix(color, specular_color, specular_intensity * uniforms.specular_opacity);
   } else {
-    let specular_intensity = calculate_specular(distance_from_edge, bezel_pixels, direction, uniforms.specular_angle);
+    let specular_intensity = calculate_specular(distance_from_edge, uniforms.specular_thickness, direction, uniforms.specular_angle);
     let saturated_color = adjust_saturation(color, uniforms.specular_saturation);
     color = mix(color, saturated_color, specular_intensity);
     let specular_color = vec3f(1.0, 1.0, 1.0);

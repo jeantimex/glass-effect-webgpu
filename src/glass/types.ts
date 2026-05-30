@@ -43,6 +43,7 @@ export interface GlassPreset {
   // Specular
   specularType: number
   specularOpacity: number
+  specularThickness: number
   specularAngle: number
   specularSaturation: number
 

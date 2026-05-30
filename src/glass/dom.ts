@@ -18,6 +18,7 @@ export interface GlassControls {
   backgroundTypeSelect: HTMLSelectElement
   bgBrightnessSlider: HTMLInputElement
   specularOpacitySlider: HTMLInputElement
+  specularThicknessSlider: HTMLInputElement
   specularAngleSlider: HTMLInputElement
   specularSaturationSlider: HTMLInputElement
   specularTypeSelect: HTMLSelectElement
@@ -90,6 +91,7 @@ export function getGlassControls(): GlassControls {
     backgroundTypeSelect: getElement<HTMLSelectElement>('backgroundType'),
     bgBrightnessSlider: getElement<HTMLInputElement>('bgBrightness'),
     specularOpacitySlider: getElement<HTMLInputElement>('specularOpacity'),
+    specularThicknessSlider: getElement<HTMLInputElement>('specularThickness'),
     specularAngleSlider: getElement<HTMLInputElement>('specularAngle'),
     specularSaturationSlider: getElement<HTMLInputElement>('specularSaturation'),
     specularTypeSelect: getElement<HTMLSelectElement>('specularType'),

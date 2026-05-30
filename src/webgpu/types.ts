@@ -40,6 +40,7 @@ export interface GlassParams {
 
   // Specular
   specularOpacity: number
+  specularThickness: number
   specularAngle: number
   specularSaturation: number
   specularType: number
