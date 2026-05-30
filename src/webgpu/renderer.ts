@@ -473,6 +473,12 @@ export class WebGPURenderer {
       chromaticAberration: this.glassParams.chromaticAberration,
       chromaticStrength: this.glassParams.chromaticStrength,
       chromaticBase: this.glassParams.chromaticBase,
+      iconType: this.glassParams.iconType,
+      iconOpacity: this.glassParams.iconOpacity,
+      iconScale: this.glassParams.iconScale,
+      iconColorR: this.glassParams.iconColorR,
+      iconColorG: this.glassParams.iconColorG,
+      iconColorB: this.glassParams.iconColorB,
     }
 
     if (shapeType === 'rectangle') {
@@ -502,6 +508,10 @@ export class WebGPURenderer {
 
   async setCirclePresetIcon(url: string | null): Promise<void> {
     await this._glassInstanceManager.setIconForAll(url)
+  }
+
+  async setActiveGlassInstanceIcon(url: string | null): Promise<void> {
+    await this._glassInstanceManager.setIconForActive(url)
   }
 
   setCirclePresetActiveIndex(index: number): void {

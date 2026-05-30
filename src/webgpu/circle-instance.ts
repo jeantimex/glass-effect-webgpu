@@ -7,41 +7,17 @@ import {
 
 export interface CircleInstanceConfig extends GlassInstanceConfig {
   size: number
-  // Icon properties - only for circles
-  iconType: number
-  iconOpacity: number
-  iconScale: number
-  iconColorR: number
-  iconColorG: number
-  iconColorB: number
 }
 
 export const DEFAULT_CIRCLE_INSTANCE_CONFIG: CircleInstanceConfig = {
   ...DEFAULT_GLASS_INSTANCE_CONFIG,
   shapeType: 0,
   size: 0.8,
-  iconType: 0,
-  iconOpacity: 1.0,
-  iconScale: 0.5,
-  iconColorR: 1.0,
-  iconColorG: 1.0,
-  iconColorB: 1.0,
 }
 
 export class CircleInstance extends GlassInstance {
   readonly shapeType = 0
   size: number
-
-  // Icon properties - only circles have icons
-  private iconRequestId = 0
-  private _iconTexture: GPUTexture
-  private _iconUrl: string | null = null
-  iconType: number
-  iconOpacity: number
-  iconScale: number
-  iconColorR: number
-  iconColorG: number
-  iconColorB: number
 
   constructor(
     device: GPUDevice,
@@ -53,38 +29,6 @@ export class CircleInstance extends GlassInstance {
     super(device, textureLoader, emptyTexture, config, onTextureChange)
     const fullConfig = { ...DEFAULT_CIRCLE_INSTANCE_CONFIG, ...config }
     this.size = fullConfig.size
-    this._iconTexture = emptyTexture
-    this.iconType = fullConfig.iconType
-    this.iconOpacity = fullConfig.iconOpacity
-    this.iconScale = fullConfig.iconScale
-    this.iconColorR = fullConfig.iconColorR
-    this.iconColorG = fullConfig.iconColorG
-    this.iconColorB = fullConfig.iconColorB
-  }
-
-  override get iconTexture(): GPUTexture {
-    return this._iconTexture
-  }
-
-  override get iconUrl(): string | null {
-    return this._iconUrl
-  }
-
-  override async setIcon(url: string | null): Promise<void> {
-    const requestId = ++this.iconRequestId
-    this._iconUrl = url
-
-    if (!url) {
-      this._iconTexture = this.createEmptyTexture()
-      this.onTextureChange()
-      return
-    }
-
-    const texture = await this.textureLoader.load(url)
-    if (requestId !== this.iconRequestId) return
-
-    this._iconTexture = texture
-    this.onTextureChange()
   }
 
   getEffectiveRadius(canvasWidth: number, canvasHeight: number, _dpr: number): number {
@@ -109,26 +53,9 @@ export class CircleInstance extends GlassInstance {
     return index
   }
 
-  protected override getIconBufferData() {
-    return {
-      iconType: this.iconType,
-      iconOpacity: this.iconOpacity,
-      iconScale: this.iconScale,
-      iconColorR: this.iconColorR,
-      iconColorG: this.iconColorG,
-      iconColorB: this.iconColorB,
-    }
-  }
-
   copyFrom(other: CircleInstance): void {
     this.copyFromBase(other)
     this.size = other.size
-    this.iconType = other.iconType
-    this.iconOpacity = other.iconOpacity
-    this.iconScale = other.iconScale
-    this.iconColorR = other.iconColorR
-    this.iconColorG = other.iconColorG
-    this.iconColorB = other.iconColorB
   }
 }
 

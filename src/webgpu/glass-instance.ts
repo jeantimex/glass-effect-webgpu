@@ -49,6 +49,14 @@ export interface GlassInstanceConfig {
   chromaticStrength: number
   chromaticBase: number
 
+  // Icon
+  iconType: number
+  iconOpacity: number
+  iconScale: number
+  iconColorR: number
+  iconColorG: number
+  iconColorB: number
+
   // Layer & state
   layerIndex: number
   isActive: boolean
@@ -87,6 +95,12 @@ export const DEFAULT_GLASS_INSTANCE_CONFIG: GlassInstanceConfig = {
   chromaticAberration: true,
   chromaticStrength: 0.2,
   chromaticBase: 1.0,
+  iconType: 0,
+  iconOpacity: 1.0,
+  iconScale: 0.5,
+  iconColorR: 1.0,
+  iconColorG: 1.0,
+  iconColorB: 1.0,
   layerIndex: 0,
   isActive: false,
 }
@@ -151,6 +165,17 @@ export abstract class GlassInstance {
   chromaticStrength: number
   chromaticBase: number
 
+  // Icon
+  private iconRequestId = 0
+  private _iconTexture: GPUTexture
+  private _iconUrl: string | null = null
+  iconType: number
+  iconOpacity: number
+  iconScale: number
+  iconColorR: number
+  iconColorG: number
+  iconColorB: number
+
   // Layer & state
   layerIndex: number
   isActive: boolean
@@ -173,6 +198,7 @@ export abstract class GlassInstance {
     this.onTextureChange = onTextureChange
 
     const fullConfig = { ...DEFAULT_GLASS_INSTANCE_CONFIG, ...config }
+    this._iconTexture = emptyTexture
     this.centerX = fullConfig.centerX
     this.centerY = fullConfig.centerY
     this.surfaceType = fullConfig.surfaceType
@@ -204,21 +230,39 @@ export abstract class GlassInstance {
     this.chromaticAberration = fullConfig.chromaticAberration
     this.chromaticStrength = fullConfig.chromaticStrength
     this.chromaticBase = fullConfig.chromaticBase
+    this.iconType = fullConfig.iconType
+    this.iconOpacity = fullConfig.iconOpacity
+    this.iconScale = fullConfig.iconScale
+    this.iconColorR = fullConfig.iconColorR
+    this.iconColorG = fullConfig.iconColorG
+    this.iconColorB = fullConfig.iconColorB
     this.layerIndex = fullConfig.layerIndex
     this.isActive = fullConfig.isActive
   }
 
-  // Icon support - only CircleInstance has icons
   get iconTexture(): GPUTexture {
-    return this._emptyTexture
+    return this._iconTexture
   }
 
   get iconUrl(): string | null {
-    return null
+    return this._iconUrl
   }
 
-  async setIcon(_url: string | null): Promise<void> {
-    // No-op for base class - only CircleInstance supports icons
+  async setIcon(url: string | null): Promise<void> {
+    const requestId = ++this.iconRequestId
+    this._iconUrl = url
+
+    if (!url) {
+      this._iconTexture = this.createEmptyTexture()
+      this.onTextureChange()
+      return
+    }
+
+    const texture = await this.textureLoader.load(url)
+    if (requestId !== this.iconRequestId) return
+
+    this._iconTexture = texture
+    this.onTextureChange()
   }
 
   protected createEmptyTexture(): GPUTexture {
@@ -266,15 +310,27 @@ export abstract class GlassInstance {
     this.chromaticAberration = other.chromaticAberration
     this.chromaticStrength = other.chromaticStrength
     this.chromaticBase = other.chromaticBase
+    this.iconType = other.iconType
+    this.iconOpacity = other.iconOpacity
+    this.iconScale = other.iconScale
+    this.iconColorR = other.iconColorR
+    this.iconColorG = other.iconColorG
+    this.iconColorB = other.iconColorB
     this.layerIndex = other.layerIndex
   }
 
   abstract getEffectiveRadius(canvasWidth: number, canvasHeight: number, dpr: number): number
   abstract getHalfDimensions(canvasWidth: number, canvasHeight: number, dpr: number): { width: number; height: number }
 
-  // Icon data for buffer - subclasses override to provide actual values
   protected getIconBufferData(): { iconType: number; iconOpacity: number; iconScale: number; iconColorR: number; iconColorG: number; iconColorB: number } {
-    return { iconType: 0, iconOpacity: 0, iconScale: 0, iconColorR: 0, iconColorG: 0, iconColorB: 0 }
+    return {
+      iconType: this.iconType,
+      iconOpacity: this.iconOpacity,
+      iconScale: this.iconScale,
+      iconColorR: this.iconColorR,
+      iconColorG: this.iconColorG,
+      iconColorB: this.iconColorB,
+    }
   }
 
   toBufferData(canvasWidth: number, canvasHeight: number, dpr: number): Float32Array {

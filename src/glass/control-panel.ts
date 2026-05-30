@@ -46,11 +46,9 @@ export class GlassControlPanel {
     }
   }
 
-  private updateCircleInstanceProperty(update: (instance: CircleInstance) => void): void {
-    const instance = this.getActiveCircleInstance()
-    if (instance) {
-      update(instance)
-    }
+  private getIconNameFromUrl(url: string | null): string {
+    const match = url?.match(/\/([^/]+)\.svg$/)
+    return match?.[1] ?? 'none'
   }
 
   async setup(): Promise<void> {
@@ -134,6 +132,9 @@ export class GlassControlPanel {
     setSliderValue(controls.shadowOffsetYSlider, instance.shadowOffsetY)
     setSliderValue(controls.chromaticStrengthSlider, instance.chromaticStrength)
     setSliderValue(controls.chromaticBaseSlider, instance.chromaticBase)
+    setSliderValue(controls.iconOpacitySlider, instance.iconOpacity)
+    setSliderValue(controls.iconScaleSlider, instance.iconScale)
+    controls.iconTypeSelect.value = instance.iconType > 0 ? this.getIconNameFromUrl(instance.iconUrl) : 'none'
 
     // Shape-specific properties - only update sliders, not renderer.glassParams
     if (rectInstance) {
@@ -144,8 +145,6 @@ export class GlassControlPanel {
     } else if (circleInstance) {
       controls.basicShapeTypeSelect.value = 'circle'
       setSliderValue(controls.circleSizeSlider, circleInstance.size)
-      setSliderValue(controls.iconOpacitySlider, circleInstance.iconOpacity)
-      setSliderValue(controls.iconScaleSlider, circleInstance.iconScale)
     }
 
     // Note: In basic-shape mode, visual properties come from per-instance storage buffer data.
@@ -155,6 +154,7 @@ export class GlassControlPanel {
     // Update UI controls to reflect instance values (no renderer.glassParams updates)
     const toHex = (v: number) => Math.round(v * 255).toString(16).padStart(2, '0')
     controls.glassBgColorInput.value = `#${toHex(instance.glassTintR)}${toHex(instance.glassTintG)}${toHex(instance.glassTintB)}`
+    controls.iconColorInput.value = `#${toHex(instance.iconColorR)}${toHex(instance.iconColorG)}${toHex(instance.iconColorB)}`
 
     const surfaceNames: SurfaceType[] = ['convex-circle', 'convex-squircle', 'concave', 'lip']
     const surfaceName = surfaceNames[instance.surfaceType] ?? 'convex-circle'
@@ -313,6 +313,11 @@ export class GlassControlPanel {
       }
     })
     controls.basicShapeTypeSelect.addEventListener('change', () => {
+      if (controls.basicShapeTypeSelect.value === 'rectangle') {
+        controls.iconTypeSelect.value = 'none'
+        renderer.glassParams.iconType = 0
+      }
+
       // Update controls visibility based on selected shape type
       this.updateShapeControlsForDropdown()
       this.updateIconControls()
@@ -395,26 +400,26 @@ export class GlassControlPanel {
       if (icon === 'none') {
         renderer.glassParams.iconType = 0
         renderer.setIcon(null).catch(console.error)
-        renderer.setCirclePresetIcon(null).catch(console.error)
-        this.updateCircleInstanceProperty(inst => inst.iconType = 0)
+        renderer.setActiveGlassInstanceIcon(null).catch(console.error)
+        this.updateInstanceProperty(inst => inst.iconType = 0)
       } else {
         renderer.glassParams.iconType = 1
         const iconUrl = `${import.meta.env.BASE_URL}assets/icons/${icon}.svg`
         renderer.setIcon(iconUrl).catch(console.error)
-        renderer.setCirclePresetIcon(iconUrl).catch(console.error)
-        this.updateCircleInstanceProperty(inst => inst.iconType = 1)
+        renderer.setActiveGlassInstanceIcon(iconUrl).catch(console.error)
+        this.updateInstanceProperty(inst => inst.iconType = 1)
       }
       this.updateIconControls()
     })
     controls.iconOpacitySlider.addEventListener('input', () => {
       const value = parseFloat(controls.iconOpacitySlider.value)
       renderer.glassParams.iconOpacity = value
-      this.updateCircleInstanceProperty(inst => inst.iconOpacity = value)
+      this.updateInstanceProperty(inst => inst.iconOpacity = value)
     })
     controls.iconScaleSlider.addEventListener('input', () => {
       const value = parseFloat(controls.iconScaleSlider.value)
       renderer.glassParams.iconScale = value
-      this.updateCircleInstanceProperty(inst => inst.iconScale = value)
+      this.updateInstanceProperty(inst => inst.iconScale = value)
     })
     controls.iconColorInput.addEventListener('input', () => {
       const hex = controls.iconColorInput.value
@@ -424,7 +429,7 @@ export class GlassControlPanel {
       renderer.glassParams.iconColorR = r
       renderer.glassParams.iconColorG = g
       renderer.glassParams.iconColorB = b
-      this.updateCircleInstanceProperty(inst => {
+      this.updateInstanceProperty(inst => {
         inst.iconColorR = r
         inst.iconColorG = g
         inst.iconColorB = b
@@ -615,8 +620,8 @@ export class GlassControlPanel {
   }
 
   private updateIconControls(): void {
-    const { controls, renderer } = this.options
-    const hasIcon = renderer.glassParams.iconType > 0
+    const { controls } = this.options
+    const hasIcon = controls.iconTypeSelect.value !== 'none'
 
     // Hide icon settings when no icon is selected
     controls.iconOnlyControls.forEach((control) => control.classList.toggle('hidden', !hasIcon))

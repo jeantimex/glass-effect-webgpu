@@ -193,9 +193,9 @@ export class GlassInstanceManager {
       )
     }
 
-    // Copy icon from active instance if it has one and new instance supports icons
+    // Copy icon only when creating another instance of the same shape type.
     const activeInstance = this._instances[this._activeIndex]
-    if (activeInstance?.iconUrl && instance instanceof CircleInstance) {
+    if (activeInstance?.iconUrl && activeInstance.shapeType === instance.shapeType) {
       void instance.setIcon(activeInstance.iconUrl)
     }
 
@@ -361,12 +361,6 @@ export class GlassInstanceManager {
     return {
       ...this.extractBaseConfig(instance),
       size: instance.size,
-      iconType: instance.iconType,
-      iconOpacity: instance.iconOpacity,
-      iconScale: instance.iconScale,
-      iconColorR: instance.iconColorR,
-      iconColorG: instance.iconColorG,
-      iconColorB: instance.iconColorB,
     }
   }
 
@@ -413,6 +407,12 @@ export class GlassInstanceManager {
       chromaticAberration: instance.chromaticAberration,
       chromaticStrength: instance.chromaticStrength,
       chromaticBase: instance.chromaticBase,
+      iconType: instance.iconType,
+      iconOpacity: instance.iconOpacity,
+      iconScale: instance.iconScale,
+      iconColorR: instance.iconColorR,
+      iconColorG: instance.iconColorG,
+      iconColorB: instance.iconColorB,
       layerIndex: instance.layerIndex,
       isActive: instance.isActive,
     }
