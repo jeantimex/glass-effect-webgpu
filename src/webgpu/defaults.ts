@@ -42,9 +42,9 @@ export function createDefaultGlassParams(): GlassParams {
     progressiveBlurType: 0,
 
     // Specular
-    specularOpacity: 1,
-    specularThickness: 1,
-    specularBlur: 0,
+    specularOpacity: 0.8,
+    specularThickness: 2,
+    specularBlur: 2,
     specularAngle: Math.PI / 3,
     specularSaturation: 4.0,
     specularType: 0,

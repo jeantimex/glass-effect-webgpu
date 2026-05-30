@@ -424,16 +424,17 @@ fn calculate_specular(
   direction: vec2f,
   specular_angle: f32
 ) -> f32 {
-  let rim_width = max(specular_thickness, 0.001) * uniforms.device_pixel_ratio;
-  let blur_width = max(specular_blur, 0.0) * uniforms.device_pixel_ratio;
+  let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
+  let normal_2d = vec2f(direction.x, -direction.y);
+  let dot_product = abs(dot(normal_2d, specular_dir));
+
+  let taper = mix(0.08, 1.0, dot_product * dot_product);
+  let rim_width = max(specular_thickness * taper, 0.001) * uniforms.device_pixel_ratio;
+  let blur_width = max(specular_blur * taper, 0.0) * uniforms.device_pixel_ratio;
   let rim_extent = rim_width + blur_width;
   if (distance_from_edge > rim_extent) {
     return 0.0;
   }
-
-  let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
-  let normal_2d = vec2f(direction.x, -direction.y);
-  let dot_product = abs(dot(normal_2d, specular_dir));
 
   let t = clamp(distance_from_edge / rim_width, 0.0, 1.0);
   let rim_coefficient = sqrt(1.0 - (1.0 - t) * (1.0 - t));
@@ -451,16 +452,18 @@ fn calculate_layered_specular(
   direction: vec2f,
   specular_angle: f32
 ) -> f32 {
-  let rim_width = max(specular_thickness, 0.001) * uniforms.device_pixel_ratio;
-  let blur_width = max(specular_blur, 0.0) * uniforms.device_pixel_ratio;
+  let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
+  let normal_2d = vec2f(direction.x, -direction.y);
+  let dot_product = abs(dot(normal_2d, specular_dir));
+
+  let taper = mix(0.08, 1.0, dot_product * dot_product);
+  let rim_width = max(specular_thickness * taper, 0.001) * uniforms.device_pixel_ratio;
+  let blur_width = max(specular_blur * taper, 0.0) * uniforms.device_pixel_ratio;
   let rim_extent = rim_width + blur_width;
   if (distance_from_edge > rim_extent) {
     return 0.0;
   }
 
-  let specular_dir = vec2f(cos(specular_angle), sin(specular_angle));
-  let normal_2d = vec2f(direction.x, -direction.y);
-  let dot_product = abs(dot(normal_2d, specular_dir));
   let t = clamp(distance_from_edge / rim_width, 0.0, 1.0);
   let rim_coefficient = sqrt(1.0 - (1.0 - t) * (1.0 - t));
   let blur_fade = 1.0 - smoothstep(rim_width, rim_extent, distance_from_edge);
