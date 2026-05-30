@@ -48,6 +48,7 @@ export function createGlassUniformData(input: GlassUniformInput): Float32Array {
     params.specularSaturation,
     params.specularType,
     params.specularThickness,
+    params.specularBlur,
     params.progressiveBlurType,
     params.scaleX,
     params.scaleY,

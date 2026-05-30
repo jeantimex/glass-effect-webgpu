@@ -32,6 +32,7 @@ export interface GlassInstanceConfig {
   // Specular
   specularOpacity: number
   specularThickness: number
+  specularBlur: number
   specularAngle: number
   specularSaturation: number
   specularType: number
@@ -74,6 +75,7 @@ export const DEFAULT_GLASS_INSTANCE_CONFIG: GlassInstanceConfig = {
   progressiveBlurType: 0,
   specularOpacity: 1,
   specularThickness: 1,
+  specularBlur: 0,
   specularAngle: 135 * Math.PI / 180,
   specularSaturation: 1.2,
   specularType: 0,
@@ -132,6 +134,7 @@ export abstract class GlassInstance {
   // Specular
   specularOpacity: number
   specularThickness: number
+  specularBlur: number
   specularAngle: number
   specularSaturation: number
   specularType: number
@@ -189,6 +192,7 @@ export abstract class GlassInstance {
     this.progressiveBlurType = fullConfig.progressiveBlurType
     this.specularOpacity = fullConfig.specularOpacity
     this.specularThickness = fullConfig.specularThickness
+    this.specularBlur = fullConfig.specularBlur
     this.specularAngle = fullConfig.specularAngle
     this.specularSaturation = fullConfig.specularSaturation
     this.specularType = fullConfig.specularType
@@ -250,6 +254,7 @@ export abstract class GlassInstance {
     this.progressiveBlurType = other.progressiveBlurType
     this.specularOpacity = other.specularOpacity
     this.specularThickness = other.specularThickness
+    this.specularBlur = other.specularBlur
     this.specularAngle = other.specularAngle
     this.specularSaturation = other.specularSaturation
     this.specularType = other.specularType
@@ -352,7 +357,7 @@ export abstract class GlassInstance {
     // Extra properties (4 floats)
     data[i++] = this.pressedGlassBgOpacity
     data[i++] = this.specularThickness
-    data[i++] = 0 // padding
+    data[i++] = this.specularBlur
     data[i++] = 0 // padding
 
     // Remaining padding to reach 64 floats

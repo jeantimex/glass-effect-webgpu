@@ -44,6 +44,7 @@ export interface GlassPreset {
   specularType: number
   specularOpacity: number
   specularThickness: number
+  specularBlur: number
   specularAngle: number
   specularSaturation: number
 

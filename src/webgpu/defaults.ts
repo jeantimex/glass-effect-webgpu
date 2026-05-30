@@ -44,6 +44,7 @@ export function createDefaultGlassParams(): GlassParams {
     // Specular
     specularOpacity: 1,
     specularThickness: 1,
+    specularBlur: 0,
     specularAngle: Math.PI / 3,
     specularSaturation: 4.0,
     specularType: 0,

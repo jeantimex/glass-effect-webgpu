@@ -401,6 +401,7 @@ export class GlassInstanceManager {
       progressiveBlurType: instance.progressiveBlurType,
       specularOpacity: instance.specularOpacity,
       specularThickness: instance.specularThickness,
+      specularBlur: instance.specularBlur,
       specularAngle: instance.specularAngle,
       specularSaturation: instance.specularSaturation,
       specularType: instance.specularType,
